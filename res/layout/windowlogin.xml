@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:background="@drawable/window_login_back"
+    android:orientation="vertical" >
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:orientation="vertical" >
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="20dip"
+            android:layout_marginRight="20dip"
+            android:layout_marginTop="10dip"
+            android:background="@drawable/login_text_back"
+            android:orientation="horizontal" >
+
+            <EditText
+                android:id="@+id/spinner_userList"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:drawableLeft="@drawable/log_user"
+                android:drawableRight="@drawable/logo_xiala"
+                android:editable="false"
+                android:selectAllOnFocus="false"
+                android:focusable="false"
+                android:singleLine="true" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="20dip"
+            android:layout_marginRight="20dip"
+            android:layout_marginTop="10dip"
+            android:background="@drawable/login_text_back"
+            android:orientation="horizontal" >
+
+            <EditText
+                android:id="@+id/passWord"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:drawableLeft="@drawable/logo_pass"
+                android:inputType="text"
+                android:password="true"
+                android:selectAllOnFocus="true"
+                android:singleLine="true" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="45dip"
+            android:layout_gravity="center"
+            android:layout_marginTop="10dip"
+            android:gravity="center"
+            android:orientation="horizontal" >
+
+            <Button
+                android:id="@+id/login"
+                android:layout_width="110dip"
+                android:layout_height="45dip"
+                android:layout_margin="0dip"
+                android:background="@drawable/login_btn_window"
+                android:padding="0dip"
+                android:text="@string/login"
+                android:textColor="@color/white" />
+
+            <Button
+                android:id="@+id/cancel"
+                android:layout_width="110dip"
+                android:layout_height="45dip"
+                android:layout_marginLeft="0dip"
+                android:background="@drawable/login_btn_right_window"
+                android:paddingLeft="0dip"
+                android:text="@string/cancel"
+                android:textColor="@color/white" />
+        </LinearLayout>
+    </LinearLayout>
+
+</RelativeLayout>

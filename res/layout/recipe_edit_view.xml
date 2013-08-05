@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/recipe_bg"
+    android:orientation="vertical" >
+    <TextView
+        android:id="@+id/txt_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dip"
+        android:layout_marginTop="5dip"
+        android:paddingLeft="5dip"
+        android:textColor="@android:color/black" />
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/h_line"
+        android:contentDescription="@string/recipe_name" >
+    </ImageView>
+    
+    <HorizontalScrollView
+        android:id="@+id/scrool_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" >
+        <LinearLayout 
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:orientation="vertical"
+            >
+            <LinearLayout
+                android:id="@+id/select_layout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                 >
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" >
+                    <TextView
+                        android:layout_width="100dip"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="center_vertical"
+                        android:paddingLeft="5dip"
+                        android:text="@string/recipe_group"
+                        android:textColor="@android:color/black" />
+                    <TextView
+                        android:id="@+id/spinner_recipe"
+                        android:layout_width="200dip"
+                        android:layout_height="40dip"
+                        android:background="@drawable/btn_frame"
+                        android:gravity="center"
+                        android:textColor="@android:color/black" >
+                    </TextView>
+                </LinearLayout>
+            </LinearLayout>
+            <TextView
+                android:id="@+id/txt_recipe_group"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dip"
+                 />
+            <LinearLayout
+                android:id="@+id/recipe_layout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone" >
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/layout_file"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                >
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@android:color/black"
+                    android:text="@string/storage_path"
+                    android:layout_gravity="center_vertical"
+                    >
+                </TextView>
+                <RadioGroup 
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    >
+                   <RadioButton 
+                        android:id="@+id/btn_u_pan"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@android:color/black" 
+                        android:layout_marginLeft="10dip"
+                        android:checked="true"
+                        android:text="@string/u"
+                       />
+                    <RadioButton
+                        android:id="@+id/btn_sd_ka" 
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@android:color/black" 
+                        android:layout_marginLeft="10dip"
+                        android:text="@string/sd"
+                       />
+                </RadioGroup>
+            </LinearLayout>
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal" >
+        <Button
+            android:id="@+id/btn_ok"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/confirm" />
+        <Button
+            android:id="@+id/btn_cancel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/cancel" />
+    </LinearLayout>
+
+</LinearLayout>

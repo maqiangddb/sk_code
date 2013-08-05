@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" 
+    android:background="@drawable/date_dialog_bg"
+    >
+    <!-- 顶部 -->
+    <LinearLayout 
+        android:id="@+id/layout_top"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="5dip"
+        android:layout_marginRight="5dip"
+        >
+        <CheckBox 
+            android:id="@+id/cbx_all"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            />
+        <TextView 
+            android:id="@+id/layout_topText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="5dip"
+            android:textColor="@android:color/white"
+            android:text="数据采集"
+            />
+    </LinearLayout>
+    <ImageView
+         android:id="@+id/line"
+         android:layout_below="@+id/layout_top"
+         android:layout_width="match_parent"
+         android:layout_height="wrap_content"
+         android:background="@drawable/tag_line_n"
+         android:contentDescription="@string/app_name" />
+    <!-- 中间 -->
+    <ListView
+        android:id="@+id/list_gid" 
+        android:layout_below="@+id/line"
+        android:layout_above="@+id/layout_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="5dip"
+        android:layout_marginRight="5dip"
+        >
+    </ListView>
+    <!-- 底部-->
+     <LinearLayout 
+        android:id="@+id/layout_bottom"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="5dip"
+        android:layout_marginRight="5dip"
+        android:layout_alignParentBottom="true"
+        >
+        <Button
+            android:id="@+id/btn_ok"
+            android:layout_width="match_parent"
+            android:layout_height="40dip"
+            android:layout_weight="1"
+            android:text="@string/sureValue"
+            />
+        <Button
+            android:id="@+id/btn_cancel"
+            android:layout_width="match_parent"
+            android:layout_height="40dip"
+            android:layout_weight="1"
+            android:text="@string/datecancel"
+            />
+     </LinearLayout>
+</RelativeLayout>

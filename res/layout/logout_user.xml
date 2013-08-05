@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 修改当前用户信息 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/confirm_alpha"
+    android:padding="0dip"
+    android:orientation="vertical" >
+
+   <!-- 用户名 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:layout_margin="10dip"
+            android:gravity="center_horizontal"
+            android:text="@string/logout_info"
+            android:textColor="@color/white"
+            android:textSize="20sp" >
+        </TextView>
+
+        <!-- 用户名 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:layout_margin="10dip"
+            android:orientation="horizontal" >
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:gravity="center_horizontal"
+                android:text="@string/add_user_name"
+                android:layout_marginRight="5dip"
+                android:textColor="@color/white" >
+            </TextView>
+            <TextView
+                android:id="@+id/txt_user_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:gravity="center_horizontal"
+                android:text="@string/add_user_name"
+                android:layout_marginLeft="5dip"
+                android:textColor="@color/white" >
+            </TextView>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="5dip"
+            android:layout_marginRight="5dip"
+            android:layout_marginTop="10dip"
+            android:orientation="horizontal" >
+            <!-- 用户描述 -->
+            <Button
+                android:id="@+id/edit_ok"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/confirm" >
+            </Button>
+            <!-- 描述输入框 -->
+            <Button
+                android:id="@+id/edit_cancel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/btn_cancel" >
+            </Button>
+        </LinearLayout>
+
+</LinearLayout>

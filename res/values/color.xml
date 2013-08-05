@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<color name="black">#ff000000</color>
+	<color name="white">#ffffffff</color>
+	<color name="gray">#C0C0C0</color>
+	<color name="book_name_color">#ffa7a7a7</color>
+	<color name="chapter_name_color">#ffffc392</color>
+	<color name="markcontent">#666699</color>
+	<color name="red">#FF6103</color>
+	<color name = "trans">#00000000</color>
+</resources>

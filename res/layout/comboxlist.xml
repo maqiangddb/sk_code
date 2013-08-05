@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:orientation="vertical" >
+
+    <LinearLayout
+        android:id="@+id/upLine"
+        android:layout_width="fill_parent"
+        android:layout_height="50dip"
+        android:layout_weight="1"
+        android:background="@color/white"
+        android:orientation="horizontal"
+        android:visibility="gone" 
+        android:padding="0dip"
+        >
+
+        <Button
+            android:id="@+id/sure1"
+            android:layout_width="wrap_content"
+            android:layout_height="40dip"
+            android:layout_gravity="center"
+            android:layout_weight="1"
+            android:padding="0dip"
+            android:text="@string/sureValue" />
+
+        <Button
+            android:id="@+id/cancalbox1"
+            android:layout_width="wrap_content"
+            android:layout_height="40dip"
+            android:layout_gravity="center"
+            android:layout_marginLeft="2dip"
+            android:layout_weight="1"
+            android:padding="0dip"
+            android:text="@string/cancel" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/listLine"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="3"
+        android:background="@color/white"
+        android:orientation="horizontal" >
+
+        <ListView
+            android:id="@+id/listView"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:cacheColorHint="#00000000"
+            android:scrollbars="none"
+            android:divider="@color/black"
+            android:dividerHeight="1px" >
+        </ListView>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/downLine"
+        android:layout_width="fill_parent"
+        android:layout_height="50dip"
+        android:layout_weight="1"
+        android:background="@color/white"
+        android:orientation="horizontal"
+        android:padding="0dip"
+        android:visibility="gone" >
+
+        <Button
+            android:id="@+id/sure"
+            android:layout_width="wrap_content"
+            android:layout_height="40dip"
+            android:layout_gravity="center"
+            android:layout_weight="1"
+            android:padding="0dip"
+            android:text="@string/sureValue" />
+
+        <Button
+            android:id="@+id/cancalbox"
+            android:layout_width="wrap_content"
+            android:layout_height="40dip"
+            android:layout_gravity="center"
+            android:layout_marginLeft="2dip"
+            android:layout_weight="1"
+            android:padding="0dip"
+            android:text="@string/cancel" />
+    </LinearLayout>
+
+</LinearLayout>

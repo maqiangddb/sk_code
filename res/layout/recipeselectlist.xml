@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/listLinereci"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/white"
+    android:orientation="vertical" >
+
+      <EditText
+            android:id="@+id/listsearchtext"
+            android:drawableRight="@drawable/listsearchback"
+            android:layout_width="fill_parent"
+            android:layout_height="30dip"
+            android:imeOptions="actionDone"
+            android:background="@color/white"
+            android:drawableBottom="@drawable/line"
+            android:visibility="gone"
+            android:padding="0dip" />
+
+    <ListView
+        android:id="@+id/listViewrecipe"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:cacheColorHint="#00000000"
+        android:divider="@color/black"
+        android:dividerHeight="1px"
+        android:scrollbars="none" >
+    </ListView>
+
+</LinearLayout>

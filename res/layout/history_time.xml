@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/date_dialog_bg"
+    android:orientation="vertical" >
+
+    <TextView
+        android:id="@+id/layout_top"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dip"
+        android:layout_marginLeft="5dip"
+        android:layout_marginTop="5dip"
+        android:text="@string/time_range"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+    <ImageView
+        android:id="@+id/layout_line"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/layout_top"
+        android:background="@drawable/tag_line_n"
+        android:contentDescription="@string/app_name" />
+
+    <LinearLayout 
+        android:id="@+id/layout_all"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_below="@+id/layout_line"
+        android:padding="0dip"
+        >
+        <CheckBox
+            android:id="@+id/cbx_all"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="5dip"
+            >
+        </CheckBox>
+        
+        <TextView 
+            android:layout_marginLeft="10dip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:text="@string/his_show_all_data"
+            />
+        
+    </LinearLayout>
+    
+    <LinearLayout
+        android:id="@+id/layout_setting"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@+id/layout_all"
+        android:orientation="vertical"
+        android:padding="0dip"
+        >
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+            <CheckBox
+                android:id="@+id/cbx_start"
+                android:layout_marginLeft="5dip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                >
+            </CheckBox>
+            <TextView
+                android:id="@+id/txt_hint_start"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="10dip"
+                android:layout_gravity="center_vertical"
+                android:text="1970-1-1 00:00:00"
+                android:textColor="@color/white"
+                android:visibility="gone" />
+
+            <!-- 开始日期 -->
+            <LinearLayout
+                android:id="@+id/layout_start_date"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dip"
+                android:layout_weight="1"
+                android:orientation="horizontal" >
+                <Button
+                    android:id="@+id/btn_start_date"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="5dip"
+                    android:text="@string/start_date"
+                    />
+                <TextView
+                    android:id="@+id/date_start"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="1970-1-1"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- 开始时间 -->
+            <LinearLayout
+                android:id="@+id/layout_start_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginTop="2dip"
+                android:orientation="horizontal" >
+                <Button
+                    android:id="@+id/btn_start"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="5dip"
+                    android:text="@string/start_time"
+                     />
+                <TextView
+                    android:id="@+id/time_start"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00:00"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+             <CheckBox
+                 android:id="@+id/cbx_end"
+                 android:layout_marginLeft="5dip"
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+                 android:layout_gravity="center"
+                >
+            </CheckBox>
+            <TextView
+                android:id="@+id/txt_hint_end"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="10dip"
+                android:layout_gravity="center_vertical"
+                android:text="@string/his_now"
+                android:textColor="@color/white"
+                android:visibility="gone" />
+            <!-- 结束日期-->
+            <LinearLayout
+                android:id="@+id/layout_end_date"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginTop="2dip"
+                android:orientation="horizontal" >
+                <Button
+                    android:id="@+id/btn_end_date"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="5dip"
+                    android:text="@string/end_data"
+                    />
+                <TextView
+                    android:id="@+id/date_end"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="1970-1-1"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- 结束时间 -->
+            <LinearLayout
+                android:id="@+id/layout_end_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginTop="2dip"
+                android:orientation="horizontal" >
+                <Button
+                    android:id="@+id/btn_end"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="5dip"
+                    android:text="@string/end_time"
+                    />
+                <TextView
+                    android:id="@+id/time_end"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="24:00:00"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:padding="0dip"
+        android:layout_marginTop="2dip"
+        android:layout_marginLeft="2dip"
+        android:layout_marginRight="2dip"
+        android:orientation="horizontal" >
+        <Button
+            android:id="@+id/btn_ok"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/confirm" />
+        <Button
+            android:id="@+id/btn_cancel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/btn_cancel" />
+    </LinearLayout>
+
+</RelativeLayout>

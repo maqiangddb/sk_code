@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="ProgressBar" parent="@android:style/Widget.ProgressBar">
+        <item name="android:indeterminateOnly">true</item>
+    </style>
+    <!-- 放大缩小 -->
+    <style name="PopupAnimation" mce_bogus="1" parent="android:Animation">
+        <item name="android:windowEnterAnimation">@anim/dialog_enter</item>
+        <item name="android:windowExitAnimation">@anim/dialog_out</item>
+    </style>
+    <!-- 右进右出 -->
+    <style name="PopupLeftAnimation" mce_bogus="1" parent="android:Animation">
+        <item name="android:windowEnterAnimation">@anim/dialog_left_enter</item>
+        <item name="android:windowExitAnimation">@anim/dialog_left_out</item>
+    </style>
+    <!-- 右进右出 -->
+    <style name="PopupRightAnimation" mce_bogus="1" parent="android:Animation">
+        <item name="android:windowEnterAnimation">@anim/dialog_right_enter</item>
+        <item name="android:windowExitAnimation">@anim/dialog_right_out</item>
+    </style>
+    <!-- 底部出 -->
+    <style name="PopupBottomAnimation" mce_bogus="1" parent="android:Animation">
+        <item name="android:windowEnterAnimation">@anim/dialog_bottom_enter</item>
+        <item name="android:windowExitAnimation">@anim/dialog_bottom_out</item>
+    </style>
+    <!-- 顶部出 -->
+    <style name="PopupUpAnimation" mce_bogus="1" parent="android:Animation">
+        <item name="android:windowEnterAnimation">@anim/dialog_up_enter</item>
+        <item name="android:windowExitAnimation">@anim/dialog_up_out</item>
+    </style>
+
+    <style name="custom_dialog_style" parent="@android:style/Theme.Dialog">
+
+        <!-- Dialog的windowFrame框为无  <item name="android:windowFrame">@null</item> -->
+        
+        <!-- 是否浮现在activity之上 -->
+        <item name="android:windowIsFloating">true</item>
+        <!-- 是否半透明 -->
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <!-- 背景是否模糊显示 -->
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+
+</resources>

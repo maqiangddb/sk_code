@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:orientation="horizontal" >
+<EditText 
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:id="@+id/edit"
+     android:focusable="true" 
+     android:cursorVisible="false"
+      android:focusableInTouchMode="true"
+      android:background="@android:color/transparent"
+      android:inputType=""
+      android:textColor="@android:color/transparent"
+    />
+</LinearLayout>

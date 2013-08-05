@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 修改当前用户信息 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/date_dialog_bg"
+    android:orientation="vertical" >
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_margin="5dip"
+        android:layout_weight="1"
+        android:padding="10dip" >
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="10dip"
+            android:orientation="vertical"
+            android:padding="10dip" >
+            <!-- 用户名 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="5dip"
+                android:orientation="horizontal" >
+                <!-- 用户名 -->
+                <TextView
+                    android:layout_width="60dip"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:gravity="center_horizontal"
+                    android:text="@string/add_user_name" >
+                </TextView>
+                <!-- 用户名输入框 -->
+                <EditText
+                    android:id="@+id/edit_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:enabled="false"
+                    android:hint="@string/add_user_name" >
+                </EditText>
+            </LinearLayout>
+            
+            <!-- 旧密码 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="5dip"
+                android:orientation="horizontal" >
+                <!-- 密码 -->
+                <TextView
+                    android:layout_width="60dip"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:gravity="center_horizontal"
+                    android:text="@string/add_old_user_password" >
+                </TextView>
+                <!-- 密码输入框 -->
+                <EditText
+                    android:id="@+id/edit_old_pwd"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/add_old_user_password"
+                    android:inputType="textPassword" >
+                </EditText>
+            </LinearLayout>
+            
+            <!-- 密码 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="5dip"
+                android:orientation="horizontal" >
+                <!-- 密码 -->
+                <TextView
+                    android:layout_width="60dip"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:gravity="center_horizontal"
+                    android:text="@string/add_user_password" >
+                </TextView>
+                <!-- 密码输入框 -->
+                <EditText
+                    android:id="@+id/edit_pwd"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/add_user_password"
+                    android:inputType="textPassword" >
+                </EditText>
+            </LinearLayout>
+            
+            <!-- 密码确定 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="5dip"
+                android:orientation="horizontal" >
+                <!-- 密码确定 -->
+                <TextView
+                    android:layout_width="60dip"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:gravity="center_horizontal"
+                    android:text="@string/add_user_pwd_confirm" >
+                </TextView>
+                <!-- 密码确定输入框 -->
+                <EditText
+                    android:id="@+id/edit_pwd_confirm"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/add_user_pwd_confirm"
+                    android:inputType="textPassword" >
+                </EditText>
+            </LinearLayout>
+            
+            <!-- 用户描述 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="5dip"
+                android:orientation="horizontal" >
+                <!-- 用户描述 -->
+                <TextView
+                    android:layout_width="60dip"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:gravity="center_horizontal"
+                    android:text="@string/add_user_message" >
+                </TextView>
+                <!-- 描述输入框 -->
+                <EditText
+                    android:id="@+id/edit_user_message"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/add_user_message"
+                    android:inputType="text" >
+                </EditText>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="5dip"
+                android:orientation="horizontal" >
+                <!-- 用户描述 -->
+                <Button
+                    android:id="@+id/edit_ok"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/confirm" >
+                </Button>
+                <!-- 描述输入框 -->
+                <Button
+                    android:id="@+id/edit_cancel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/btn_cancel" >
+                </Button>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>

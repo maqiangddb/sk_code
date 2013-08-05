@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:background="@drawable/date_dialog_bg"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="0dip" >
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="0dip" >
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="left"
+            android:orientation="horizontal"
+            android:padding="0dip" >
+
+            <TextView
+                android:layout_width="60dip"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:gravity="right"
+                android:text="端口:"
+                android:textColor="@color/white"
+                android:textSize="15sp" />
+            <EditText
+                android:id="@+id/port"
+                android:layout_width="70dip"
+                android:layout_height="wrap_content"
+                android:imeOptions="actionDone"
+                android:inputType="number"
+                android:maxLength="6"
+                android:singleLine="true" />
+            <CheckBox
+                android:id="@+id/cxb_server"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="20dip"
+                android:text="启动网络服务" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:gravity="bottom|center_horizontal"
+        android:orientation="horizontal" 
+        >
+        <Button
+            android:id="@+id/btn_ok"
+            android:layout_width="match_parent"
+            android:layout_height="46dip"
+            android:layout_weight="1"
+            android:text="@string/confirm" />
+        <Button
+            android:id="@+id/btn_cancel"
+            android:layout_width="match_parent"
+            android:layout_height="46dip"
+            android:layout_weight="1"
+            android:text="@string/btn_cancel" />
+    </LinearLayout>
+
+</LinearLayout>

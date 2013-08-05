@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:background="@drawable/login_back"
+    android:orientation="vertical" >
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical" >
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical" >
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:orientation="horizontal" 
+            android:layout_marginLeft="30dip"
+            android:layout_marginRight="30dip"
+            >
+           <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:layout_gravity="center_vertical"
+                android:text="@string/username"
+                android:textColor="@color/black"
+                 android:layout_weight="4"
+                 android:textSize="20sp"
+                 android:id="@+id/userNameText"
+                 android:visibility="gone"
+                />
+            
+           <Spinner android:id="@+id/userName"
+               android:visibility="gone"
+                     android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="left|center"
+                 android:layout_weight="1"
+               />
+           
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dip"
+            android:orientation="horizontal" 
+             android:layout_marginLeft="30dip"
+            android:layout_marginRight="30dip"
+            >
+
+           <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:layout_gravity="center_vertical"
+                android:text="@string/password"
+                android:textColor="@color/black"
+                 android:layout_weight="4"
+                  android:textSize="20sp"
+                  android:id="@+id/passwordtext"
+                  android:visibility="gone"
+                />
+
+            <EditText
+                android:id="@+id/passWord"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="left|center"
+                android:inputType="text" 
+                android:password="true"
+                android:singleLine="true"
+                android:selectAllOnFocus="true"
+                 android:layout_weight="1"
+                 android:visibility="gone"
+                />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="10dip"
+            android:orientation="horizontal" >
+
+            <Button
+                android:id="@+id/login"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="@string/login"
+                android:visibility="gone"
+                android:width="100dip" />
+
+            <Button
+                android:id="@+id/cancel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="@string/cancel"
+                android:width="100dip" 
+                android:visibility="gone"
+                />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>
