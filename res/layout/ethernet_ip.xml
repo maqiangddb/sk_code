@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:layout_gravity="center"
+    android:gravity="center"
+    android:background="@drawable/date_dialog_bg"
+    android:orientation="vertical" >
+
+    <ScrollView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/layout_bottom"
+        >
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:layout_gravity="center"
+            android:orientation="vertical" >
+            <LinearLayout
+                android:layout_width="fill_parent"
+                android:layout_height="40dip"
+                android:layout_gravity="center"
+                android:layout_marginTop="5sp"
+                android:orientation="vertical" >
+                <TextView
+                    android:layout_width="100sp"
+                    android:layout_height="30dip"
+                    android:layout_gravity="center_vertical"
+                    android:gravity="right"
+                    android:text=" "
+                    android:textColor="@color/white"
+                    android:textSize="15sp" />
+            </LinearLayout>
+            <!-- ip -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="horizontal" >
+                <TextView
+                    android:layout_width="100sp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:gravity="right"
+                    android:text="@string/ipname"
+                    android:textColor="@color/white"
+                    android:textSize="15sp" />
+                <EditText
+                    android:id="@+id/ipaddress1"
+                    android:layout_width="160sp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="5sp"
+                    android:layout_marginRight="5sp"
+                    android:imeOptions="actionNext"
+                    android:hint="192.168.1.120"
+                    android:singleLine="true" />
+            </LinearLayout>
+            <!-- 掩码 -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="5sp"
+                android:orientation="horizontal" >
+                <TextView
+                    android:layout_width="100sp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:gravity="right"
+                    android:text="@string/netname"
+                    android:textColor="@color/white"
+                    android:textSize="15sp" />
+                <EditText
+                    android:id="@+id/subnet1"
+                    android:layout_width="160sp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="5sp"
+                    android:layout_marginRight="5sp"
+                    android:hint="255.255.255.0"
+                    android:singleLine="true" />
+            </LinearLayout>
+            <!-- 网关 -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="5sp"
+                android:orientation="horizontal" >
+                <TextView
+                    android:layout_width="100sp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:gravity="right"
+                    android:text="@string/gatename"
+                    android:textColor="@color/white"
+                    android:textSize="15sp" />
+                <EditText
+                    android:id="@+id/gate1"
+                    android:layout_width="160sp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="5sp"
+                    android:layout_marginRight="5sp"
+                    android:hint="192.168.1.1"
+                    android:singleLine="true" />
+            </LinearLayout>
+            <!-- 域名 -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="5sp"
+                android:orientation="horizontal" >
+                <TextView
+                    android:layout_width="100sp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:gravity="right"
+                    android:text="@string/dnsname"
+                    android:textColor="@color/white"
+                    android:textSize="15sp" />
+                <EditText
+                    android:id="@+id/dns_edit"
+                    android:layout_width="160sp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="5sp"
+                    android:layout_marginRight="5sp"
+                    android:hint="DNS"
+                    android:singleLine="true" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:id="@+id/layout_bottom"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="0dip"
+        android:gravity="center_horizontal"
+        android:orientation="horizontal"
+        android:padding="0dip" >
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:text="IP:"
+            android:textColor="@color/white"
+            android:textSize="15sp" />
+        <RadioGroup
+            android:id="@+id/con_type"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginRight="5dip"
+            android:orientation="horizontal" >
+            <RadioButton
+                android:id="@+id/dhcp_radio"
+                style="?android:attr/textAppearanceSmallInverse"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginRight="2dip"
+                android:text="@string/dhcp"
+                android:textColor="#ffffffff" >
+            </RadioButton>
+            <RadioButton
+                android:id="@+id/manual_radio"
+                style="?android:attr/textAppearanceSmallInverse"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/static_ip"
+                android:checked="true"
+                android:textColor="#ffffffff" >
+            </RadioButton>
+        </RadioGroup>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="horizontal" >
+            <Button
+                android:id="@+id/okButton"
+                android:layout_width="80dip"
+                android:layout_height="40dip"
+                android:padding="0dip"
+                android:text="@string/sureValue" />
+            <Button
+                android:id="@+id/btnCancel"
+                android:layout_width="80dip"
+                android:layout_height="40dip"
+                android:padding="0dip"
+                android:text="@string/cancel" />
+        </LinearLayout>
+    </LinearLayout>
+</RelativeLayout>
