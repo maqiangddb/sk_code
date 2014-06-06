@@ -50,9 +50,7 @@ public class ImageViewerInfo {
 	  * 设置控件左上角X坐标
 	  * */
 	 public void setLp(short Lp){
-		 if(0 < Lp){
-			 this.nLp = Lp;
-		 }
+		 this.nLp = Lp;
 	 }
 	 
 	 /**
@@ -66,9 +64,7 @@ public class ImageViewerInfo {
 	  *  设置控件左上角y坐标
 	  * */
 	 public void setTp(short Tp){
-		 if(0 < Tp){
-			 this.nTp = Tp;
-		 }
+		 this.nTp = Tp;
 	 }
 	 
 	 /**
@@ -82,9 +78,7 @@ public class ImageViewerInfo {
 	  * 设置控件宽度
 	  * */
 	 public void setWidth(short width){
-		 if(0 < width){
-			 this.nWidth = width;
-		 }
+		 this.nWidth = width;
 	 }
 	 
 	 /**
@@ -98,9 +92,7 @@ public class ImageViewerInfo {
 	  * 设置控件高度
 	  * */
 	 public void setHeight(short height){
-		 if(0 < height){
-			 this.nHeigth = height;
-		 }
+		 this.nHeigth = height;
 	 }
 	 
 	 /**

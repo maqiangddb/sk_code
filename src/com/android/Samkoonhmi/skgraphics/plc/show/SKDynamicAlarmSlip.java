@@ -3,6 +3,7 @@ package com.android.Samkoonhmi.skgraphics.plc.show;
 import java.util.ArrayList;
 import java.util.Vector;
 
+import android.R.integer;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
@@ -15,13 +16,13 @@ import android.graphics.Paint.Style;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.os.Handler;
-import android.os.Message;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.util.TypedValue;
-
 import com.android.Samkoonhmi.SKThread;
 import com.android.Samkoonhmi.SKTimer;
 import com.android.Samkoonhmi.graphicsdrawframe.RectItem;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.alarm.AlarmDataInfo;
 import com.android.Samkoonhmi.model.alarm.AlarmSlipInfo;
@@ -44,7 +45,7 @@ import com.android.Samkoonhmi.util.TASK;
  * @author 刘伟江
  * @version v 1.0.0.1 创建时间 2012-4-21 最后修改时间 2012-7-13
  */
-public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
+public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate,IItem {
 
 	private static final String TAG = "SKDynamicAlarmSlip";
 	private static final int HANDLER_ADD=1;
@@ -74,8 +75,6 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 	private int nFontHeight;
 	// 要显示的消息
 	private String message="";
-	// 显示消息所占的宽度
-	private int nTextWidht;
 	private String tTaskName;
 	private boolean show; // 是否显现
 	private boolean showByAddr; // 受地址
@@ -84,7 +83,6 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 	private float nSize;
 	private DisplayMetrics dis;
 	private boolean flag;
-	//private boolean bRefreshing;
 	private int nTaskId;
 
 	public SKDynamicAlarmSlip(int itemId, int scendId,AlarmSlipInfo info) {
@@ -138,6 +136,31 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 			items.rect = mRect;
 			items.sceneId = nSceneId;
 			items.mGraphics=this;
+			
+			// 显现
+			if (mInfo.getmShowInfo() != null) {
+				if (mInfo.getmShowInfo().getShowAddrProp()!=null) {
+					// 受地址控制
+					showByAddr = true;
+				}
+				if (mInfo.getmShowInfo().isbShowByUser()) {
+					// 受用户权限控制
+					showByUser = true;
+				}
+			}
+
+			
+			//注册显示控制
+			if(showByAddr){
+				ADDRTYPE addrType = mInfo.getmShowInfo().geteAddrType();
+				if (addrType == ADDRTYPE.BITADDR) {
+					SKPlcNoticThread.getInstance().addNoticProp(mInfo.getmShowInfo().getShowAddrProp(),
+							showCall, true,scendId);
+				} else {
+					SKPlcNoticThread.getInstance().addNoticProp(mInfo.getmShowInfo().getShowAddrProp(),
+							showCall, false,scendId);
+				}
+			}
 		}
 	}
 
@@ -178,7 +201,7 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 				if (IntToEnum.getCssType(mInfo.getnStyle())
 						!=CSS_TYPE.CSS_TRANSPARENCE) {
 					mPaint.setStyle(Style.FILL);
-					mPaint.setColor(mInfo.getnFrameColor());
+					mPaint.setColor(mInfo.getnFrameColor()); 
 					canvas.drawRect(mInfo.getnLeftTopX(), mInfo.getnLeftTopY(),
 							mInfo.getnLeftTopX()+mInfo.getnWidth(),
 							mInfo.getnLeftTopY()+mInfo.getnHeight(),mPaint);
@@ -227,20 +250,7 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		mPaint.setStrokeWidth(0);
 
 		nFontHeight = getFontHeight(mPaint);
-
 		
-		// 显现
-		if (mInfo.getmShowInfo() != null) {
-			if (mInfo.getmShowInfo().getShowAddrProp()!=null) {
-				// 受地址控制
-				showByAddr = true;
-			}
-			if (mInfo.getmShowInfo().isbShowByUser()) {
-				// 受用户权限控制
-				showByUser = true;
-			}
-		}
-
 		//控件显现
 		itemIsShow();
 		
@@ -248,7 +258,7 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		if (nMoveTime==0) {
 			nMoveTime=5;
 		}
-		nTextWidht = getFontWidth(message, mPaint);
+		//nTextWidht = getFontWidth(message, mPaint);
 		list=new ArrayList<AlarmDataInfo>();
 
 		//注册地址通知
@@ -259,16 +269,28 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		nTaskId++;
 		
 		//AlarmGroup.getInstance().saveAlarmData(0, 1,alarmCall,nTaskId, null);
-		AlarmGroup.getInstance().setNeedUpdateAlarm(true);
-		if (tTaskName.equals("")) {
-			tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-		}
-		SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName);
+		//延迟启动
+		mHandler.postDelayed(runnable, 800); 
+		
 		
 		//刷新
 		SKSceneManage.getInstance().onRefresh(items); 
-	}
 
+	}
+	
+	private Handler mHandler = new Handler();
+	private Runnable runnable = new Runnable() {
+		
+		public void run() {
+			// TODO Auto-generated method stub
+			AlarmGroup.getInstance().setNeedUpdateAlarm(true);
+			if (tTaskName.equals("")) {
+				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
+			}
+			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName);
+		}
+	};
+	
 	
 	/**
 	 * 注册通知
@@ -281,18 +303,6 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		//多语言
 		SKLanguage.getInstance().getBinder().onRegister(lCallback);
 		
-		//注册显示控制
-		if(showByAddr){
-			ADDRTYPE addrType = mInfo.getmShowInfo().geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(mInfo.getmShowInfo().getShowAddrProp(),
-						showCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(mInfo.getmShowInfo().getShowAddrProp(),
-						showCall, false);
-			}
-		}
-
 	}
 
 	@Override
@@ -300,7 +310,6 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		SKTimer.getInstance().getBinder().onDestroy(callback,nMoveTime);
 		SKThread.getInstance().getBinder().onDestroy(tCallback, tTaskName);
 		AlarmGroup.getInstance().getBinder().onDestroy(alarmCall);
-		SKPlcNoticThread.getInstance().destoryCallback(showCall);
 		flag=false;
 		init=true;
 		tTaskName="";
@@ -343,9 +352,64 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 				mPaint.setTextAlign(Align.RIGHT);
 				break;
 			}
-			canvas.drawText(message, nMoveX,
-					(mInfo.getnHeight() + nFontHeight / 2) / 2, paint);
+			
+			if (message.length() > 2000) {//message 如果很大的话，那么只显示部分
+				drawLongMessage(canvas, paint, message);
+			}
+			else {
+				canvas.drawText(message, nMoveX,
+						(mInfo.getnHeight() + nFontHeight / 2) / 2, paint);
+			}
+			
 		}
+		
+	}
+	int pos = 0;
+	int startPos = 0;
+	int endPos = 0;
+	private void drawLongMessage(Canvas canvas , Paint paint,  String text){
+		
+		if (ARRAY_ORDER.RIGHT_TO_LEFT == mInfo.geteDirection()) { //从右到左
+			if (nMoveX > 0) {
+				startPos = 0;
+				pos = nMoveX;
+				
+			}
+			else {
+				pos = 0;
+				startPos += 4;
+			}
+			if (startPos >= message.length()) {
+				startPos  =0 ;
+				initView(true);
+				pos = nMoveX;
+			}
+			endPos = startPos + 100;
+			if (endPos >= message.length()) {
+				endPos = message.length() -1; 
+			}
+			
+		}
+		else{//从左到右
+			if (nMoveX < mInfo.getnWidth()) {
+				endPos = message.length() -1;
+				pos = nMoveX;
+			}
+			else {
+				endPos -= 4;
+				if (endPos < 0) {
+					endPos = message.length() - 1;
+					pos = 0;
+					initView(true);
+				}
+			}
+			startPos = endPos - 100;
+			if (startPos < 0) {
+				startPos = 0;
+			}
+		}
+		canvas.drawText(message, startPos, endPos, pos, (mInfo.getnHeight() + nFontHeight / 2) / 2, paint);
+		
 	}
 
 	/**
@@ -366,72 +430,15 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		
 		@Override
 		public void onUpdate(Object msg, int taskId) {
-//			if (taskId==TASK.ALARM_CLEAR_REFRESH) {
-//				/**
-//				 * 报警消除
-//				 */
-//				ArrayList<AlarmDataInfo> list=(ArrayList<AlarmDataInfo>)msg;
-//				if (list==null||list.size()==0) {
-//					return;
-//				}
-//				alarm(1,list,0,0);
-//			}else if (taskId==TASK.ALARM_ADD_REFRESH) {
-//				/**
-//				 * 报警产生
-//				 */
-//				ArrayList<AlarmDataInfo> list=(ArrayList<AlarmDataInfo>)msg;
-//				if (list==null||list.size()==0) {
-//					return;
-//				}
-//				addAlarm(list);
-//			}else if (taskId == TASK.ALARM_DELETE) {
-//				/**
-//				 * 报警清除
-//				 */
-//				ArrayList<Integer> delList = (ArrayList<Integer>) msg;
-//				if (delList == null || delList.size() == 0 ) {
-//					return ;
-//				}
-//				
-//				clearAlarmByGroup(delList);
-//			}
+
 		}
 		
 		@Override
 		public void onUpdate(int msg, int taskId) {
 			if (taskId==TASK.ALARM_SELECT) {
-//				ArrayList<AlarmDataInfo> temp  = AlarmGroup.getInstance().getHappenedAlarmData();
-//				if (temp == null ) {
-//					return ;
-//				}
-//	        	   
-//					if (temp!=null) {
-//						list.clear();
-//						list.addAll(temp);
-//						temp.clear();
-//						temp = null;
-//					}
-//					
-//					if (list != null) {
-//						StringBuffer sBuffer=new StringBuffer();
-//						sBuffer.append(message);
-//						if (mInfo.geteSort()== ARRAY_ORDER.CLOCK_WISE) {
-//							// 顺时针
-//							for (int i = list.size() - 1; i >= 0; i--) {
-//								sBuffer.append("  " + list.get(i).getsMessage() + "  ");
-//							}
-//						} else if (mInfo.geteSort() == ARRAY_ORDER.COUNTER_CLOCK_WISE) {
-//							// 逆时针
-//							for (int i = 0; i < list.size(); i++) {
-//								sBuffer.append("  " + list.get(i).getsMessage() + "  ");
-//							}
-//						}
-//						message=sBuffer.toString();
-//						initView(false);
-//					}
 				
 				updateAlarmSlip();
-				}
+			}
 		}
 		
 		@Override
@@ -441,6 +448,7 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 	};
 	
 	private void updateAlarmSlip(){
+		
 		if (list == null) {
 			return ;
 		}
@@ -454,16 +462,19 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 			}
 		}
 		else {
-			for(int i = 0; i < mInfo.getmGroupId().size(); i++){
-				for(int j = 0; j< temp.size(); j++){
-					String mgroup = temp.get(j).getnGroupId() + "";
-					if (mInfo.getmGroupId().get(i).equals(mgroup)) {
-					
-						list.add(temp.get(j));
+			if (mInfo.getmGroupId() != null) {
+				for(int i = 0; i < mInfo.getmGroupId().size(); i++){
+					for(int j = 0; j< temp.size(); j++){
+						String mgroup = temp.get(j).getnGroupId() + "";
+						if (mInfo.getmGroupId().get(i).equals(mgroup)) {
+						
+							list.add(temp.get(j));
+						}
 					}
 				}
 			}
-		}
+			}
+			
 		temp.clear();
 		temp = null;
 		
@@ -488,128 +499,7 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		
 	}
 	
-//	/**
-//	 * 报警消除
-//	 */
-//	private void clearAlarm(ArrayList<AlarmDataInfo> clist){
-//	
-//		if (list==null){
-//			return;
-//		}
-//		if (!mInfo.isbSelectall()) {
-//			if (mInfo.getmGroupId()==null||mInfo.getmGroupId().size()==0) {
-//				return;
-//			}
-//		}
-//		
-//		for (int j = 0; j < clist.size(); j++) {
-//			AlarmDataInfo dinfo=clist.get(j);
-//			for (int i = 0; i < list.size(); i++) {
-//				AlarmDataInfo info=list.get(i);;
-//				if (dinfo.getnGroupId()==info.getnGroupId()&&info.getnAlarmIndex()==dinfo.getnAlarmIndex()) {
-//					list.remove(i);
-//					--i;
-//					break;
-//				}
-//			}
-//		}
-//		
-//		message="";
-//		StringBuffer sBuffer=new StringBuffer();
-//		int size=list.size();
-//		for (int i = 0; i < size; i++) {
-//			AlarmDataInfo info=list.get(i);
-//			sBuffer.append(info.getsMessage()+"  ");
-//		}
-//		isClear=true;
-//		message=sBuffer.toString();
-//		initView(false);
-//		
-//	}
 	
-//	private void clearAlarmByGroup(ArrayList<Integer> delList){
-//		if (list == null) {
-//			return ;
-//		}
-//		if (!mInfo.isbSelectall()) {
-//			if (mInfo.getmGroupId() == null || mInfo.getmGroupId().size() == 0) {
-//				return ;
-//			}
-//		}
-//
-//		for(int i = 0 ; i < list.size(); i++){
-//			AlarmDataInfo info = list.get(i);
-//			if (delList.contains(info.getnGroupId())) {
-//				list.remove(i);
-//				--i;
-//			}
-//		}
-//		
-//		message="";
-//		StringBuffer sBuffer=new StringBuffer();
-//		int size=list.size();
-//		for (int i = 0; i < size; i++) {
-//			AlarmDataInfo info=list.get(i);
-//			sBuffer.append(info.getsMessage()+"  ");
-//		}
-//		isClear=true;
-//		message=sBuffer.toString();
-//		initView(false);
-//	}
-//	
-//	/**
-//	 * 报警产生
-//	 */
-//	private void addAlarm(ArrayList<AlarmDataInfo> alist){
-//		
-//		StringBuffer sBuffer=new StringBuffer();
-//		
-//		
-//		if (mInfo.geteSort()== ARRAY_ORDER.CLOCK_WISE) {
-//			sBuffer.append(message);
-//		}
-//		
-//		//long start=System.currentTimeMillis();
-//		for (int j = 0; j < alist.size(); j++) {
-//			
-//			AlarmDataInfo dinfo=null;
-//			if (mInfo.geteSort()== ARRAY_ORDER.CLOCK_WISE) {
-//				dinfo=alist.get(j);
-//			}else {
-//				dinfo=alist.get(alist.size()-1-j);
-//			}
-//			
-//			boolean result=false;
-//			if (!mInfo.isbSelectall()) {
-//				if (mInfo.getmGroupId()==null||mInfo.getmGroupId().size()==0) {
-//					return;
-//				}
-//				String gid=dinfo.getnGroupId()+"";
-//				for (int i = 0; i < mInfo.getmGroupId().size(); i++) {
-//					if (gid.equals(mInfo.getmGroupId().get(i))) {
-//						result=true;
-//						break;
-//					}
-//				}
-//			}else {
-//				result=true;
-//			}
-//			if (result) {
-//				if (list!=null) {
-//					list.add(dinfo);
-//					sBuffer.append(dinfo.getsMessage()+"  ");
-//				}
-//			}
-//		}
-//		
-//		if (mInfo.geteSort()== ARRAY_ORDER.COUNTER_CLOCK_WISE) {
-//			sBuffer.append(message);
-//		}
-//		bRefreshing=false;
-//		message=sBuffer.toString();
-//		initView(false);
-//	
-//	}
 
 	/**
 	 * 显现地址通知
@@ -622,77 +512,23 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		}
 	};
 
-//	private synchronized void alarm(int type,ArrayList<AlarmDataInfo> clist,int gid,int aid){
-//		if (type==0) {
-//			message="";
-//			isClear=true;
-//			if (list!=null) {
-//				list.clear();
-//			}
-//			SKSceneManage.getInstance().onRefresh(items);
-//		}else if (type==1) {
-//			clearAlarm(clist);
-//		}else if (type==2) {
-//			boolean result=false;
-//			if (!mInfo.isbSelectall()) {
-//				if (mInfo.getmGroupId()==null||mInfo.getmGroupId().size()==0) {
-//					return;
-//				}
-//				String id=gid+"";
-//				for (int i = 0; i < mInfo.getmGroupId().size(); i++) {
-//					if (id.equals(mInfo.getmGroupId().get(i))) {
-//						result=true;
-//						break;
-//					}
-//				}
-//			}else {
-//				result=true;
-//			}
-//			if (!result) {
-//				return;
-//			}
-//			if (list!=null) {
-//				message="";
-//				isClear=true;
-//				int size=list.size();
-//				StringBuffer sBuffer=new StringBuffer();
-//				for (int i = 0; i <size; i++) {
-//					AlarmDataInfo info=list.get(i);
-//					if (info.getnGroupId()==gid&&info.getnAlarmIndex()==aid) {
-//						list.remove(i);
-//						i--;
-//						size--;
-//					}else {
-//						sBuffer.append("  "+info.getsMessage()+"  ");
-//					}
-//				}
-//				message=sBuffer.toString();
-//				initView(false);
-//			}
-//		}
-//	}
-//	
+	
 	/**
 	 * 报警通知
 	 */
 	AlarmGroup.IAlarmCallback alarmCall = new AlarmGroup.IAlarmCallback() {
 
 		@Override
-		public void onClose(ArrayList<AlarmDataInfo> list) {
+		public void onClose(ArrayList<AlarmDataInfo> list) {			
 			if (list==null||list.size()==0||!flag) {
 				return;
-			}
+			}		
 			
 			if (tTaskName.equals("")) {
 				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
 			}
 			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName);
 			
-//			if (tTaskName.equals("")) {
-//				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-//			}
-//			SKThread.getInstance().getBinder()
-//			.onTask(MODULE.ALARM, TASK.ALARM_CLEAR_REFRESH, tTaskName,list);
 		}
 
 		@Override
@@ -706,19 +542,6 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 			}
 			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName);
 			
-//			if (bRefreshing) {
-//				Message msg=new Message();
-//				msg.what=HANDLER_ADD;
-//				msg.obj=list;
-//				mHandler.removeMessages(HANDLER_ADD);
-//				mHandler.sendMessageDelayed(msg, 200);
-//				return;
-//			}
-//			bRefreshing=true;
-//			if (tTaskName.equals("")) {
-//				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-//			}
-//			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_ADD_REFRESH,tTaskName,list);
 		}
 		
 		@Override
@@ -732,13 +555,6 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
 			}
 			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName);
-			
-//			if (tTaskName.equals("")) {
-//				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-//			}
-//			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_DELETE,tTaskName,delList);
-			
-		//	clearAlarmByGroup(delList);
 		}
 
 		@Override
@@ -757,10 +573,6 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 			}
 			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName);
 			
-//			if (tTaskName.equals("")) {
-//				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-//			}
-//			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_DELETE,tTaskName,confirmList);
 		}
 
 		@Override
@@ -770,7 +582,6 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 			}
 			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName);
 			
-			//alarm(2,null,gid,aid);
 		}
 
 		@Override
@@ -800,7 +611,6 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		public void onLanguageChange(int languageId) {
 			//获取报警数据
 			message="";
-			//AlarmGroup.getInstance().saveAlarmData(0, 1,alarmCall,nTaskId ,null);
 			if (tTaskName.equals("")) {
 				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
 			}
@@ -814,7 +624,7 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 	 * 初始化动态报警条 文本显示位置 和画笔
 	 */
 	private void initView(boolean init) {
-		nTextWidht=getFontWidth(message, mPaint);
+	//	nTextWidht=getFontWidth(message, mPaint);		
 		int temp=getFontWidth(message,mPaint)+mInfo.getnTextWidth()-4;
 		nMoveCount=temp/nMoveWidth;
 		switch (mInfo.geteDirection()) {
@@ -824,7 +634,7 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 				nMoveX = mInfo.getnTextWidth() - 4;
 				startIndex = 0;
 			}
-			mPaint.setTextAlign(Align.LEFT);
+			mPaint.setTextAlign(Align.LEFT); 
 			break;
 		case LEFT_TO_RIGHT:
 			// 左到右
@@ -837,6 +647,9 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		case NOT_MOVE:
 			//不移动
 			nMoveX=(mInfo.getnTextWidth()-getFontWidth(message, mPaint))/2;
+			if (nMoveX < 0) {
+				nMoveX = 0;
+			}
 			break;
 		}
 	}
@@ -890,33 +703,6 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		SKSceneManage.getInstance().onRefresh(items);
 	}
 
-//	Handler mHandler=new Handler(){
-//
-//		@Override
-//		public void handleMessage(Message msg) {
-//			super.handleMessage(msg);
-//			if(msg.what==HANDLER_ADD){
-//				//延迟刷新
-//				if (bRefreshing) {
-//					return ;
-//				}
-//				
-//				ArrayList<AlarmDataInfo> list=(ArrayList<AlarmDataInfo>)msg.obj;
-//				if (list==null||list.size()==0) {
-//					return;
-//				}
-//				
-//				bRefreshing=true;
-//				if (tTaskName.equals("")) {
-//					tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-//				}
-//				SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_ADD_REFRESH,tTaskName,list);
-//			//	addAlarm(list);
-//			}
-//		}
-//		
-//	};
-	
 	/**
 	 * 获取字体所占宽度
 	 */
@@ -934,4 +720,364 @@ public class SKDynamicAlarmSlip extends SKGraphCmnShow implements ITimerUpdate {
 		FontMetrics fm = paint.getFontMetrics();
 		return (int) Math.ceil(fm.descent - fm.ascent);
 	}
+
+	/**
+	 * 脚本对外接口
+	 */
+	@Override
+	public IItem getIItem() {
+		// TODO Auto-generated method stub
+		return this;
+	}
+
+
+	@Override
+	public int getItemLeft(int id) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			return mInfo.getnLeftTopX();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			return mInfo.getnLeftTopY();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			return mInfo.getnWidth();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			return mInfo.getnHeight();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			return getColor(mInfo.getnForecolor());
+		}
+		return null;
+	}
+
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			return getColor(mInfo.getnBackcolor());
+		}
+		return null;
+	}
+	
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			return getColor(mInfo.getnFrameColor());
+		}
+		return null;
+	}
+
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO Auto-generated method stub
+		return show;
+	}
+
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO Auto-generated method stub
+		
+		if (mInfo != null) {
+			if (x == mInfo.getnLeftTopX()) {
+				return true;
+			}
+			if (x < 0|| x > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			mInfo.setnLeftTopX((short)x);
+			int l=items.rect.left;
+			items.rect.left=x;
+			items.rect.right=x-l+items.rect.right;
+			items.mMoveRect=new Rect();
+			
+			mInfo.setnTextLeftTopX((short)(mInfo.getnTextLeftTopX()+x-l));
+			initView(true);
+			
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO Auto-generated method stub
+		if (mInfo != null) {
+			if (y == mInfo.getnLeftTopY()) {
+				return true;
+			}
+			if (y < 0|| y > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			mInfo.setnLeftTopY((short)y);
+			int t = items.rect.top;
+			items.rect.top = y;
+			items.rect.bottom = y - t + items.rect.bottom;
+			items.mMoveRect=new Rect();
+			
+			mInfo.setnTextLeftTopY((short)(mInfo.getnTextLeftTopY()+y-t));
+			initView(true);
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO Auto-generated method stub
+		if (mInfo != null) {
+			if (w == mInfo.getnWidth()) {
+				return true;
+			}
+			if (w < 0|| w > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			int len=w-mInfo.getnWidth();
+			mInfo.setnWidth((short)w);
+			items.rect.right = w - items.rect.width() + items.rect.right;
+			items.mMoveRect = new Rect();
+			
+			mInfo.setnTextWidth((short)(mInfo.getnTextWidth()+len));
+			initView(true);
+			init=true;
+			
+			mBitmap = Bitmap.createBitmap(mInfo.getnTextWidth(), mInfo.getnTextHeight(),
+					Config.ARGB_8888);
+			mCanvas = new Canvas(mBitmap);
+			mCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+			
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO Auto-generated method stub
+		if (mInfo != null) {
+			if (h == mInfo.getnHeight()) {
+				return true;
+			}
+			if (h < 0|| h > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			int len=h-mInfo.getnHeight();
+			mInfo.setnHeight((short)h);
+			items.rect.bottom = h - items.rect.height() + items.rect.bottom;
+			items.mMoveRect = new Rect();
+			
+			initView(true);
+			init=true;
+			mInfo.setnTextHeight((short)(mInfo.getnTextHeight()+len));
+			
+			mBitmap = Bitmap.createBitmap(mInfo.getnTextWidth(), mInfo.getnTextHeight(),
+					Config.ARGB_8888);
+			mCanvas = new Canvas(mBitmap);
+			mCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+			
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			int color=Color.rgb(r, g, b);
+			if (color==mInfo.getnForecolor()) {
+				return true;
+			}
+			mInfo.setnForecolor(color);
+			mRectItem.setForeColor(color);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			int color=Color.rgb(r, g, b);
+			if (color==mInfo.getnBackcolor()) {
+				return true;
+			}
+			mInfo.setnBackcolor(color);
+			mRectItem.setBackColor(color);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if(mInfo!=null){
+			int color=Color.rgb(r, g, b);
+			if (color==mInfo.getnFrameColor()) {
+				return true;
+			}
+			mInfo.setnFrameColor(color);
+			mRectItem.setLineColor(color);
+			SKSceneManage.getInstance().onRefresh(items);
+		}
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v==show) {
+			return true;
+		}
+		show=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+	
+	/**
+	 * 颜色取反
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
+	}
+	
 }

@@ -1,15 +1,20 @@
 package com.android.Samkoonhmi.skgraphics.plc.show;
 import java.util.Vector;
 
+import android.R.integer;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Rect;
-
-import com.android.Samkoonhmi.SKThread;
+import android.util.Log;
 import com.android.Samkoonhmi.model.GraphBaseInfo;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.plccommunicate.PlcRegCmnStcTools;
 import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
 import com.android.Samkoonhmi.skenum.ADDRTYPE;
+import com.android.Samkoonhmi.skenum.Direction.DIRECTION;
+import com.android.Samkoonhmi.skenum.GOTO_TYPE;
+import com.android.Samkoonhmi.skenum.Graph.GRAPH_TYPE;
 import com.android.Samkoonhmi.skgraphics.ITimerUpdate;
 import com.android.Samkoonhmi.skgraphics.plc.show.base.SKGraphCmnShow;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
@@ -22,7 +27,7 @@ import com.android.Samkoonhmi.skwindow.SKSceneManage;
  * 最后修改时间 2012-4-23
  * 
  */
-public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
+public class SKGraph extends SKGraphCmnShow implements ITimerUpdate ,IItem {
 
 	private GraphBaseInfo mGrapInfo;
 	private SKGraphShape shape;
@@ -30,7 +35,6 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 	private int nSceneId;
 	private SKItems items;
 	private double nStateValues;
-	private String sTaskName;
 	private boolean show;         // 是否可显现
 	private boolean showByAddr;   // 是否注册显现地址
 	private boolean showByUser;   // 是否受用户权限控件
@@ -42,11 +46,11 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 	public SKGraph(int itemId,int sceneId,GraphBaseInfo info){
 		this.nItemId=itemId;
 		this.nSceneId=sceneId;
-		this.sTaskName="";
 		this.init=true;
 		this.alarm=false;
 		items=new SKItems();
 		this.mGrapInfo=info;
+		show = true;
 		
 		if (info!=null) {
 			Rect rect=new Rect(mGrapInfo.getnLeftTopX()-2, mGrapInfo.getnLeftTopY()-2,
@@ -58,6 +62,30 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 			items.nZvalue=mGrapInfo.getnZvalue();
 			items.nCollidindId=mGrapInfo.getnColidindId();
 			items.mGraphics=this;
+			this.alarm=false;
+			
+			// 显现权限
+			if (mGrapInfo.getmShowInfo() != null) {
+				if (mGrapInfo.getmShowInfo().getShowAddrProp()!=null) {
+					// 受地址控制
+					showByAddr = true;
+				}
+				if (mGrapInfo.getmShowInfo().isbShowByUser()) {
+					// 受用户权限控制
+					showByUser = true;
+				}
+			}
+			
+			if (mGrapInfo.getnSourceRang()==0) {
+				sMax=mGrapInfo.getnSourceMax();
+				sMin=mGrapInfo.getnSourceMin();
+			}else {
+				sMax=0;
+				sMin=0;
+			}
+			
+			//注册通知
+			registNotice();
 		}
 		
 	}
@@ -80,26 +108,12 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 	 */
 	private void init(){
 	
-		show = true;
 		init=true;
-		alarm=false;
-		nStateValues=0;
-		
-		
-		if (mGrapInfo.getnSourceRang()==0) {
-			sMax=mGrapInfo.getnSourceMax();
-			sMin=mGrapInfo.getnSourceMin();
-		}else {
-			sMax=0;
-			sMin=0;
-		}
 		
 		//显现
-		itemIsShow(); 
+		itemIsShow();  
 		
-		//注册通知
-		registNotice();
-		
+		SKSceneManage.getInstance().onRefresh(items);
 	}
 
 	@Override
@@ -114,6 +128,7 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 				}else {
 					shape.setReset(false);
 					shape.drawShape(init,(float)nStateValues,canvas,alarm);
+					init=false;
 				}
 				return true;
 			}
@@ -125,26 +140,15 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 	 * 注册监听
 	 */
 	private void registNotice(){
-		
-		// 显现权限
-		if (mGrapInfo.getmShowInfo() != null) {
-			if (mGrapInfo.getmShowInfo().getShowAddrProp()!=null) {
-				// 受地址控制
-				showByAddr = true;
-			}
-			if (mGrapInfo.getmShowInfo().isbShowByUser()) {
-				// 受用户权限控制
-				showByUser = true;
-			}
-		}
+	
 				
 		//注册显现地址
 		if (showByAddr) {
 			ADDRTYPE addrType = mGrapInfo.getmShowInfo().geteAddrType();
 			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(mGrapInfo.getmShowInfo().getShowAddrProp(), showCall,true);
+				SKPlcNoticThread.getInstance().addNoticProp(mGrapInfo.getmShowInfo().getShowAddrProp(), showCall,true,nSceneId);
 			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(mGrapInfo.getmShowInfo().getShowAddrProp(), showCall,false);
+				SKPlcNoticThread.getInstance().addNoticProp(mGrapInfo.getmShowInfo().getShowAddrProp(), showCall,false,nSceneId);
 			}
 
 		}
@@ -157,13 +161,13 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 			//源范围-最小值
 			if (mGrapInfo.getmMinAddrProp()!=null) {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						mGrapInfo.getmMinAddrProp(), minCall, false);
+						mGrapInfo.getmMinAddrProp(), minCall, false,nSceneId);
 			}
 			
 			//源范围-最大值
 			if (mGrapInfo.getmMaxAddrProp()!=null) {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						mGrapInfo.getmMaxAddrProp(), maxCall, false);
+						mGrapInfo.getmMaxAddrProp(), maxCall, false,nSceneId);
 			}
 		}
 		
@@ -174,12 +178,12 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 			if (mGrapInfo.getnType()==1) {
 				if (mGrapInfo.getmAlarmMinAddr()!=null) {
 					SKPlcNoticThread.getInstance().addNoticProp(
-							mGrapInfo.getmAlarmMinAddr(), alarmMinCall, false);
+							mGrapInfo.getmAlarmMinAddr(), alarmMinCall, false,nSceneId);
 				}
 				
 				if (mGrapInfo.getmAlarmMaxAddr()!=null) {
 					SKPlcNoticThread.getInstance().addNoticProp(
-							mGrapInfo.getmAlarmMaxAddr(), alarmMaxCall, false);
+							mGrapInfo.getmAlarmMaxAddr(), alarmMaxCall, false,nSceneId);
 				}
 			}
 		}
@@ -187,32 +191,10 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 		// 注册监视地址
 		if (mGrapInfo.getmAddress() != null) {
 			SKPlcNoticThread.getInstance().addNoticProp(
-					mGrapInfo.getmAddress(), watchCall, false);
+					mGrapInfo.getmAddress(), watchCall, false,nSceneId);
 		}
 		
-		SKSceneManage.getInstance().onRefresh(items);
 	}
-	
-	/**
-	 * 后台线程
-	 */
-	SKThread.ICallback callback=new SKThread.ICallback() {
-		
-		@Override
-		public void onUpdate(Object msg, int taskId) {
-			
-		}
-		
-		@Override
-		public void onUpdate(int msg, int taskId) {
-
-		}
-		
-		@Override
-		public void onUpdate(String msg, int taskId) {
-			
-		}
-	};
 	
 	/**
 	 * 显现地址改变通知
@@ -237,7 +219,6 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 			
 			double value=getValue(nStatusValue);
 			nWatchValue=value;
-			//Log.d("SKScene", "nWatchValue:"+nWatchValue+",id:"+nItemId+",sid:"+nSceneId);
 			updateView(value);
 		}
 
@@ -383,9 +364,9 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 			//源范围
 			if(value<=sMin){
 				//源范围最大最小值相等
-				value=0;
+				//value=0;
 				if (value!=nStateValues) {
-					nStateValues=value;
+					nStateValues=0;
 					init=false;
 					//SKSceneManage.getInstance().onRefresh(items);
 				}
@@ -432,7 +413,7 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 	
 	/**
 	 * 控件是否可以显现
-	 */
+	 */ 
 	private void itemIsShow() {
 		if (showByAddr || showByUser) {
 			show = popedomIsShow(mGrapInfo.getmShowInfo());
@@ -441,18 +422,7 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 	
 	@Override
 	public void realseMemeory() {
-		SKThread.getInstance().getBinder().onDestroy(callback, sTaskName);
-		SKPlcNoticThread.getInstance().destoryCallback(alarmMaxCall);
-		SKPlcNoticThread.getInstance().destoryCallback(alarmMinCall);
-		SKPlcNoticThread.getInstance().destoryCallback(maxCall);
-		SKPlcNoticThread.getInstance().destoryCallback(minCall);
-		SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		SKPlcNoticThread.getInstance().destoryCallback(watchCall);
 		
-		//nStateValues=0;
-		sTaskName="";
-		init=true;
-		alarm=false;
 	}
 
 	@Override
@@ -462,6 +432,403 @@ public class SKGraph extends SKGraphCmnShow implements ITimerUpdate {
 
 	@Override
 	public void setDataToDatabase() {
+
+	}
+	/**
+	 * 获取控件属性接口
+	 */
+
+	@Override
+	public IItem getIItem() {
+		// TODO Auto-generated method stub
+		return this;
+	}
+
+	@Override
+	public int getItemLeft(int id) {
+		// TODO Auto-generated method stub
+		if(mGrapInfo!=null){
+			return mGrapInfo.getnLeftTopX();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO Auto-generated method stub
+		if(mGrapInfo!=null){
+			return mGrapInfo.getnLeftTopY();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO Auto-generated method stub
+		if(mGrapInfo!=null){
+			return mGrapInfo.getnWidth();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO Auto-generated method stub
+		if(mGrapInfo!=null){
+			return mGrapInfo.getnHeigth();
+		}
+		return -1;
+	}
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO Auto-generated method stub
+		if (mGrapInfo!=null) {
+			return getColor(mGrapInfo.getnDesignColor());
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO Auto-generated method stub
+		if(mGrapInfo!=null){
+			return getColor(mGrapInfo.getnBackColor());
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO Auto-generated method stub
+		return show;
+	}
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO Auto-generated method stub
+		if (mGrapInfo!= null) {
+			if (x == mGrapInfo.getnLeftTopX()) {
+				return true;
+			}
+			if (x < 0
+					|| x > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			int len=x-mGrapInfo.getnLeftTopX();
+			
+			if (mGrapInfo.geteGraphType()==GRAPH_TYPE.COMMON) {
+				/*普通图形*/
+				
+				//控件所在位置
+				mGrapInfo.setnLeftTopX((short) x);
+				//显示位置
+				mGrapInfo.setnShowLeftTopX((short)(mGrapInfo.getnShowLeftTopX()+len));
+				//刻度显示位置
+				if (mGrapInfo.isHasRuler()) {
+					mGrapInfo.setnRulerLeftTopX((short)(mGrapInfo.getnRulerLeftTopX()+len));
+				}
+			}else if (mGrapInfo.geteGraphType()==GRAPH_TYPE.METER) {
+				/*仪表*/
+				
+				//控件所在位置
+				mGrapInfo.setnLeftTopX((short) x);
+				//显示位置
+				mGrapInfo.setnShowLeftTopX((short)(mGrapInfo.getnShowLeftTopX()+len));
+			}
+			
+			items.rect.left=items.rect.left+len;
+			items.rect.right=items.rect.right+len;
+			items.mMoveRect = new Rect();
+			init=true;
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO Auto-generated method stub
+		if (mGrapInfo!= null) {
+			if (y == mGrapInfo.getnLeftTopY()) {
+				return true;
+			}
+			if (y < 0
+					|| y > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			int len=y-mGrapInfo.getnLeftTopY();
+			if (mGrapInfo.geteGraphType()==GRAPH_TYPE.COMMON){
+				/*普通图形*/
+				//控件所在位置
+				mGrapInfo.setnLeftTopY((short) y);
+				//显示位置
+				mGrapInfo.setnShowLeftTopY((short)(mGrapInfo.getnShowLeftTopY()+len));
+				//刻度显示位置
+				if (mGrapInfo.isHasRuler()) {
+					mGrapInfo.setnRulerLeftTopY((short)(mGrapInfo.getnRulerLeftTopY()+len));
+				}
+			}else if (mGrapInfo.geteGraphType()==GRAPH_TYPE.METER) {
+				/*仪表*/
+				//控件所在位置
+				mGrapInfo.setnLeftTopY((short) y);
+				//显示位置
+				mGrapInfo.setnShowLeftTopY((short)(mGrapInfo.getnShowLeftTopY()+len));
+			}
+			items.rect.top = items.rect.top+len;
+			items.rect.bottom = items.rect.bottom+len;
+			items.mMoveRect = new Rect();
+			init=true;
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO Auto-generated method stub
+		if (mGrapInfo!= null) {
+			if (w == mGrapInfo.getnWidth()) {
+				return true;
+			}
+			if (w < 0
+					|| w > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			int len=w-mGrapInfo.getnWidth();
+			int l=len;
+			//控件所在位置
+			mGrapInfo.setnWidth((short)w);
+			if (mGrapInfo.geteGraphType()==GRAPH_TYPE.COMMON){
+				/*普通图形*/
+				if (mGrapInfo.isHasRuler()) {
+					if (mGrapInfo.geteDirection()==DIRECTION.TOWARD_TOP||
+							mGrapInfo.geteDirection()==DIRECTION.TOWARD_BOTTOM) {
+						l=l/2;
+						mGrapInfo.setnShowLeftTopX((short)(mGrapInfo.getnShowLeftTopX()+l));
+					}
+				}
+				//显示位置
+				mGrapInfo.setnShowWidth((short)(mGrapInfo.getnShowWidth()+l));
+				//刻度显示位置
+				if (mGrapInfo.isHasRuler()) {
+					mGrapInfo.setnRulerWidth((short)(mGrapInfo.getnRulerWidth()+l));
+				}
+			}else if (mGrapInfo.geteGraphType()==GRAPH_TYPE.METER) {
+				/*仪表*/
+				float temp=len/(mGrapInfo.getnShowWidth()+mGrapInfo.getnRulerWidth());
+				Log.d("SKGraph", "widht temp="+temp+",len="+len+",show width="+mGrapInfo.getnShowWidth()+",ruler width="+mGrapInfo.getnRulerWidth());
+				//显示位置
+				mGrapInfo.setnShowWidth((short)(mGrapInfo.getnShowWidth()*(1+temp)));
+				//刻度显示位置
+				if (mGrapInfo.isHasRuler()) {
+					mGrapInfo.setnRulerWidth((short)(mGrapInfo.getnRulerWidth()*(1+temp)));
+				}
+			}
+			
+			items.rect.right = len + items.rect.right;
+			items.mMoveRect = new Rect();
+			init=true;
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO Auto-generated method stub
+		if (mGrapInfo!= null) {
+			if (h == mGrapInfo.getnHeigth()) {
+				return true;
+			}
+			if (h < 0
+					|| h > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			int len=h-mGrapInfo.getnHeigth();
+			int l=len;
+			//控件所在位置
+			mGrapInfo.setnHeigth((short) h);
+			if (mGrapInfo.geteGraphType()==GRAPH_TYPE.COMMON){
+				/*普通图形*/
+				
+				if (mGrapInfo.isHasRuler()) {
+					if (mGrapInfo.isHasRuler()) {
+						if (mGrapInfo.geteDirection()==DIRECTION.TOWARD_LEFT||
+								mGrapInfo.geteDirection()==DIRECTION.TOWARD_RIGHT) {
+							l=l/2;
+							mGrapInfo.setnShowLeftTopY((short)(mGrapInfo.getnShowLeftTopY()+l));
+						}
+					}
+				}
+				//显示位置
+				mGrapInfo.setnShowHigth((short)(mGrapInfo.getnShowHigth()+l));
+				//刻度显示位置
+				if (mGrapInfo.isHasRuler()) {
+					mGrapInfo.setnRulerHigth((short)(mGrapInfo.getnRulerHigth()+l));
+				}
+				
+			}else if (mGrapInfo.geteGraphType()==GRAPH_TYPE.METER) {
+				/*仪表*/
+				float temp=len/(mGrapInfo.getnShowHigth()+mGrapInfo.getnRulerHigth());
+				Log.d("SKGraph", "height temp="+temp);
+				//显示位置
+				mGrapInfo.setnShowHigth((short)(mGrapInfo.getnShowHigth()*(1+temp)));
+				//刻度显示位置
+				if (mGrapInfo.isHasRuler()) {
+					mGrapInfo.setnRulerHigth((short)(mGrapInfo.getnRulerHigth()*(1+temp)));
+				}
+			}
+			
+			items.rect.bottom = len + items.rect.bottom;
+			items.mMoveRect = new Rect();
+			init=true;
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (mGrapInfo==null) {
+			return false;
+		}
+		int color=Color.rgb(r, g, b);
+		if (mGrapInfo.getnDesignColor()==color) {
+			return true;
+		}
+		mGrapInfo.setnDesignColor(color);
+		init=true;
+		return true;
+	}
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		
+		if (mGrapInfo==null) {
+			return false;
+		}
+		int color=Color.rgb(r, g, b);
+		if (mGrapInfo.getnBackColor()==color) {
+			return true;
+		}
+		init=true;
+		mGrapInfo.setnBackColor(color);
+		return true;
+	}
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if(v==show){
+			return true;
+		}
+		show=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO Auto-generated method stub nPointerType
+		return false;
+	}
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+	
+	/**
+	 * 颜色取反
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
 
 	}
 }

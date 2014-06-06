@@ -61,10 +61,20 @@ public class EllipseItem extends SquareItem {
 				initFill(paint, OVal_SHAPE);
 				canvas.drawOval(rectf, paint);
 				// 初始化椭圆的边框
-				if (0 != getLineWidth()) {
+				if (0 != getLineWidth() && getLineType() != LINE_TYPE.NO_PEN) {
 					paint.reset();
 					initStork(paint);
+					float temp = getLineWidth() /2;
+					if(getLineWidth() == 1)
+					{
+						temp = 1;
+					}
+						rectf.left = rectf.left +temp;
+						rectf.top = rectf.top +temp;
+						rectf.right = rectf.right - temp;
+						rectf.bottom = rectf.bottom  - temp;
 					canvas.drawOval(rectf, paint);
+					
 				}
 
 				// 将rectf置空

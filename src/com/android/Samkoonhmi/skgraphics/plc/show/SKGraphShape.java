@@ -13,6 +13,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Xfermode;
+import android.util.Log;
 
 import com.android.Samkoonhmi.graphicsdrawframe.ArcRulerItem;
 import com.android.Samkoonhmi.graphicsdrawframe.ArcRulerItem.ArcType;
@@ -20,6 +21,7 @@ import com.android.Samkoonhmi.graphicsdrawframe.RectItem;
 import com.android.Samkoonhmi.graphicsdrawframe.RulerItem;
 import com.android.Samkoonhmi.model.CommonGraphInfo;
 import com.android.Samkoonhmi.model.GraphBaseInfo;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.StatisticsGraphInfo;
 import com.android.Samkoonhmi.skenum.CSS_TYPE;
 import com.android.Samkoonhmi.skenum.Direction.DIRECTION;
@@ -43,7 +45,6 @@ public class SKGraphShape {
 	private Paint mPaint;
 	private Bitmap mBitmap = null;
 	private Canvas mCanvas;
-	private Canvas canvas = null;
 	private boolean reset;
 	private Rect pRect;
 	private boolean alram;
@@ -65,19 +66,18 @@ public class SKGraphShape {
 	 * @param status,plc 实时状态值
 	 * @param alram-true 报警
 	 */
-	public void drawShape(boolean init, float status, Canvas canvas,boolean alram) {
-		this.canvas = canvas;
+	public synchronized void drawShape(boolean init, float status, Canvas canvas,boolean alram) {
 		this.alram=alram;
 		if (mGraphInfo != null) {
 			switch (mGraphInfo.geteGraphType()) {
 			case COMMON: // 普通
-				commonGraph((CommonGraphInfo) mGraphInfo, init, status);
+				commonGraph((CommonGraphInfo) mGraphInfo, init, status,canvas);
 				break;
 			case STATISTICS: // 统计
 				//statisticsGraph((StatisticsGraphInfo) mGraphInfo, init,(int)status);
 				break;
 			case METER: // 仪表
-				meterGraph(mGraphInfo, init, status);
+				meterGraph(mGraphInfo, init, status,canvas);
 				break;
 			}
 		}
@@ -88,19 +88,19 @@ public class SKGraphShape {
 	 * @param init,是否初始化,true-初始化,false-状态更新
 	 * @param status,plc 实时状态值
 	 */
-	private void commonGraph(CommonGraphInfo info, boolean init, float status) {
+	private void commonGraph(CommonGraphInfo info, boolean init, float status,Canvas canvas) {
 		switch (info.geteShapeType()) {
 		case PILLA: // 柱状图
-			drawPillaShape(info, init, status);
+			drawPillaShape(info, init, status,canvas);
 			break;
 		case CIRCLE: // 圆
-			drawCircleShape(info, init, status);
+			drawCircleShape(info, init, status,canvas);
 			break;
 		case SECTOR: // 半圆
-			drawSectorShape(info, init, status);
+			drawSectorShape(info, init, status,canvas);
 			break;
 		case GROOVE: // 槽
-			drawGrooveShape(info, init, status);
+			drawGrooveShape(info, init, status,canvas);
 			break;
 		}
 	}
@@ -130,8 +130,8 @@ public class SKGraphShape {
 	 * @param init,是否初始化,true-初始化,false-状态更新
 	 * @param status,plc 实时状态值
 	 */
-	private void meterGraph(GraphBaseInfo info, boolean init, float status) {
-		drawMeterShare(info, init, status);
+	private void meterGraph(GraphBaseInfo info, boolean init, float status,Canvas canvas) {
+		drawMeterShare(info, init, status,canvas);
 	}
 
 	/**
@@ -199,13 +199,15 @@ public class SKGraphShape {
 	private DIRECTION rDir;
 	private boolean draw;
 	private int nRulerDir;
-	private void drawPillaShape(CommonGraphInfo info, boolean init, float status) {
+	private int nPreState;
+	private void drawPillaShape(CommonGraphInfo info, boolean init, float status,Canvas canvas) {
 
 		// 动态数据显示位置，左上右下
 		int mLeft = 0, mTop = 0, mRight = 0, mBottom = 0;
 
 		if (init) {
 			
+			nPreState=0;
 			// 背景
 			resetPillShape(info);
 			if (mRect==null) {
@@ -220,21 +222,13 @@ public class SKGraphShape {
 			if (dItem==null) {
 				dItem = new RectItem(dRect);
 			}
-			if (rItem==null) {
-				rItem = new RulerItem(null);
-			}
+			
+			rItem = new RulerItem(null);
 
 			mRect.set(info.getnShowLeftTopX(), info.getnShowLeftTopY(),
 					info.getnShowLeftTopX() + info.getnShowWidth(),
 					info.getnShowLeftTopY() + info.getnShowHigth());
 
-			// 是否有边框
-//			if (info.isHasFrame()) {
-//				sItem.setLineWidth(1);
-//				sItem.setLineColor(Color.TRANSPARENT);
-//			} else {
-//				sItem.setLineWidth(0);
-//			}
 			sItem.setLineWidth(0);
 			
 			// 动态区域背景
@@ -283,89 +277,98 @@ public class SKGraphShape {
 			}
 		}
 		
-		// 动态显示区域背景
-	    sItem.draw(mPaint, canvas);
-
 	    double temp=1;
 		draw=true;
 		// 实时动态数据-plc
 		switch (info.geteDirection()) {
 		case TOWARD_LEFT: // 向左
-			temp =(double) (info.getnShowWidth() - 4*nLinePadding)
+			temp =(double) (info.getnShowWidth())
 					/ (info.getnShowMax() - info.getnShowMin());// 显示范围与宽度
 			if (status==1&&temp<1) {
 				status=1;
 			}else{
 				status=(int)(temp*status);
 			}
-			mRight = info.getnShowLeftTopX() + info.getnShowWidth() - 2*nLinePadding;
+			mRight = info.getnShowLeftTopX() + info.getnShowWidth();
 			mLeft = (int)(mRight - status);
-			mBottom = info.getnShowLeftTopY() + info.getnShowHigth() - 2*nLinePadding;
-			mTop = info.getnShowLeftTopY() + 2*nLinePadding;
+			mBottom = info.getnShowLeftTopY() + info.getnShowHigth();
+			mTop = info.getnShowLeftTopY();
 			if (mRight-mLeft<=0) {
 				draw=false;
 			}
+			mRect.right=info.getnShowLeftTopX() + info.getnShowWidth()-(mRight-mLeft);
 			break;
 		case TOWARD_RIGHT: // 向右
-			temp = (double) (info.getnShowWidth() - 4*nLinePadding)
+			temp = (double) (info.getnShowWidth())
 					/ (info.getnShowMax() - info.getnShowMin());// 显示范围与宽度
 			if (status==1&&temp<1) {
 				status=1;
 			}else{
 				status=(int)(temp*status);
 			}
-			mLeft = info.getnShowLeftTopX() + 2*nLinePadding;
-			mTop = info.getnShowLeftTopY() + 2*nLinePadding;
-			mRight = (int)(info.getnShowLeftTopX() + status+2*nLinePadding);
-			mBottom = info.getnShowLeftTopY() + info.getnShowHigth() - 2*nLinePadding;
+			mLeft = info.getnShowLeftTopX();
+			mTop = info.getnShowLeftTopY();
+			mRight = (int)(info.getnShowLeftTopX() + status);
+			mBottom = info.getnShowLeftTopY() + info.getnShowHigth();
 			if (mRight-mLeft<=0) {
 				draw=false;
 			}
+			mRect.left=info.getnShowLeftTopX()+mRight-mLeft;
 			break;
 		case TOWARD_TOP: // 向上
-			temp = (double) (info.getnShowHigth() - 4*nLinePadding)
+			temp = (double) (info.getnShowHigth())
 					/ (info.getnShowMax() - info.getnShowMin());// 显示范围与高度
 			if (status==1&&temp<1) {
 				status=1;
 			}else{
 				status=(int)(temp*status);
 			}
-			mLeft = info.getnShowLeftTopX() + 2 * nLinePadding;
-			mRight = info.getnShowLeftTopX() + info.getnShowWidth() - 2
-					* nLinePadding;
-			mBottom = info.getnShowLeftTopY() + info.getnShowHigth() - 2*nLinePadding;
+			mLeft = info.getnShowLeftTopX();
+			mRight = info.getnShowLeftTopX() + info.getnShowWidth();
+			mBottom = info.getnShowLeftTopY() + info.getnShowHigth();
 			mTop =(int)(mBottom - status);
 			if (mBottom-mTop<=0) {
 				draw=false;
 			}
+			mRect.bottom=info.getnShowLeftTopY() + info.getnShowHigth()-(mBottom-mTop);
 			break;
 		case TOWARD_BOTTOM: // 向下
-			temp = (double) (info.getnShowHigth() - 4*nLinePadding)
+			temp = (double) (info.getnShowHigth())
 					/ (info.getnShowMax() - info.getnShowMin());// 显示范围与高度
 			if (status==1&&temp<1) {
 				status=1;
 			}else {
 				status=(int)(temp*status);
 			}
-			mLeft = info.getnShowLeftTopX() + 2*nLinePadding;
-			mRight = info.getnShowLeftTopX() + info.getnShowWidth() - 2*nLinePadding;
-			mTop = info.getnShowLeftTopY() + 2*nLinePadding;
+			mLeft = info.getnShowLeftTopX();
+			mRight = info.getnShowLeftTopX() + info.getnShowWidth();
+			mTop = info.getnShowLeftTopY();
 			mBottom = (int)(mTop + status);
 			if (mBottom-mTop<=0) {
 				draw=false;
 			}
+			mRect.top=info.getnShowLeftTopY() +mBottom-mTop;
 			break;
 		}
+		
+		// 动态显示区域背景
+	    sItem.draw(mPaint, canvas);
 
 		if (draw) {
 			dRect.set(mLeft, mTop, mRight, mBottom);
 			// 画实时数据
 			if (alram) {
-				dItem.setBackColor(info.getnAlarmTextColor());
-				dItem.setStyle(CSS_TYPE.CSS_SOLIDCOLOR);
+				if (nPreState==0) {
+					nPreState=1;
+					dItem.setBackColor(info.getnAlarmTextColor());
+					dItem.setStyle(CSS_TYPE.CSS_SOLIDCOLOR);
+				}
 			}else {
-				dItem.setBackColor(info.getnTextColor());
-				dItem.setStyle(IntToEnum.getCssType(info.getnDesign()));
+				if (nPreState==1||IntToEnum.getCssType(info.getnDesign())!=CSS_TYPE.CSS_SOLIDCOLOR) {
+					nPreState=0;
+					dItem.setBackColor(info.getnTextColor());
+					dItem.setStyle(IntToEnum.getCssType(info.getnDesign()));
+				}
 			}
 			dItem.draw(mPaint, canvas);
 		}
@@ -408,7 +411,7 @@ public class SKGraphShape {
 	 * @param init--是否是初始化,true-初始化
 	 * @param status--plc 数据
 	 */
-	private void drawCircleShape(CommonGraphInfo info, boolean init, float status) {
+	private void drawCircleShape(CommonGraphInfo info, boolean init, float status,Canvas canvas) {
 		// 初始化
 		if (init ) {
 			if (mBitmap == null) {
@@ -464,7 +467,7 @@ public class SKGraphShape {
 			arcFItem.setUseCenter(true);
 			arcFItem.setForeColor(info.getnDesignColor());
 			arcFItem.setStyle(IntToEnum.getCssType(info.getnDesign()));
-			arcFItem.setnMin(info.getnShowMin());
+ 			arcFItem.setnMin(info.getnShowMin());
 			arcFItem.setnMax(info.getnShowMax());
 			arcFItem.setbShowRuleValue(info.isbShowRuleValue());
 			arcFItem.setnValueWidth(getValueWidth(info));
@@ -507,7 +510,7 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
 			}
 		}
 		
@@ -562,7 +565,7 @@ public class SKGraphShape {
 	 * @param status--plc 数据
 	 */
 	private RectF bgRectF;
-	private void drawSectorShape(CommonGraphInfo info, boolean init, float status) {
+	private void drawSectorShape(CommonGraphInfo info, boolean init, float status,Canvas canvas) {
 		
 		startAngle = 180;
 		sweepAngle = 180;
@@ -647,7 +650,7 @@ public class SKGraphShape {
 					mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 				}
 				if (mBgBitmap!=null) {
-					this.canvas.drawBitmap(mBgBitmap, null, bgRectF, mBitmapPaint);
+					canvas.drawBitmap(mBgBitmap, null, bgRectF, mBitmapPaint);
 				}
 			}
 		}
@@ -677,7 +680,7 @@ public class SKGraphShape {
 	 * @param init--是否是初始化,true-初始化
 	 * @param status--plc 数据
 	 */
-	private void drawGrooveShape(CommonGraphInfo info, boolean init, float status) {
+	private void drawGrooveShape(CommonGraphInfo info, boolean init, float status,Canvas canvas) {
 		if (info.getnShapeId() != 0) {
 			
 			if (info.getnShapeId()>54) {
@@ -698,7 +701,7 @@ public class SKGraphShape {
 				mCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
 			}
 
-			drawGroove(info, mCanvas, status, init);
+			drawGroove(info, mCanvas,canvas, status, init);
 			
 			//边框
 			if (mFrameBitmap!=null) {
@@ -783,7 +786,7 @@ public class SKGraphShape {
 	private int nPointerDegrees;
 	private int nDegrees;// 可转动角度
 	private Xfermode xMode=new PorterDuffXfermode(PorterDuff.Mode.CLEAR);
-	private void drawMeterShare(GraphBaseInfo info, boolean init, float param) {
+	private void drawMeterShare(GraphBaseInfo info, boolean init, float param,Canvas canvas) {
 		
 		nWidth = info.getnWidth();
 		nHeight = info.getnHeigth();
@@ -791,8 +794,9 @@ public class SKGraphShape {
 				+ ((float)info.getnShowWidth()) / 2;
 		nCenterY = info.getnShowLeftTopY() - info.getnLeftTopY()
 				+ ((float)info.getnShowHigth()) / 2;
-
-		if (mBitmap == null) {
+		
+		Log.d(TAG, "nWidth ="+nWidth+",nHeight ="+nHeight+",nCenterX ="+nCenterX+",nCenterY ="+nCenterY);
+		if (mBitmap == null||init) {
 			mBitmap = Bitmap.createBitmap(nWidth, nHeight, Config.ARGB_8888);
 			mCanvas = new Canvas(mBitmap);
 		}
@@ -811,9 +815,7 @@ public class SKGraphShape {
 					info.getnShowLeftTopX() - info.getnLeftTopX()
 							+ info.getnShowWidth(), info.getnShowLeftTopY()
 							- info.getnLeftTopY() + info.getnShowHigth());
-			if (mItem == null) {
-				mItem = new ArcRulerItem(mRectF);
-			}
+			mItem = new ArcRulerItem(mRectF);
 
 			switch (info.getnShapeId()) {
 			case 1:
@@ -1213,7 +1215,8 @@ public class SKGraphShape {
 	/**
 	 * 槽状图
 	 * @param info--普通图表对象
-	 * @param canvas--带Bitmap
+	 * @param bCanvas--带Bitmap
+	 * @param sCanvas--画面
 	 * @param shapeId
 	 *            1-水瓶形,2-梯六边形,3-梯五边形 4-三角形,5-正六边形,6-正五边形 7-椭圆 ,8-圆梯形 ,9-梯形
 	 *            10-圆底烧瓶,11-正四边形
@@ -1242,7 +1245,7 @@ public class SKGraphShape {
 	private boolean isShader;
 	private Bitmap mFrameBitmap;
 	private Canvas mFrameCanvas;
-	private void drawGroove(CommonGraphInfo info, Canvas canvas, float status,
+	private void drawGroove(CommonGraphInfo info, Canvas bCanvas,Canvas sCanvas, float status,
 			boolean init) {
 
 		mPaint.reset();
@@ -1281,37 +1284,37 @@ public class SKGraphShape {
 		int shapeId = info.getnShapeId();
 		switch (info.getnShapeId()) {
 		case 1: // 水瓶
-			grooveOne(info, canvas, shapeId, eDir, status, init);
+			grooveOne(info, bCanvas,sCanvas, shapeId, eDir, status, init);
 			break;
 		case 2: // 梯六边形
-			grooveTwo(info, canvas, shapeId, eDir, status, init);
+			grooveTwo(info, bCanvas,sCanvas, shapeId, eDir, status, init);
 			break;
 		case 3: // 梯五边形
-			grooveThree(info, canvas, shapeId, eDir, status, init);
+			grooveThree(info, bCanvas,sCanvas, shapeId, eDir, status, init);
 			break;
 		case 4: // 三角形
-			grooveFour(info, canvas, shapeId, eDir, status, init);
+			grooveFour(info, bCanvas,sCanvas, shapeId, eDir, status, init);
 			break;
 		case 5: // 正八边形
-			grooveFive(info, canvas, shapeId, eDir, status, init);
+			grooveFive(info, bCanvas,sCanvas, shapeId, eDir, status, init);
 			break;
 		case 6: // 正六边形
-			grooveSix(info, canvas, shapeId, eDir, status, init);
+			grooveSix(info, bCanvas,sCanvas, shapeId, eDir, status, init);
 			break;
 		case 7: // 椭圆
-			grooveSeven(info, canvas, shapeId, eDir, status, init);
+			grooveSeven(info, bCanvas,sCanvas, shapeId, eDir, status, init);
 			break;
 		case 8: // 圆梯形
-			grooveEight(info, canvas, shapeId, eDir, status, init);
+			grooveEight(info, bCanvas,sCanvas, shapeId, eDir, status, init);
 			break;
 		case 9: // 梯形
-			grooveNine(info, canvas, shapeId, eDir, status, init);
+			grooveNine(info, bCanvas,sCanvas, shapeId, eDir, status, init);
 			break;
 		case 10: // 圆底烧瓶
-			grooveTen(info, canvas, shapeId, eDir, status, init);
+			grooveTen(info, bCanvas,sCanvas, shapeId, eDir, status, init);
 			break;
 		case 11: // 正四边形
-			grooveEleven(info, canvas, shapeId, eDir, status, init);
+			grooveEleven(info, bCanvas,sCanvas, shapeId, eDir, status, init);
 			break;
 		}
 	}
@@ -1327,7 +1330,7 @@ public class SKGraphShape {
 	private DIRECTION eDecorientation;// 刻度整体方向
 	private static int nLinePadding = 1;
 	private float nSlope = 1;
-	private void grooveOne(CommonGraphInfo info, Canvas canvas, int shapeId,
+	private void grooveOne(CommonGraphInfo info, Canvas canvas,Canvas sCanvas, int shapeId,
 			DIRECTION eDir, float status, boolean init) {
 
 		eDecorientation = info.geteDirection();
@@ -1342,7 +1345,8 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());;
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				sCanvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				//this
 			}
 		}
 		
@@ -1532,14 +1536,14 @@ public class SKGraphShape {
 
 		// 画标尺
 		if (info.isHasRuler()) {
-			drawRuler(info);
+			drawRuler(info,sCanvas);
 		}
 	}
 
 	/**
 	 * 梯六边型
 	 */
-	private void grooveTwo(CommonGraphInfo info, Canvas canvas, int shapeId,
+	private void grooveTwo(CommonGraphInfo info, Canvas canvas,Canvas sCanvas, int shapeId,
 			DIRECTION eDir, float status, boolean init) {
 
 		eDecorientation = info.geteDirection();
@@ -1554,7 +1558,8 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				sCanvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				//
 			}
 		}
 		
@@ -1720,14 +1725,14 @@ public class SKGraphShape {
 
 		// 画标尺
 		if (info.isHasRuler()) {
-			drawRuler(info);
+			drawRuler(info,sCanvas);
 		}
 	}
 
 	/**
 	 * 梯五边形
 	 */
-	private void grooveThree(CommonGraphInfo info, Canvas canvas, int shapeId,
+	private void grooveThree(CommonGraphInfo info, Canvas canvas,Canvas sCanvas, int shapeId,
 			DIRECTION eDir, float status, boolean init) {
 
 		eDecorientation = info.geteDirection();
@@ -1763,7 +1768,8 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				sCanvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				//this
 			}
 		}
 		
@@ -1913,7 +1919,7 @@ public class SKGraphShape {
 
 		// 画标尺
 		if (info.isHasRuler()) {
-			drawRuler(info);
+			drawRuler(info,sCanvas);
 		}
 	}
 
@@ -1922,7 +1928,7 @@ public class SKGraphShape {
 	 */
 	private float inPadding=0;
 	private float inBPadding=0;
-	private void grooveFour(CommonGraphInfo info, Canvas canvas, int shapeId,
+	private void grooveFour(CommonGraphInfo info, Canvas canvas,Canvas sCanvas, int shapeId,
 			DIRECTION eDir, float status, boolean init) {
 
 		eDecorientation = info.geteDirection();
@@ -1960,7 +1966,8 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				sCanvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				//this
 			}
 		}
 		
@@ -2071,14 +2078,14 @@ public class SKGraphShape {
 		
 		// 画标尺
 		if (info.isHasRuler()) {
-			drawRuler(info);
+			drawRuler(info,sCanvas);
 		}
 	}
 
 	/**
 	 * 正八边形
 	 */
-	private void grooveFive(CommonGraphInfo info, Canvas canvas, int shapeId,
+	private void grooveFive(CommonGraphInfo info, Canvas canvas,Canvas sCanvas, int shapeId,
 			DIRECTION eDir, float status, boolean init) {
 
 		eDecorientation = info.geteDirection();
@@ -2093,7 +2100,8 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				sCanvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				//this
 			}
 		}
 
@@ -2247,14 +2255,14 @@ public class SKGraphShape {
 
 		// 画标尺
 		if (info.isHasRuler()) {
-			drawRuler(info);
+			drawRuler(info,sCanvas);
 		}
 	}
 
 	/**
 	 * 正六边形
 	 */
-	private void grooveSix(CommonGraphInfo info, Canvas canvas, int shapeId,
+	private void grooveSix(CommonGraphInfo info, Canvas canvas,Canvas sCanvas, int shapeId,
 			DIRECTION eDir, float status, boolean init) {
 
 		eDecorientation = info.geteDirection();
@@ -2268,7 +2276,8 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				sCanvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				//this
 			}
 		}
 		
@@ -2411,7 +2420,7 @@ public class SKGraphShape {
 		
 		// 画标尺
 		if (info.isHasRuler()) {
-			drawRuler(info);
+			drawRuler(info,sCanvas);
 		}
 
 	}
@@ -2420,7 +2429,7 @@ public class SKGraphShape {
 	 * 椭圆
 	 */
 	private RectF inRectF = null;
-	private void grooveSeven(CommonGraphInfo info, Canvas canvas, int shapeId,
+	private void grooveSeven(CommonGraphInfo info, Canvas canvas,Canvas sCanvas, int shapeId,
 			DIRECTION eDir, float status, boolean init) {
 
 		eDecorientation = info.geteDirection();
@@ -2435,7 +2444,8 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				sCanvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				//this
 			}
 		}
 		
@@ -2527,7 +2537,7 @@ public class SKGraphShape {
 
 		// 画标尺
 		if(info.isHasRuler()){
-			drawRuler(info);
+			drawRuler(info,sCanvas);
 		}
 	}
 
@@ -2535,7 +2545,7 @@ public class SKGraphShape {
 	 * 圆梯形
 	 */
 	private RectF dRectF = null;
-	private void grooveEight(CommonGraphInfo info, Canvas canvas, int shapeId,
+	private void grooveEight(CommonGraphInfo info, Canvas canvas,Canvas sCanvas, int shapeId,
 			DIRECTION eDir, float status, boolean init) {
 
 		eDecorientation = info.geteDirection();
@@ -2550,7 +2560,8 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				sCanvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				//this
 			}
 		}
 		
@@ -2731,14 +2742,14 @@ public class SKGraphShape {
 
 		// 画标尺
 		if(info.isHasRuler()){
-			drawRuler(info);
+			drawRuler(info,sCanvas);
 		}
 	}
 
 	/**
 	 * 梯形
 	 */
-	private void grooveNine(CommonGraphInfo info, Canvas canvas, int shapeId,
+	private void grooveNine(CommonGraphInfo info, Canvas canvas,Canvas sCanvas, int shapeId,
 			DIRECTION eDir, float status, boolean init) {
 
 		eDecorientation = info.geteDirection();
@@ -2753,13 +2764,14 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				sCanvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				//this
 			}
 		}
 		
 		// 画标尺
 		if(info.isHasRuler()){
-			drawRuler(info);
+			drawRuler(info,sCanvas);
 		}
 
 		if (init) {
@@ -2900,7 +2912,7 @@ public class SKGraphShape {
 	/**
 	 * 圆底烧瓶
 	 */
-	private void grooveTen(CommonGraphInfo info, Canvas canvas, int shapeId,
+	private void grooveTen(CommonGraphInfo info, Canvas canvas,Canvas sCanvas, int shapeId,
 			DIRECTION eDir, float status, boolean init) {
 
 		eDecorientation = info.geteDirection();
@@ -2915,7 +2927,8 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				sCanvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				//this
 			}
 		}
 		
@@ -3105,14 +3118,14 @@ public class SKGraphShape {
 		
 		// 画标尺
 		if(info.isHasRuler()){
-			drawRuler(info);
+			drawRuler(info,sCanvas);
 		}
 	}
 
 	/**
 	 * 正四边形
 	 */
-	private void grooveEleven(CommonGraphInfo info, Canvas canvas, int shapeId,
+	private void grooveEleven(CommonGraphInfo info, Canvas canvas,Canvas sCanvas, int shapeId,
 			DIRECTION eDir, float status, boolean init) {
 
 		eDecorientation = info.geteDirection();
@@ -3127,7 +3140,8 @@ public class SKGraphShape {
 				mBgBitmap=ImageFileTool.getBitmap(info.getsPic());
 			}
 			if (mBgBitmap!=null) {
-				this.canvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				sCanvas.drawBitmap(mBgBitmap, null, dstRectF, mBitmapPaint);
+				//this
 			}
 		}
 		
@@ -3237,7 +3251,7 @@ public class SKGraphShape {
 		
 		// 画标尺
 		if (info.isHasRuler()) {
-			drawRuler(info);
+			drawRuler(info,sCanvas);
 		}
 
 	}
@@ -3282,7 +3296,7 @@ public class SKGraphShape {
 	/**
 	 * 画标尺
 	 */
-	private void drawRuler(CommonGraphInfo info) {
+	private void drawRuler(CommonGraphInfo info,Canvas canvas) {
 		if (info.isHasRuler()&&info.isbShowRuleValue()) {
 			// 刻度
 			if (reset) {

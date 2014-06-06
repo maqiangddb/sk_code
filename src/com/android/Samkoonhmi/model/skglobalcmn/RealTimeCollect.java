@@ -28,7 +28,7 @@ public class RealTimeCollect {
 	private boolean bAddrCtlSamp ;
 
 	/*控制采样的地址*/
-	private AddrProp nCtlSampAddrId = null;
+	private AddrProp nCtlSampAddr = null;
 
 	/*开始的时（0-23）*/
 	private short nStartHour ;
@@ -69,13 +69,35 @@ public class RealTimeCollect {
 	/*最后一次控制地址的值*/
 	private boolean bOnValue = false;
 	
+	/*上升沿采集标识,需要采集的次数*/
+	private int nCollectCount;
+	
 	/**
 	 * 监视地址变化回调
 	 */
 	private ArrayList<CallbackItem> mCallbackItems=new ArrayList<CallbackItem>();
 	
+	//受控地址注册
+	private CallbackItem mCtlSampItem;
+
+	public CallbackItem getmCtlSampItem() {
+		return mCtlSampItem;
+	}
+
+	public void setmCtlSampItem(CallbackItem mCtlSampItem) {
+		this.mCtlSampItem = mCtlSampItem;
+	}
+
 	//需要重新注册
 	private boolean bResetCallback;
+	
+	public int getnCollectCount() {
+		return nCollectCount;
+	}
+
+	public void setnCollectCount(int nCollectCount) {
+		this.nCollectCount = nCollectCount;
+	}
 	
 	public boolean isbResetCallback() {
 		return bResetCallback;
@@ -125,12 +147,12 @@ public class RealTimeCollect {
 		this.bAddrCtlSamp = bAddrCtlSamp;
 	}
 
-	public AddrProp getnCtlSampAddrId() {
-		return nCtlSampAddrId;
+	public AddrProp getnCtlSampAddr() {
+		return nCtlSampAddr;
 	}
 
-	public void setnCtlSampAddrId(AddrProp nCtlSampAddrId) {
-		this.nCtlSampAddrId = nCtlSampAddrId;
+	public void setnCtlSampAddr(AddrProp nCtlSampAddr) {
+		this.nCtlSampAddr = nCtlSampAddr;
 	}
 
 	public short getnStartHour() {

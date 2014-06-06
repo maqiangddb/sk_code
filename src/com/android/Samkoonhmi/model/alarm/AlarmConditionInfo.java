@@ -1,5 +1,9 @@
 package com.android.Samkoonhmi.model.alarm;
 
+import java.util.ArrayList;
+
+import android.R.integer;
+
 import com.android.Samkoonhmi.model.CallbackItem;
 import com.android.Samkoonhmi.skenum.ConditionType;
 import com.android.Samkoonhmi.skenum.DATA_TYPE;
@@ -39,9 +43,21 @@ public class AlarmConditionInfo {
 	//是否发送报警信息
 	private boolean bSendMsg ;
 	//接受报警信息的号码
-	private String mPhoneNum;
+	private ArrayList<String> mPhoneNum;
 	
 	private boolean bAddtoDB; // 报警信息 是否保存数据库
+	
+	// 打印的状态  不打印 打印， 打印 +1  打印日期+2  打印 时间 +4 
+	private int  nPrintState; 
+	
+	
+	public void setPrintState(int state){
+		nPrintState = state;
+	}
+	
+	public int getPrintState(){
+		return nPrintState;
+	}
 	
 	public void setbAddtoDB(boolean add){
 		bAddtoDB = add;
@@ -59,9 +75,18 @@ public class AlarmConditionInfo {
 	}
 	
 	public void setmPhoneNum(String phonenum){
-		mPhoneNum = phonenum;
+		if (phonenum==null||phonenum.equals("")) {
+			return;
+		}
+		mPhoneNum = new ArrayList<String>();
+		String [] nums = phonenum.split(";");
+		if (nums!=null) {
+			for(int i = 0; i < nums.length; i++){
+				mPhoneNum.add(nums[i]);
+			}
+		}
 	}
-	public String getPhoneNum(){
+	public ArrayList<String> getPhoneNum(){
 		return mPhoneNum;
 	}
 

@@ -3,13 +3,19 @@
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
+
+import javax.mail.internet.NewsAddress;
 
 import com.android.Samkoonhmi.skenum.DATE_FORMAT;
 import com.android.Samkoonhmi.skenum.TIME_FORMAT;
 import com.android.Samkoonhmi.skenum.WEEK_FORMAT;
 
 public class DateStringUtil {
+	
+	private static HashMap<DATE_FORMAT, SimpleDateFormat> dateMap = new HashMap<DATE_FORMAT, SimpleDateFormat>();
+	private static HashMap<TIME_FORMAT, SimpleDateFormat> timeMap = new HashMap<TIME_FORMAT, SimpleDateFormat>();
 	/**
 	 * 转换日期格式
 	 * 
@@ -19,39 +25,91 @@ public class DateStringUtil {
 		SimpleDateFormat simpleDate = null;
 		switch (dateType) {
 		case YYYYMMDD_SLASH:
-			simpleDate = new SimpleDateFormat("yyyy/MM/dd");
+			simpleDate = dateMap.get(DATE_FORMAT.YYYYMMDD_SLASH);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("yyyy/MM/dd");
+				dateMap.put(DATE_FORMAT.YYYYMMDD_SLASH, simpleDate);
+			}
 			break;
 		case YYYYMMDD_ACROSS:
-			simpleDate = new SimpleDateFormat("yyyy-MM-dd");
+			simpleDate = dateMap.get(DATE_FORMAT.YYYYMMDD_ACROSS);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("yyyy-MM-dd");
+				dateMap.put(DATE_FORMAT.YYYYMMDD_ACROSS, simpleDate);
+			}
 			break;
 		case YYYYMMDD_POINT:
-			simpleDate = new SimpleDateFormat("yyyy.MM.dd");
+			simpleDate = dateMap.get(DATE_FORMAT.YYYYMMDD_POINT);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("yyyy.MM.dd");
+				dateMap.put(DATE_FORMAT.YYYYMMDD_POINT, simpleDate);
+			}
 			break;
 		case MMDDYYYY_SLASH:
-			simpleDate = new SimpleDateFormat("MM/dd/yyyy");
+			simpleDate = dateMap.get(DATE_FORMAT.MMDDYYYY_SLASH);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("MM/dd/yyyy");
+				dateMap.put(DATE_FORMAT.MMDDYYYY_SLASH, simpleDate);
+			}
 			break;
 		case MMDDYYYY_POINT:
-			simpleDate = new SimpleDateFormat("MM.dd.yyyy");
+			simpleDate = dateMap.get(DATE_FORMAT.MMDDYYYY_POINT);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("MM.dd.yyyy");
+				dateMap.put(DATE_FORMAT.MMDDYYYY_POINT, simpleDate);
+			}
 			break;
 		case MMDDYYYY_ACROSS:
-			simpleDate = new SimpleDateFormat("MM-dd-yyyy");
+			simpleDate = dateMap.get(DATE_FORMAT.MMDDYYYY_ACROSS);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("MM-dd-yyyy");
+				dateMap.put(DATE_FORMAT.MMDDYYYY_ACROSS, simpleDate);
+			}
 			break;
 		case DDMMYYYY_SLASH:
-			simpleDate = new SimpleDateFormat("dd/MM/yyyy");
+			simpleDate = dateMap.get(DATE_FORMAT.DDMMYYYY_SLASH);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("dd/MM/yyyy");
+				dateMap.put(DATE_FORMAT.DDMMYYYY_SLASH, simpleDate);
+			}
 			break;
 		case DDMMYYYY_POINT:
-			simpleDate = new SimpleDateFormat("dd.MM.yyyy");
+			simpleDate = dateMap.get(DATE_FORMAT.DDMMYYYY_POINT);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("dd.MM.yyyy");
+				dateMap.put(DATE_FORMAT.DDMMYYYY_POINT, simpleDate);
+			}
 			break;
 		case DDMMYYYY_ACROSS:
-			simpleDate = new SimpleDateFormat("dd-MM-yyyy");
+			simpleDate = dateMap.get(DATE_FORMAT.DDMMYYYY_ACROSS);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("dd-MM-yyyy");
+				dateMap.put(DATE_FORMAT.DDMMYYYY_ACROSS, simpleDate);
+			}
 			break;
 		default:
-			simpleDate = new SimpleDateFormat("yyyy/MM/dd");
+			simpleDate = dateMap.get(DATE_FORMAT.YYYYMMDD_SLASH);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("yyyy/MM/dd");
+				dateMap.put(DATE_FORMAT.YYYYMMDD_SLASH, simpleDate);
+			}
 			break;
 		}
 		String dateSrt = simpleDate.format(date);
 		return dateSrt;
 	}
+	
+	
 
 	/**
 	 * 转换时间格式
@@ -62,19 +120,44 @@ public class DateStringUtil {
 		SimpleDateFormat simpleDate = null;
 		switch (timeType) {
 		case HHMM_COLON:
-			simpleDate = new SimpleDateFormat("HH:mm");
+			simpleDate = timeMap.get(TIME_FORMAT.HHMM_COLON);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("HH:mm");
+				timeMap.put(TIME_FORMAT.HHMM_COLON, simpleDate);
+			}
 			break;
 		case HHMMSS_COLON:
-			simpleDate = new SimpleDateFormat("HH:mm:ss");
+			simpleDate = timeMap.get(TIME_FORMAT.HHMMSS_COLON);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("HH:mm:ss");
+				timeMap.put(TIME_FORMAT.HHMMSS_COLON, simpleDate);
+			}
 			break;
 		case HHMM_ACROSS:
-			simpleDate = new SimpleDateFormat("HH-mm");
+			simpleDate = timeMap.get(TIME_FORMAT.HHMM_ACROSS);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("HH-mm");
+				timeMap.put(TIME_FORMAT.HHMM_ACROSS, simpleDate);
+			}
 			break;
 		case HHMMSS_ACROSS:
-			simpleDate = new SimpleDateFormat("HH-mm-ss");
+			simpleDate = timeMap.get(TIME_FORMAT.HHMMSS_ACROSS);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("HH-mm-ss");
+				timeMap.put(TIME_FORMAT.HHMMSS_ACROSS, simpleDate);
+			}
 			break;
 		default:
-			simpleDate = new SimpleDateFormat("HH:mm");
+			simpleDate = timeMap.get(TIME_FORMAT.HHMM_COLON);
+			
+			if (simpleDate == null) {
+				simpleDate = new SimpleDateFormat("HH:mm");
+				timeMap.put(TIME_FORMAT.HHMM_COLON, simpleDate);
+			}
 			break;
 		}
 		String time = simpleDate.format(date);

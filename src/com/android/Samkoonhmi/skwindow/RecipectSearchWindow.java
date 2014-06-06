@@ -1,11 +1,9 @@
 package com.android.Samkoonhmi.skwindow;
 
-import java.security.Policy.Parameters;
 import java.util.ArrayList;
 import java.util.List;
 
-import android.text.Editable;
-import android.text.TextWatcher;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -29,7 +27,6 @@ import com.android.Samkoonhmi.databaseinterface.DBTool;
 import com.android.Samkoonhmi.model.RecipeOprop;
 import com.android.Samkoonhmi.model.RecipectItemInfo;
 import com.android.Samkoonhmi.model.SystemInfo;
-import com.android.Samkoonhmi.model.skglobalcmn.RecipeDataProp.recipeOGprop;
 import com.android.Samkoonhmi.util.ParameterSet;
 
 public class RecipectSearchWindow implements OnClickListener {
@@ -185,6 +182,11 @@ public class RecipectSearchWindow implements OnClickListener {
 	 * 显示下拉窗口的位置
 	 */
 	public void showPopupWindow() {
+		if (!SKSceneManage.getInstance().isbWindowFocus()) {
+			//窗口未获取焦点
+			Log.e("AKPopupWindow", "no window forcus ...");
+			return ;
+		}
 		// 窗口显示时要加上的窗口标题栏的高度
 		popIsShow = true;
 		mPopupWindow.setFocusable(true);
@@ -204,7 +206,7 @@ public class RecipectSearchWindow implements OnClickListener {
 		if (v == setButton) {
 			// 设置当前配方
 			if (index == -1) {
-				Toast.makeText(SKSceneManage.getInstance().mContext, "请先选择配方",
+				Toast.makeText(SKSceneManage.getInstance().mContext, R.string.pleaseselect,
 						Toast.LENGTH_SHORT).show();
 
 				return;

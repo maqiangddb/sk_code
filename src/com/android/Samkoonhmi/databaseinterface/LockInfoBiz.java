@@ -4,22 +4,20 @@ import com.android.Samkoonhmi.model.LockInfo;
 import com.android.Samkoonhmi.skglobalcmn.SkGlobalData;
 import android.content.ContentValues;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.text.TextUtils;
+import android.util.Log;
 
 public class LockInfoBiz extends DataBase {
-	private static String CREATETABLE="Create TABLE[systemLockProp] (id integer PRIMARY KEY AUTOINCREMENT NOT NULL"
-	        +",bSystemLock String"
-			+",password String"
-	        +",info String"
+	private static String CREATETABLE="Create TABLE IF NOT EXISTS[systemLockProp] (id integer PRIMARY KEY AUTOINCREMENT NOT NULL"
+	        +",bSystemLock text"
+			+",password text"
+	        +",info text"
 	        +")";
-//	private static String DBPath="/data/system.dat";
 	
 	private static LockInfoBiz instance;
 	private SKDataBaseInterface db;
 	
 	public LockInfoBiz(){
-//		File mSddbFile = new File(DBPath);
 		db=SkGlobalData.getProjectDatabase();
 		checkDB();
 	}
@@ -39,17 +37,52 @@ public class LockInfoBiz extends DataBase {
 	 * 检查数据库是否打开
 	 */
 	private void checkDB(){
-		try{
-			db.getDatabaseBySql("select * from systemLockProp",null);
-		}catch(Exception e){
-			db.execSql(CREATETABLE);
+		db.execSql(CREATETABLE);
+	}
+	
+	/**
+	 * 更新锁屏数据
+	 * @param lock-是否锁屏
+	 * @param pw-锁屏密码
+	 * @param info-提示信息
+	 */
+	public void update(boolean lock,String pw,String info){
+		String isLock="";
+		if(lock){
+			isLock="true";
+		}else{
+			isLock="false";
+		}
+		
+		Cursor cursor = db.getDatabaseBySql("select * from systemLockProp",null);
+		if (null != cursor) {
+			if (cursor.moveToNext()) {
+				String sql="update systemLockProp set bSystemLock='"+isLock
+						+"',password='"+pw+"',info='"+info+"'";
+				db.execSql(sql);
+				cursor.close();
+				//Log.d("LockInfoBiz", "lock biz............");
+			}else {
+				ContentValues lockvalues = new ContentValues();
+				lockvalues.put("bSystemLock", isLock);//LOCK
+				lockvalues.put("password", pw);//psw
+				//lockvalues.put("stime", "100");//stime
+				lockvalues.put("info", info);//info
+				db.insertData("systemLockProp",lockvalues);
+			}
+		}else {
 			ContentValues lockvalues = new ContentValues();
-			lockvalues.put("bSystemLock", "false");//LOCK
-			lockvalues.put("password", "samkoon");//psw
-			lockvalues.put("stime", "100");//stime
-			lockvalues.put("info", "你的账号已过期，请输入验证码或购买权限");//info
+			lockvalues.put("bSystemLock", isLock);//LOCK
+			lockvalues.put("password", pw);//psw
+			//lockvalues.put("stime", "100");//stime
+			lockvalues.put("info", info);//info
 			db.insertData("systemLockProp",lockvalues);
 		}
+		
+		LockInfo.SetbIsLock(lock);
+		LockInfo.SetPassWord(pw);
+		LockInfo.SetInfo(info);
+		
 	}
 	
 	/**
@@ -57,6 +90,7 @@ public class LockInfoBiz extends DataBase {
 	 * @param lock
 	 */
 	public synchronized void SetbIsLock(boolean lock){
+		
 		if(LockInfo.GetbIsLock() == lock){
 			return;
 		}
@@ -99,11 +133,7 @@ public class LockInfoBiz extends DataBase {
 	 * @param password
 	 */
 	public synchronized void SetPassWord(String password){
-		if(!TextUtils.isEmpty(LockInfo.GetPassWord())){
-			if(LockInfo.GetPassWord().equals(password)){
-				return;
-			}
-		}
+		
 		//密码为空时默认密码
 		if(TextUtils.isEmpty(password)){
 			password="samkoon";

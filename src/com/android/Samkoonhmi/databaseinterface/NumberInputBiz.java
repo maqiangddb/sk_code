@@ -3,6 +3,8 @@ package com.android.Samkoonhmi.databaseinterface;
 import java.util.ArrayList;
 
 import android.database.Cursor;
+
+import com.android.Samkoonhmi.model.ExpressModel;
 import com.android.Samkoonhmi.model.NumberDisplayInfo;
 import com.android.Samkoonhmi.skenum.DATA_TYPE;
 import com.android.Samkoonhmi.skenum.INPUT_TYPE;
@@ -11,6 +13,7 @@ import com.android.Samkoonhmi.skenum.SHOWAREA;
 import com.android.Samkoonhmi.skenum.TEXT_PIC_ALIGN;
 import com.android.Samkoonhmi.skglobalcmn.SkGlobalData;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKKeyPopupWindow;
+import com.android.Samkoonhmi.util.AddrProp;
 
 /***
  * 数值输入显示器
@@ -27,12 +30,11 @@ public class NumberInputBiz extends DataBase {
 
 	/**
 	 * 查找数值输入显示对象
-	 * 
 	 * @return
 	 */
 	public ArrayList<NumberDisplayInfo> selectNumberDisplayInfo(int sid) {
 		ArrayList<NumberDisplayInfo> list = new ArrayList<NumberDisplayInfo>();
-		String id = "";
+		StringBuffer id = new StringBuffer();
 		boolean init = true;
 		if (null == db) {
 			db = SkGlobalData.getProjectDatabase();
@@ -86,29 +88,38 @@ public class NumberInputBiz extends DataBase {
 				
 				list.add(info);
 				if (init) {
-					id += " nItemId=" + info.getId();
+					id.append(" nItemId in(" + info.getId());
 					init = false;
 				} else {
-					id += " or nItemId=" + info.getId();
+					id.append("," + info.getId());
 				}
 			}
 		}
 		close(cursor);
-
+		
+		id.append(")");
+		String sId=id.toString();
 		NumberDisplayInfo info = null;
 		int nItemId = -1;
-		cursor = db.getDatabaseBySql("select * from  number where " + id, null);
+		cursor = db.getDatabaseBySql("select * from  number where " + sId, null);
+		int index=0;
+		
 		if (null != cursor) {
 			while (cursor.moveToNext()) {
 				if (nItemId != cursor.getInt(cursor.getColumnIndex("nItemId"))) {
 					nItemId = cursor.getInt(cursor.getColumnIndex("nItemId"));
-					for (int i = 0; i < list.size(); i++) {
-						if (list.get(i).getId() == nItemId) {
-							info = list.get(i);
-							break;
+					if (list.get(index).getId()==nItemId) {
+						info = list.get(index);
+					}else {
+						for (int i = 0; i < list.size(); i++) {
+							if (list.get(i).getId() == nItemId) {
+								info = list.get(i);
+								break;
+							}
 						}
-					}
 
+					}
+					index++;
 				}
 				info.setnAddress(AddrPropBiz.selectById(cursor.getInt(cursor
 						.getColumnIndex("nAddress"))));
@@ -231,7 +242,41 @@ public class NumberInputBiz extends DataBase {
 							cursor.getColumnIndex("bAutoChangeBit")).equals(
 							"true") ? true : false);
 				}
-
+				boolean inputIsShow = false;
+				if(null != cursor.getString(cursor.getColumnIndex("bInputIsShow"))){
+					 inputIsShow = cursor.getString(cursor.getColumnIndex("bInputIsShow")).equals("true") ? true
+							: false;
+					info.setInputIsShow(inputIsShow);
+				}
+				//输入地址跟显示地址不一致
+                if(!inputIsShow)
+                {
+            		int nInputAddrId=cursor.getInt(cursor.getColumnIndex("nInputAddr"));
+    				if (nInputAddrId>-1) {
+    					info.setInputAddr(AddrPropBiz.selectById(nInputAddrId));
+    				}	
+                }
+                //显示表达式
+                if(null!=cursor.getString(cursor.getColumnIndex("bShowExp"))){
+                	info.setbShowExp(cursor.getString(cursor.getColumnIndex("bShowExp")).equals("true")?true:false);
+                }
+                if(info.isbShowExp()){
+                	//如果选择了显示表达式
+                	int nExpId = cursor.getInt(cursor.getColumnIndex("nShowExpId"));
+                	ArrayList<ExpressModel> expInfo = DBTool.getInstance().getmExpressBiz().getExpressInfo(nExpId);
+                	info.setShowExpModel(expInfo);
+                }
+                
+                //输入表达式
+                if(null!=cursor.getString(cursor.getColumnIndex("bInputExp"))){
+                	info.setbInputExp(cursor.getString(cursor.getColumnIndex("bInputExp")).equals("true")?true:false);
+                }
+                if(info.isInputIsShow()){
+                	//如果选择了输入
+                	int nExpId = cursor.getInt(cursor.getColumnIndex("nInputExpId"));
+                	ArrayList<ExpressModel> expInfo = DBTool.getInstance().getmExpressBiz().getExpressInfo(nExpId);
+                	info.setInputExpModel(expInfo);
+                }
 			}
 			close(cursor);
 		}

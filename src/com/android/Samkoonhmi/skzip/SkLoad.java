@@ -15,6 +15,7 @@ import android.app.ActivityManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -61,15 +62,14 @@ public class SkLoad<name> {
 
 		File mAkzFile = new File(NOTE_PATH);
 		Log.v(TAG, "mAkzFile " + mAkzFile);
-		if (mAkzFile.canRead())
+		if (mAkzFile.canRead()){
 			Log.v(TAG, "sd very bad");
-		if (mAkzFile.canWrite())
+		}
+			
+		if (mAkzFile.canWrite()){
 			Log.v(TAG, "sd very good");
-//		if (!mAkzFile.exists()) {
-//			SKToast.makeText("udisk akz file not exists", Toast.LENGTH_LONG)
-//					.show();
-//			return;
-//		}
+		}
+			
 		Log.v(TAG, "UpZip(String, String)");
 		try {
 			// skzip.getInstance().UnZipFolder("/mnt/usb2/samkoonhmi.akz");
@@ -82,16 +82,37 @@ public class SkLoad<name> {
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
-
-		//SKToast.makeText("update success,reboot now", Toast.LENGTH_LONG).show();
+		} 
+		
+		//android.os.Process.killProcess(android.os.Process.myPid()); 
+		//SavaInfo.runCommand("reboot");
+		
+//		Context context=SKSceneManage.getInstance().mContext;
+//		if (context!=null) {
+//			
+//			SavaInfo.setState(1);
+//			//android.os.Process.killProcess(android.os.Process.myPid()); 
+//			
+//			//发送更新命令
+//			Intent start=new Intent();
+//			start.setClass(context, AkZipService.class);
+//			start.putExtra("update", "start");
+//			context.startService(start);
+//			
+//			//更新文件
+//			Intent intent=new Intent();
+//			intent.setClass(context, AkZipService.class);
+//			intent.putExtra("update", "true");
+//			context.startService(intent);
+//			
+//		}
+		
 
 		Intent intent = new Intent();
 		intent.setAction("com.samkoon.reboot");
-
 		SKSceneManage.getInstance().mContext.sendBroadcast(intent);
-
-		Log.v(TAG, "reboot");
+//
+//		Log.v(TAG, "reboot");
 		/*
 		 * String MAP_PATH ="/mnt/sdcard/samkoonhmi/fileMap.bin"; File MapFile =
 		 * new File(MAP_PATH); if (!MapFile.exists()) {
@@ -105,14 +126,14 @@ public class SkLoad<name> {
 		String NOTE_PATH = "/mnt/sdcard/samkoonhmi.akz";
 		Log.v(TAG, "SDPATH " + NOTE_PATH);
 		File mAkzFile = new File(NOTE_PATH);
-		if (mAkzFile.canRead())
+		if (mAkzFile.canRead()) {
 			Log.v(TAG, "sd very bad");
-		if (mAkzFile.canWrite())
+		}
+
+		if (mAkzFile.canWrite()) {
 			Log.v(TAG, "sd very good");
-//		if (!mAkzFile.exists()) {
-//			SKToast.makeText("akz file not exists", Toast.LENGTH_LONG).show();
-//			return;
-//		}
+
+		}
 
 		Log.v(TAG, "UpZip(String, String)");
 		try {
@@ -129,7 +150,8 @@ public class SkLoad<name> {
 			e.printStackTrace();
 		}
 
-		//SKToast.makeText("update success,reboot now", Toast.LENGTH_LONG).show();
+		// SKToast.makeText("update success,reboot now",
+		// Toast.LENGTH_LONG).show();
 
 		Intent intent = new Intent();
 		intent.setAction("com.samkoon.reboot");
@@ -143,19 +165,18 @@ public class SkLoad<name> {
 		 * return; } readFileByLines(MAP_PATH);
 		 */
 	}
-	
+
 	/**
 	 * 模拟器更新
 	 */
-	public void updateFile(Context context){
-		
-		
+	public void updateFile(Context context) {
+
 		AKFileUpdate.getInstance(context).fileCopy(
 				"/mnt/shared/esd/samkoonhmi.akz",
 				"/data/data/com.android.Samkoonhmi/samkoonhmi.akz");
 
 		Log.d(TAG, "updateFile.......");
-		
+
 		Intent intent = new Intent();
 		intent.setClass(context, AkZipService.class);
 		intent.putExtra("update", "true");
@@ -165,7 +186,7 @@ public class SkLoad<name> {
 	/**
 	 * 更新主态
 	 */
-	public boolean update_from_release(Context context,String path) {
+	public boolean update_from_release(Context context, String path) {
 		boolean result = true;
 		try {
 			final ActivityManager activityManager = (ActivityManager) context
@@ -188,6 +209,11 @@ public class SkLoad<name> {
 				}
 			}
 
+			
+			SharedPreferences.Editor editr = context.getSharedPreferences("information", 0).edit();
+			editr.putBoolean("vnc_state", true);
+			editr.commit();
+			
 			skzip.getInstance().UnZipFolder(path);
 		} catch (Exception e) {
 			result = false;

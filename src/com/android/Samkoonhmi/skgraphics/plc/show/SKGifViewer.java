@@ -4,25 +4,20 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.InputStream;
 import java.util.Vector;
-
-import android.R;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Movie;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.Log;
-
 import com.android.Samkoonhmi.SKThread;
 import com.android.Samkoonhmi.SKTimer;
-import com.android.Samkoonhmi.databaseinterface.GifViewerBiz;
 import com.android.Samkoonhmi.graphicsdrawframe.RectItem;
 import com.android.Samkoonhmi.model.GifViewerInfo;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
 import com.android.Samkoonhmi.skenum.ADDRTYPE;
@@ -37,7 +32,7 @@ import com.android.Samkoonhmi.util.TASK;
  * @author 魏 科
  * @date   2012-06-04
  * */
-public class SKGifViewer  extends SKGraphCmnShow{
+public class SKGifViewer  extends SKGraphCmnShow implements IItem{
 
 	private int      mItemID;          //控件ID
 	private int      mSceneID;         //场景ID
@@ -90,42 +85,51 @@ public class SKGifViewer  extends SKGraphCmnShow{
 		mPaintRef.setDither(true);
 		mPaintRef.setAntiAlias(true);
 		this.mGVInfo=info;
+		
+		mTheItem = new SKItems();
+		mTheItem.nZvalue = mGVInfo.getZValue();
+		mTheItem.itemId  = mItemID;
+		mTheItem.sceneId = mSceneID;
+		mTheItem.nCollidindId = mGVInfo.getCollidindId();
+		mTheItem.mGraphics=this;
+		
+		mAreaRect   = new Rect(mGVInfo.getLp(),mGVInfo.getTp(),mGVInfo.getLp()+mGVInfo.getWidth(),mGVInfo.getTp()+mGVInfo.getHeight());
 
-	}
+		mTheItem.rect   = mAreaRect; //绑定矩形位置
+		
+		if (mGVInfo.getmShowInfo() != null) {
 
-	/**
-	 * 初始化层描述符
-	 * */
-	public void initItem(){
-		if(null == mTheItem){
-			mTheItem = new SKItems();
-
-			if(null == mGVInfo){
-				Log.e("SKGifViewer","initItem: mGVInfo is null");
-				return;
+			if (mGVInfo.getmShowInfo().isbShowByAddr()) {
+				if (mGVInfo.getmShowInfo().getnAddrId() > 0) {
+					// 受地址控制
+					showByAddr = true;
+					//showAddr=aBiz.selectById(mGVInfo.getmShowInfo().getnAddrId());
+				}
 			}
-			mTheItem.nZvalue = mGVInfo.getZValue();
-			mTheItem.itemId  = mItemID;
-			mTheItem.sceneId = mSceneID;
-			mTheItem.nCollidindId = mGVInfo.getCollidindId();
-			mTheItem.mGraphics=this;
+			if (mGVInfo.getmShowInfo().isbShowByUser()) {
+				// 受用户权限控制
+				showByUser = true;
+			}
 		}
 
-	}
 
-	/**
-	 * 初始化位图区域
-	 * */
-	public void initArea(){
-
-		if(null == mAreaRect){
-			if(null == mGVInfo){
-				Log.e("SKGifViewer","mIVInfo is null");
-				return;
+		//注册显现地址
+		if (showByAddr) {
+			ADDRTYPE addrType = mGVInfo.getmShowInfo().geteAddrType();
+			if (addrType == ADDRTYPE.BITADDR) {
+				//SKPlcNoticThread.getInstance().addNoticProp(showAddr,showCall, true);
+				SKPlcNoticThread.getInstance().addNoticProp(mGVInfo.getmShowInfo().getShowAddrProp(),showCall, true,sceneid);
+			} else {
+				//SKPlcNoticThread.getInstance().addNoticProp(showAddr,showCall, false);
+				SKPlcNoticThread.getInstance().addNoticProp(mGVInfo.getmShowInfo().getShowAddrProp(),showCall, false,sceneid);
 			}
-			mAreaRect   = new Rect(mGVInfo.getLp(),mGVInfo.getTp(),mGVInfo.getLp()+mGVInfo.getWidth(),mGVInfo.getTp()+mGVInfo.getHeight());
+		}
+
+		if(1 == mGVInfo.getIsBitCtrl()){//若受位控制
+			SKPlcNoticThread.getInstance().addNoticProp(mGVInfo.getCtrlAddr(), notifyCtrlAddrDataCallback, false,sceneid); //绑定半径地址数据回调
 		}
 	}
+
 
 
 	/**
@@ -386,13 +390,6 @@ public class SKGifViewer  extends SKGraphCmnShow{
 			Log.i("SKGifViewer", mItemID + " realseMemeory destroy mTaskID: " + mTaskID);
 		}
 
-		if (showByAddr) {
-			SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		}
-
-		if(null != mGVInfo && 1 == mGVInfo.getIsBitCtrl()){//若受位控制
-			SKPlcNoticThread.getInstance().destoryCallback(notifyCtrlAddrDataCallback);
-		}
 		mTaskID = "";
 		if(1 == mPaintState){//若当前至少绘制过一次
 			mPaintState = 2; //控件进入待重绘状态，下次在initGraph中不会再初始化控件参数
@@ -422,9 +419,7 @@ public class SKGifViewer  extends SKGraphCmnShow{
 		}
 
 		if(0 == this.mPaintState){ //若第一次绘制
-			//初始化图片显示器背景矩形 	
-			initItem();
-			initArea();
+			
 		}else if(null != mGVInfo && 0 < mGVInfo.getRCount()&& true == mIsCtrlToPlay){//按次数播放的GIF，每次进来都重新播放
 			mInnerBitmap.eraseColor(Color.argb(0, 255, 255, 255));//消除尾帧
 			mMovieStart = 0;
@@ -439,47 +434,17 @@ public class SKGifViewer  extends SKGraphCmnShow{
 
 		mTheItem.rect   = mAreaRect; //绑定矩形位置
 
-		if (mGVInfo.getmShowInfo() != null) {
-
-			if (mGVInfo.getmShowInfo().isbShowByAddr()) {
-				if (mGVInfo.getmShowInfo().getnAddrId() > 0) {
-					// 受地址控制
-					showByAddr = true;
-					//showAddr=aBiz.selectById(mGVInfo.getmShowInfo().getnAddrId());
-				}
-			}
-			if (mGVInfo.getmShowInfo().isbShowByUser()) {
-				// 受用户权限控制
-				showByUser = true;
-			}
-			itemIsShow();
-		}
-
-		//初始化时无条件刷新一次
-		SKSceneManage.getInstance().onRefresh(mTheItem);
-
-		//注册显现地址
-		if (showByAddr) {
-			ADDRTYPE addrType = mGVInfo.getmShowInfo().geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				//SKPlcNoticThread.getInstance().addNoticProp(showAddr,showCall, true);
-				SKPlcNoticThread.getInstance().addNoticProp(mGVInfo.getmShowInfo().getShowAddrProp(),showCall, true);
-			} else {
-				//SKPlcNoticThread.getInstance().addNoticProp(showAddr,showCall, false);
-				SKPlcNoticThread.getInstance().addNoticProp(mGVInfo.getmShowInfo().getShowAddrProp(),showCall, false);
-			}
-		}
-
-		if(1 == mGVInfo.getIsBitCtrl()){//若受位控制
-			SKPlcNoticThread.getInstance().addNoticProp(mGVInfo.getCtrlAddr(), notifyCtrlAddrDataCallback, false); //绑定半径地址数据回调
-		}
-
 		if( 0 == mPaintState || 2 == mPaintState){//若是初始态或重绘态
 			SKTimer.getInstance().getBinder().onRegister(SChangeTimerCallback);
 			if(mDebug){
 				Log.i("SKGifViewer","Register SChangeTaskCallback Item id: " + mItemID + " mTaskID: "+mTaskID);
 			}
 		}
+		
+		itemIsShow();
+		
+		//初始化时无条件刷新一次
+		SKSceneManage.getInstance().onRefresh(mTheItem);
 
 	}
 
@@ -554,5 +519,263 @@ public class SKGifViewer  extends SKGraphCmnShow{
 			return false;
 		}
 	}
+
+	@Override
+	public IItem getIItem(){
+		return this;
+	}
+	
+	@Override
+	public int getItemLeft(int id) {
+		// TODO 自动生成的方法存根
+		if (mGVInfo!=null) {
+			return mGVInfo.getLp();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO 自动生成的方法存根
+		if (mGVInfo!=null) {
+			return mGVInfo.getTp();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO 自动生成的方法存根
+		if(mGVInfo!=null){
+			return mGVInfo.getWidth();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO 自动生成的方法存根
+		if(mGVInfo!=null){
+			return mGVInfo.getHeight();
+		}
+		return -1;
+	}
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO 自动生成的方法存根
+		return null;
+	}
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO 自动生成的方法存根
+		return null;
+	}
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO 自动生成的方法存根
+		return null;
+	}
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO 自动生成的方法存根
+		return show;
+	}
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO 自动生成的方法存根
+		if (mGVInfo!=null) {
+			if (x<0||x>SKSceneManage.getInstance().getCurrentScene().nSceneWidth) {
+				return false;
+			}
+			if (x==mGVInfo.getLp()) {
+				return true;
+			}
+			mGVInfo.setLp((short)x);
+			int l=mTheItem.rect.left;
+			mTheItem.rect.left=x;
+			mTheItem.rect.right=x-l+mTheItem.rect.right;
+			mTheItem.mMoveRect=new Rect();
+			
+			mAreaRect.left=x;
+			mAreaRect.right=mTheItem.rect.right;
+			
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+			return true;
+		}
+		
+		return false;
+	}
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO 自动生成的方法存根
+		if (mGVInfo!=null) {
+			if (y<0||y>SKSceneManage.getInstance().getCurrentScene().nSceneHeight) {
+				return false;
+			}
+			if (y==mGVInfo.getTp()) {
+				return true;
+			}
+			mGVInfo.setTp((short)y);
+			int t = mTheItem.rect.top;
+			mTheItem.rect.top = y;
+			mTheItem.rect.bottom = y - t + mTheItem.rect.bottom;
+			mTheItem.mMoveRect=new Rect();
+			
+			mAreaRect.top=y;
+			mAreaRect.bottom=mTheItem.rect.bottom;
+			
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO 自动生成的方法存根
+		if (mGVInfo!=null) {
+			if(w<0||w>SKSceneManage.getInstance().getCurrentScene().nSceneWidth){
+				return false;
+			}
+			if(w==mGVInfo.getWidth()){
+				return true;
+			}
+			mGVInfo.setWidth((short)w);
+			mTheItem.rect.right = w - mTheItem.rect.width() + mTheItem.rect.right;
+			mTheItem.mMoveRect = new Rect();
+			mAreaRect.right=mTheItem.rect.right;
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO 自动生成的方法存根
+		if (mGVInfo!=null) {
+			if (h<0||h>SKSceneManage.getInstance().getCurrentScene().nSceneHeight) {
+				return false;
+			}
+			if(h==mGVInfo.getHeight()){
+				return true;
+			}
+			mGVInfo.setHeight((short)h);
+			mTheItem.rect.bottom = h - mTheItem.rect.height() + mTheItem.rect.bottom;
+			mTheItem.mMoveRect = new Rect();
+			mAreaRect.bottom=mTheItem.rect.bottom;
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		if (v==show) {
+			return true;
+		}
+		show=v;
+		SKSceneManage.getInstance().onRefresh(mTheItem);
+		return true;
+	}
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		if (v==mIsCtrlToPlay) {
+			return true;
+		}
+		mIsCtrlToPlay=v;
+		SKSceneManage.getInstance().onRefresh(mTheItem);
+		return true;
+	}
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+	
+	
 
 }//End of class

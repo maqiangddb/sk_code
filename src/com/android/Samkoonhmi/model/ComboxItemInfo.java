@@ -18,8 +18,17 @@ public class ComboxItemInfo implements Parcelable {
 	private SKButton button;// 按钮对象
 	private String picPath;//图片路径
 	private Map<Integer, String> functionNames;
+	private boolean bSaveIndex;//是否执行功能了
 	
 
+
+	public boolean isbSaveIndex() {
+		return bSaveIndex;
+	}
+
+	public void setbSaveIndex(boolean bSaveIndex) {
+		this.bSaveIndex = bSaveIndex;
+	}
 
 	public Map<Integer, String> getFunctionNames() {
 		return functionNames;

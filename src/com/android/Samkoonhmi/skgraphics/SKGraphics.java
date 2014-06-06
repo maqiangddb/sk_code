@@ -2,6 +2,8 @@ package com.android.Samkoonhmi.skgraphics;
 
 import java.util.List;
 import java.util.Vector;
+
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.ShowInfo;
 import com.android.Samkoonhmi.model.SystemInfo;
 import com.android.Samkoonhmi.model.TouchInfo;
@@ -40,6 +42,11 @@ public abstract class SKGraphics {
 		this.m_typeId = nTypeId;
 	}
 
+	/**
+	 * 获取控件属性接口
+	 */
+	public abstract IItem getIItem();
+	
 	/**
 	 * 控件初始化
 	 */
@@ -213,10 +220,6 @@ public abstract class SKGraphics {
 	private boolean showOrTouchByAddr(AddrProp addr, int availableValue,
 			int addrId, ADDRTYPE addrType, int bitPosition) {
 		boolean flag = false;
-
-		// 有效状态 0 或1
-		// int availableValue = showInfo.getnValidStatus();
-		// 地址
 
 		if (dataList == null) {
 			dataList = new Vector<Integer>();

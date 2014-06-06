@@ -80,7 +80,7 @@ public class TcpServerManager {
 				@Override
 				public void run() {
 					super.run();
-					Log.d(TAG, "start port:"+port);
+					//Log.d(TAG, "start port:"+port);
 					server=new TcpServer(port);
 					server.start();
 				}

@@ -72,6 +72,9 @@ public class RecipeSelectAdapter extends ArrayAdapter<RecipeOprop> {
 								holerView.recipeName
 										.setText(names.get(SystemInfo
 												.getCurrentLanguageId()));
+							}else{
+								holerView.recipeName
+								.setText(names.get(0));
 							}
 						}
 					}

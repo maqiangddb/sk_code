@@ -1,10 +1,10 @@
 package com.android.Samkoonhmi.util;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import android.util.Log;
-
 import com.android.Samkoonhmi.model.SystemInfo;
 
 /**
@@ -16,8 +16,11 @@ public class SavaInfo {
 	private final static String MODEL_PATH = "/data/data/com.android.Samkoonhmi/model.txt";
 	private final static String STATE = "/data/data/com.android.Samkoonhmi/ak_state.txt";
 	private final static String TIMESAVE = "/data/data/com.android.Samkoonhmi/timesave.txt";
-	private static String version = "VERSIONCODE=44";
+	private static String version = "VERSIONCODE=58";
 
+	/**
+	 * 
+	 */
 	public static void save() {
 		FileOutputStream fos = null;
 
@@ -38,6 +41,7 @@ public class SavaInfo {
 
 		} catch (Exception e) {
 			e.printStackTrace();
+			
 		} finally {
 			if (fos != null) {
 				try {
@@ -60,8 +64,13 @@ public class SavaInfo {
 			String info = "";
 			if (type == 1) {
 				info = "NO";
+				//不自动重启
 			} else if (type == 2) {
 				info = "YES";
+				//自动重启
+			}else if (type==3) {
+				info="SYSTEMUI";
+				//显示系统UI
 			}
 
 			File mFile = new File(STATE);
@@ -103,8 +112,6 @@ public class SavaInfo {
 			if (mFile.exists()) {
 				mFile.delete();
 			}
-
-			// int model=SystemInfo.getnModel();
 
 			File file = new File(MODEL_PATH);
 			fos = new FileOutputStream(file);
@@ -164,6 +171,8 @@ public class SavaInfo {
 			}
 			File file = new File(TIMESAVE);
 			fos = new FileOutputStream(file);
+			
+			FileInputStream fis=new FileInputStream(file);
 			//采用了时效授权
 			if ((SystemInfo.getnSetBoolParam() & SystemParam.HMI_PROTECT) == SystemParam.HMI_PROTECT) {
 				if (null != SystemInfo.getPassWord()) {
@@ -182,6 +191,7 @@ public class SavaInfo {
 			}
 
 			fos.flush();
+			
 			// 修改文件权限
 			runCommand("chmod 777 /data/data/com.android.Samkoonhmi/timesave.txt");
 		} catch (Exception e) {

@@ -30,6 +30,7 @@ public class CompMacroItem extends BaseMacroItem{
 		}
 		setBMI(mCMI);	
 	}
+	
 	/**
 	 * 从数据库读取宏指令信息
 	 * */
@@ -55,6 +56,8 @@ public class CompMacroItem extends BaseMacroItem{
 
 		//参数设置
 		ParamTool.setParam(mParamList, mPHMap, false,mCMI.getnSid());
+		//添加到参数列表
+		//ParamHelper.addAddrList(mParamList);
 	}
 
 	/**
@@ -66,7 +69,7 @@ public class CompMacroItem extends BaseMacroItem{
 	}
 
 	@Override
-	public void run() {
+	public synchronized void run() {
 		if(mDebug){
 			Log.i(mTag,"run: try to call pullParams");
 		}
@@ -92,7 +95,7 @@ public class CompMacroItem extends BaseMacroItem{
 			Log.i(mTag,"run: try to call pushParams");
 		}
 		//将参数推送到地址空间
-		ParamHelper.pushParams(mParamList, mPHMap);	
+		//ParamHelper.pushParams(mParamList, mPHMap);	
 	}
 
 	@Override

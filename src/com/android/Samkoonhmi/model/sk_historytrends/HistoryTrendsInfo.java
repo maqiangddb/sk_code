@@ -7,6 +7,7 @@ import com.android.Samkoonhmi.skenum.DATE_FORMAT;
 import com.android.Samkoonhmi.skenum.TIME_FORMAT;
 import com.android.Samkoonhmi.skenum.CURVE_TYPE;
 import com.android.Samkoonhmi.skenum.TIMERANGE_TYPE;
+import com.android.Samkoonhmi.util.AddrProp;
 
 /**
  * 曲线
@@ -86,7 +87,35 @@ public class HistoryTrendsInfo {
 	private boolean bMainHor;//水平
 	private boolean bShowData=true;//显示日期
 	private boolean bShowTime =true;//显示时间
+	private AddrProp mFromAddr;//开始显示地址
+	private AddrProp mToAddr;//结束显示地址
+	private long nFromTime;
+	private long nToTime;
 
+	public long getnFromTime() {
+		return nFromTime;
+	}
+	public void setnFromTime(long nFromTime) {
+		this.nFromTime = nFromTime;
+	}
+	public long getnToTime() {
+		return nToTime;
+	}
+	public void setnToTime(long nToTime) {
+		this.nToTime = nToTime;
+	}
+	public AddrProp getmFromAddr() {
+		return mFromAddr;
+	}
+	public void setmFromAddr(AddrProp mFromAddr) {
+		this.mFromAddr = mFromAddr;
+	}
+	public AddrProp getmToAddr() {
+		return mToAddr;
+	}
+	public void setmToAddr(AddrProp mToAddr) {
+		this.mToAddr = mToAddr;
+	}
 	public boolean isbShowData() {
 		return bShowData;
 	}

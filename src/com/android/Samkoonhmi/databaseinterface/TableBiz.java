@@ -2,6 +2,8 @@ package com.android.Samkoonhmi.databaseinterface;
 
 import java.util.ArrayList;
 import android.database.Cursor;
+
+import com.android.Samkoonhmi.model.ShowInfo;
 import com.android.Samkoonhmi.model.TableModel;
 import com.android.Samkoonhmi.skenum.IntToEnum;
 import com.android.Samkoonhmi.skenum.LINE_TYPE;
@@ -49,6 +51,28 @@ public class TableBiz extends DataBase{
 				info.setnWLineWidth(1);
 				info.setnWShowColor(cursor.getInt(cursor.getColumnIndex("nWShowColor")));
 				info.setnZvalue(cursor.getInt(cursor.getColumnIndex("nZvalue")));
+				ShowInfo showInfo = TouchShowInfoBiz.getShowInfoById(info.getId());
+				info.setShowInfo(showInfo);
+				String sHControl = cursor.getString(cursor.getColumnIndex("bHControl"));
+				if(sHControl!=null&&sHControl.equals("true")){
+					info.setbHControl(true);
+					int nAddrId=cursor.getInt(cursor.getColumnIndex("nAddrHControl"));
+					if (nAddrId>-1) {
+						info.setnAddrHControl(AddrPropBiz.selectById(nAddrId));
+					}
+				}else{
+					info.setbHControl(false);
+				}
+				String sVControl = cursor.getString(cursor.getColumnIndex("bVControl"));
+				if(sVControl!=null&&sVControl.equals("true")){
+					info.setbVControl(true);
+					int nAddrId=cursor.getInt(cursor.getColumnIndex("nAddrVControl"));
+					if (nAddrId>-1) {
+						info.setnAddrVControl(AddrPropBiz.selectById(nAddrId));
+					}
+				}else{
+					info.setbVControl(false);
+				}
 				list.add(info);
 				
 				if (init) {
@@ -87,9 +111,9 @@ public class TableBiz extends DataBase{
 					}
 					tableItemType=cursor.getDouble(cursor.getColumnIndex("nIsRow"));
 					itemWidth=cursor.getDouble(cursor.getColumnIndex("nWidth"));
-					if(1==tableItemType){//行
+					if(1==tableItemType&&!info.getbHControl()){//行
 						info.getnRows().add(itemWidth+0.02);
-					}else if(0==tableItemType){//列
+					}else if(0==tableItemType&&!info.getbVControl()){//列
 						info.getnColums().add(itemWidth+0.02);
 					}
 				}

@@ -66,7 +66,13 @@ public class DataTransInfo {
 		
 		/*目标地址*/
 		private AddrProp mTargetAddr = null;
-
+		
+		/*传输的长度是否使用变量*/
+		private boolean bDynLength = false;
+		
+		/*变量传输的长度的地址*/
+		private AddrProp mLengthAddr = null;
+		
 		public short getnGroupId() {
 			return nGroupId;
 		}
@@ -137,6 +143,22 @@ public class DataTransInfo {
 
 		public void setmTargetAddr(AddrProp mTargetAddr) {
 			this.mTargetAddr = mTargetAddr;
+		}
+		
+		public boolean getbDynLength(){
+			return this.bDynLength;
+		}
+		
+		public void setbDynLength(boolean bDynLength){
+			this.bDynLength = bDynLength;
+		}
+		
+		public AddrProp getmLengthAddr(){
+			return mLengthAddr;
+		}
+		
+		public void setmLengthAddr(AddrProp mLengthAddr){
+			this.mLengthAddr = mLengthAddr;
 		}
 	}
 }

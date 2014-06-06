@@ -3,19 +3,17 @@ package com.android.Samkoonhmi.skgraphics.plc.touchshow;
 import java.sql.Date;
 import java.util.ArrayList;
 import java.util.Vector;
-
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Handler;
-import android.os.Message;
 import android.view.MotionEvent;
-
 import com.android.Samkoonhmi.SKThread;
 import com.android.Samkoonhmi.graphicsdrawframe.DragTable;
 import com.android.Samkoonhmi.model.DragTableInfo;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.RowCell;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.SystemInfo;
@@ -42,10 +40,8 @@ import com.android.Samkoonhmi.util.TextAlignUtil;
  * @author 刘伟江
  * @version V 1.0.0.2 创建时间 2012-5-7 最后修改时间 2012-5-7
  */
-public class SKAlarmContol extends SKGraphCmnTouch {
+public class SKAlarmContol extends SKGraphCmnTouch implements IItem {
 
-	//private static final String TAG = "SKAlarmContol";
-	//private static final int HANDLER_ADD=1;
 	// 表格内容
 	private int mRankCount;
 	// 报警控件实体对象
@@ -68,7 +64,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 	private Vector<RowCell> mRowCells;
 	private int nAllCount=0;
 	private int nRowIndex;
-//	private boolean bRefreshing;
 	private String sTodayDate="";
 	private int nTaskId;
 	private boolean isLoading;
@@ -97,6 +92,62 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 			items.nCollidindId = info.getnCollidindId();
 			items.rect = rect;
 			items.mGraphics=this;
+			
+			this.show = true;
+			this.touch = true;
+			this.showByAddr = false;
+			this.touchByAddr = false;
+			this.showByUser = false;
+			this.touchByUser = false;
+			
+			// 显现权限
+			if (info.getmShowInfo() != null) {
+				if (info.getmShowInfo().getShowAddrProp()!=null) {
+					// 受地址控制
+					showByAddr = true;
+				}
+				if (info.getmShowInfo().isbShowByUser()) {
+					// 受用户权限控制
+					showByUser = true;
+				}
+			}
+
+			// 触控权限
+			if (info.getmTouchInfo() != null) {
+				if (info.getmTouchInfo().getTouchAddrProp()!=null) {
+					// 受地址控制
+					touchByAddr = true;
+				}
+				if (info.getmTouchInfo().isbTouchByUser()) {
+					// 受用户权限控制
+					touchByUser = true;
+				}
+			}
+
+			// 注册显现地址
+			if (showByAddr) {
+				ADDRTYPE addrType = info.getmShowInfo().geteAddrType();
+				if (addrType == ADDRTYPE.BITADDR) {
+					SKPlcNoticThread.getInstance().addNoticProp(info.getmShowInfo().getShowAddrProp(), showCall,
+							true,sceneId);
+				} else {
+					SKPlcNoticThread.getInstance().addNoticProp(info.getmShowInfo().getShowAddrProp(), showCall,
+							false,sceneId);
+				}
+
+			}
+
+			// 注册触控地址
+			if (touchByAddr) {
+				ADDRTYPE addrType = info.getmTouchInfo().geteCtlAddrType();
+				if (addrType == ADDRTYPE.BITADDR) {
+					SKPlcNoticThread.getInstance().addNoticProp(info.getmTouchInfo().getTouchAddrProp(),
+							touchCall, true,sceneId);
+				} else {
+					SKPlcNoticThread.getInstance().addNoticProp(info.getmTouchInfo().getTouchAddrProp(),
+							touchCall, false,sceneId);
+				}
+			}
 		}
 	}
 
@@ -133,8 +184,9 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 		flag = false;
 		SKThread.getInstance().getBinder().onDestroy(tCallback, tTaskName);
 		AlarmGroup.getInstance().getBinder().onDestroy(alarmCall);
-		SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		SKPlcNoticThread.getInstance().destoryCallback(touchCall);
+		if (SystemInfo.getLanguageNumber()>1) {
+			SKLanguage.getInstance().getBinder().onDestroy(lCallback);
+		}
 		tTaskName="";
 		sTodayDate="";
 	}
@@ -175,55 +227,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 	 */
 	private void register() {
 		
-		// 显现权限
-		if (info.getmShowInfo() != null) {
-			if (info.getmShowInfo().getShowAddrProp()!=null) {
-				// 受地址控制
-				showByAddr = true;
-			}
-			if (info.getmShowInfo().isbShowByUser()) {
-				// 受用户权限控制
-				showByUser = true;
-			}
-		}
-
-		// 触控权限
-		if (info.getmTouchInfo() != null) {
-			if (info.getmTouchInfo().getTouchAddrProp()!=null) {
-				// 受地址控制
-				touchByAddr = true;
-			}
-			if (info.getmTouchInfo().isbTouchByUser()) {
-				// 受用户权限控制
-				touchByUser = true;
-			}
-		}
-
-		// 注册显现地址
-		if (showByAddr) {
-			ADDRTYPE addrType = info.getmShowInfo().geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmShowInfo().getShowAddrProp(), showCall,
-						true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmShowInfo().getShowAddrProp(), showCall,
-						false);
-			}
-
-		}
-
-		// 注册触控地址
-		if (touchByAddr) {
-			ADDRTYPE addrType = info.getmTouchInfo().geteCtlAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmTouchInfo().getTouchAddrProp(),
-						touchCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmTouchInfo().getTouchAddrProp(),
-						touchCall, false);
-			}
-		}
-		
 		/**
 		 * 注册报警登录
 		 */
@@ -232,7 +235,9 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 		/**
 		 * 多语言
 		 */
-		SKLanguage.getInstance().getBinder().onRegister(lCallback);
+		if (SystemInfo.getLanguageNumber()>1) {
+			SKLanguage.getInstance().getBinder().onRegister(lCallback);
+		}
 	}
 
 	/**
@@ -286,56 +291,19 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 //				/**
 //				 * 报警消除
 //				 */
-//				ArrayList<AlarmDataInfo> list=(ArrayList<AlarmDataInfo>)msg;
-//				if (list==null||list.size()==0) {
-//					return;
-//				}
-//				alarm(1,list,0,0);
 			}else if (taskId==TASK.ALARM_ADD_REFRESH) {
 //				/**
 //				 * 报警产生
 //				 */
-//				ArrayList<AlarmDataInfo> list=(ArrayList<AlarmDataInfo>)msg;
-//				if (list==null||list.size()==0) {
-//					return;
-//				}
-//				addAlarm(list);
 			}
 			else if (taskId == TASK.ALARM_UPDATE) {
-//				ArrayList<Integer> confirmList = (ArrayList<Integer>) msg;
-//				if (confirmList == null || confirmList.size() <= 0) {
-//					return;
-//				}
-//				
-//	
-//				boolean result=false;
-//				if (!info.isbShowwall()) {
-//					if (info.getmGroupId()==null||info.getmGroupId().size()==0) {
-//						return ;
-//					}
-//					for(int bean : confirmList){
-//						if (info.getmGroupId().contains(String.valueOf(bean))) {
-//							result = true;
-//							break;
-//						}
-//					}
-//		
-//				}else {
-//					result=true;
-//				}
-//				
-//				if (result) {
-//					mLoadInfo.nLoadType=0;
-//					mLoadInfo.nLoadCount=info.getnRowCount();
-//					AlarmGroup.getInstance().saveAlarmData(0, 1, alarmCall, nTaskId, null);
-//				}
 			}
 		}
 		
 		@Override
 		public void onUpdate(int msg, int taskId) {
 			if (TASK.ALARM_SELECT==taskId) {
-				ArrayList<AlarmDataInfo> list  = AlarmGroup.getInstance().getHappenedAlarmData();				
+				ArrayList<AlarmDataInfo> list  = AlarmGroup.getInstance().getHappenedAlarmData();
 				
 				if (!info.isbShowwall())
 				{
@@ -343,7 +311,7 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 					{
 						for(int i = 0; i < list.size(); i++){
 							AlarmDataInfo data = list.get(i);
-							if (data != null  && !info.getmGroupId().contains(data.getnGroupId())) {
+							if (data != null  && !info.getmGroupId().contains(data.getnGroupId()+"")) {
 								list.remove(data);
 								i--;
 							}
@@ -355,10 +323,11 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 					}
 				   
 				}
-		 
+				
 				//表格显示的开始位置
 				int startPos = 0;
 				int totalCount = list.size();
+				boolean beSlide = true;
 				if (list.size() > info.getnRowCount())
 				{
 					startPos = list.size() - info.getnRowCount();
@@ -366,6 +335,7 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 				
 				if(mLoadInfo.nLoadType==0){
 					nAllCount= totalCount;
+					beSlide = false;
 					
 					flag=true;
 					if (nAllCount>info.getnRowCount()) {
@@ -377,7 +347,7 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 				}
 				
 				//初始化表格
-				initData(list,startPos,mLoadInfo.nLoadType,mLoadInfo.nRowIndex);
+				initData(list,startPos,mLoadInfo.nLoadType,mLoadInfo.nRowIndex, beSlide);
 
 			}
 		}
@@ -389,119 +359,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 		
 	};
 	
-//
-//	/**
-//	 * 报警产生
-//	 */
-//	private void addAlarm(ArrayList<AlarmDataInfo> list){
-//		if (info==null) {
-//			return;
-//		}
-//		//long start=System.currentTimeMillis();
-//		
-//		for (int j = 0; j < list.size(); j++) {
-//			AlarmDataInfo dinfo=list.get(j);
-//			
-//			boolean result=false;
-//			if (!info.isbShowwall()) {
-//				if (info.getmGroupId()==null||info.getmGroupId().size()==0) {
-//					break;
-//				}
-//				String id=dinfo.getnGroupId()+"";
-//				for (int i = 0; i < info.getmGroupId().size(); i++) {
-//					if (id.equals(info.getmGroupId().get(i))) {
-//						result=true;
-//						break;
-//					}
-//				}
-//			}else {
-//				result=true;
-//			}
-//			
-//			if (!result) {
-//				break;
-//			}
-//			
-//			nAllCount++;
-//			nRowIndex++;
-//			Vector<String> mClounms=new Vector<String>();
-//			RowCell rowCell=new RowCell();
-//			rowCell.nRowIndex=nRowIndex;
-//			rowCell.nClounmCount=mRankCount;
-//			rowCell.mClounm=mClounms;
-//			rowCell.gid=dinfo.getnGroupId();
-//			rowCell.aid=dinfo.getnAlarmIndex();
-//			
-//			getTime(info.geteTimeFormat(), info.geteDateFormat(), dinfo, 1);//报警时间
-//			dinfo.setsCTime("");
-//			dinfo.setsCDate("");
-//			
-//			if(info.isbShowTime()){
-//				mClounms.add(dinfo.getsTime());
-//			}
-//			if (info.isbShowDate()) {
-//				mClounms.add(dinfo.getsDate());
-//			}
-//			
-//			mClounms.add(dinfo.getsMessage());
-//			if (mRowCells.size()>=info.getnRowCount()) {
-//				mRowCells.remove(0);
-//			}
-//			mRowCells.add(rowCell);
-//		}
-//		
-//		if (dTable!=null) {
-//			dTable.updateData(mRowCells);
-//			dTable.updateDataNum(nAllCount);
-//			bLast=true;
-//			if (dTable.isShowBar()) {
-//				//处于底部，并且滑动块显示
-//				if (mRowCells.size()>=info.getnRowCount()) {
-//					dTable.updateView(2);
-//				}
-//				dTable.moveToBottom();
-//			}else {
-//				dTable.updateView(1);
-//			}
-//			
-//			SKSceneManage.getInstance().onRefresh(items);
-//		}
-//		
-//		bRefreshing=false;
-//	}
-
-//	/**
-//	 * @param type
-//	 */
-//	private synchronized void alarm(int type,ArrayList<AlarmDataInfo> list,int gid,int aid){
-//		if (type==0) {
-//			//清除全部报警or报警确定
-//			if (mRowCells!=null) {
-//				mRowCells.clear();
-//			}
-//			if (dTable!=null) {
-//				nAllCount=0;
-//				bLast=false;
-//				dTable.updateView(1);
-//				dTable.updateDataNum(nAllCount);
-//				dTable.updateData(mRowCells);
-//			}
-//			SKSceneManage.getInstance().onRefresh(items);
-//		}else if(type==1){
-//			//报警消除
-//			clearAlarm(list);
-//		}else if (type==2) {
-//			AlarmDataInfo info = new AlarmDataInfo();
-//			info.setnGroupId(gid);
-//			ArrayList<AlarmDataInfo> templist = new ArrayList<AlarmDataInfo>();
-//			templist.add(info);
-//			
-//			clearAlarm(templist);
-//			
-//			templist.clear();
-//		}
-//	}
-//	
 	
 	/**
 	 * 
@@ -511,8 +368,8 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 		if (group != null && group.size() != 0 ){
 			if (!info.isbShowwall()) {
 				if (info.getmGroupId() != null && info.getmGroupId().size() != 0) {
-					for(int i = 0; i < info.getmGroupId().size(); i++){
-						if (group.contains(info.getmGroupId().get(i))) {
+					for(int i = 0; i < group.size(); i++){
+						if (info.getmGroupId().contains(group.get(i)+"")) {
 							ret = true;
 							break;
 						}
@@ -523,7 +380,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 				ret = true;
 			}
 		}
-		
 		if (ret ) {
 			mLoadInfo.nLoadType=0;
 			mLoadInfo.nLoadCount=info.getnRowCount();
@@ -532,46 +388,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 		return ret;
 	}
 	
-//	/**
-//	 * 报警清除
-//	 */
-//	private void clearAlarm(ArrayList<AlarmDataInfo> list){
-//		if (mRowCells==null) {
-//			return;
-//		}
-//		//long start=System.currentTimeMillis();
-//		boolean result=false;
-//		for (int j = 0; j <list.size(); j++) {
-//			AlarmDataInfo ainfo = list.get(j);
-//			if (!info.isbShowwall()) {
-//				if (info.getmGroupId()==null||info.getmGroupId().size()==0) {
-//					return;
-//				}
-//				String id=ainfo.getnGroupId()+"";
-//				for (int i = 0; i < info.getmGroupId().size(); i++) {
-//					if (id.equals(info.getmGroupId().get(i))) {
-//						result=true;
-//						break;
-//					}
-//				}
-//			}else {
-//				result=true;
-//				break;
-//			}
-//			
-//			if (!result) {
-//				break;
-//			}
-//		}
-//		
-//		if (result) {
-//			mLoadInfo.nLoadType=0;
-//			mLoadInfo.nLoadCount=info.getnRowCount();
-//			AlarmGroup.getInstance()
-//					.saveAlarmData(0, 1, alarmCall, nTaskId, null);
-//		}
-//		
-//	}
 	
 	/**
 	 * 报警触发回调
@@ -584,7 +400,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 			if (list==null||list.size()==0||!flag) {
 				return;
 			}
-			
 			ArrayList<Integer> tempList =  new ArrayList<Integer>();
 			for(int i = 0; i < list.size(); i++){
 				tempList.add(list.get(i).getnGroupId());
@@ -629,7 +444,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 			if (list==null||list.size()==0||!flag) {
 				return;
 			}
-			
 			ArrayList<Integer> tempList =  new ArrayList<Integer>();
 			for(int i = 0; i < list.size(); i++){
 				tempList.add(list.get(i).getnGroupId());
@@ -641,7 +455,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 			if (! needupdate) {
 				return ;
 			}
-			
 			
 			if(tTaskName.equals("")){
 				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
@@ -661,10 +474,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
 			}	
 			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName, nTaskId);
-//			if(tTaskName.equals("")){ 
-//				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-//			}
-//			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_UPDATE, tTaskName,delList);
 		}
 
 		@Override
@@ -682,10 +491,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
 			}	
 			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName, nTaskId);
-//			if(tTaskName.equals("")){
-//				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-//			}
-//			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_UPDATE, tTaskName,confrimList);
 		}
 
 		@Override
@@ -746,14 +551,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 		if (info == null) {
 			return;
 		}
-		
-		this.show = true;
-		this.touch = true;
-		this.showByAddr = false;
-		this.touchByAddr = false;
-		this.showByUser = false;
-		this.touchByUser = false;
-	//	this.bRefreshing=false;
 		nTaskId++;
 
 		// 初始化表格内容
@@ -820,15 +617,26 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 		flag=true;
 		// 进行更新报警信息
 	//	AlarmGroup.getInstance().saveAlarmData(0, 1,alarmCall,nTaskId, null);
-		AlarmGroup.getInstance().setNeedUpdateAlarm(true);
-		if(tTaskName.equals("")){
-			tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-		}	
-		SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName, nTaskId);
+		//延迟启动
+		mHandler.postDelayed(runnable, 800);
+		
 				
 		// 通知画面管理刷新控件
 		SKSceneManage.getInstance().onRefresh(items);
 	}
+	
+	private Handler mHandler = new Handler();
+	private Runnable runnable = new Runnable() {
+		
+		public void run() {
+			// TODO Auto-generated method stub
+			AlarmGroup.getInstance().setNeedUpdateAlarm(true);
+			if(tTaskName.equals("")){
+				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
+			}	
+			SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName, nTaskId);
+		}
+	};
 
 	private void initTableItem() {
 
@@ -873,7 +681,7 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 	/**
 	 * 初始化数据
 	 */
-	private void initData( ArrayList<AlarmDataInfo> list,int startPos, int type,int top){
+	private void initData( ArrayList<AlarmDataInfo> list,int startPos, int type,int top, boolean beSlide){
 		
 		//数据查询
 		if (info==null) {
@@ -886,10 +694,26 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 			if (id < 1) {
 				id = 1;
 			}
-			for (int i = startPos; i < list.size(); i++) {
-				AlarmDataInfo aInfo=list.get(i);
-				addRow(aInfo,id++);
+			if (beSlide) {// 滚动到固定位置
+				int count  =0 ;
+				for (int i = top; i < list.size(); i++) {
+					
+					AlarmDataInfo aInfo=list.get(i);
+					addRow(aInfo,id++);
+					count ++;
+					if (count > info.getnRowCount()) {
+						break;
+					}
+				}
 			}
+			else {
+				for (int i = startPos; i < list.size(); i++) {
+					AlarmDataInfo aInfo=list.get(i);
+					addRow(aInfo,id++);
+				}
+			}
+			
+			
 			
 		}
 		
@@ -1070,32 +894,6 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 		SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_SELECT, tTaskName, nTaskId);
 	}
 	
-//	Handler mHandler=new Handler(){
-//
-//		@Override
-//		public void handleMessage(Message msg) {
-//			super.handleMessage(msg);
-//			if(msg.what==HANDLER_ADD){//产生报警
-//				if (bRefreshing) {
-//					//如果刷新 还没有完成 暂不进行处理
-//					return;
-//				}
-//				
-//				ArrayList<AlarmDataInfo> list=(ArrayList<AlarmDataInfo>)msg.obj;
-//				if (list==null||list.size()==0 || !flag) {
-//					return;
-//				}
-//				
-//				bRefreshing=true;
-//				if(tTaskName.equals("")){
-//					tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-//				}
-//				SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_ADD_REFRESH,tTaskName,list);
-//			}
-//		}
-//		
-//	};
-	
 	/**
 	 *格式化日期和时间
 	 */
@@ -1123,4 +921,323 @@ public class SKAlarmContol extends SKGraphCmnTouch {
 		
 	}
 
+	
+	/**
+	 * 控件对外接口
+	 */
+	
+	public IItem getIItem(){
+		return this;
+	}
+	
+	@Override
+	public int getItemLeft(int id) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			return info.getnLeftTopX();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			return info.getnLeftTopY();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO 自动生成的方法存根
+		if(info!=null){
+			return info.getnWidth();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO 自动生成的方法存根
+		if(info!=null){
+			return info.getnHeight();
+		}
+		return -1;
+	}
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO 自动生成的方法存根
+		return null;
+	}
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			return getColor(info.getnTableColor());
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO 自动生成的方法存根
+		if(info!=null){
+			return getColor(info.getnFrameColor());
+		}
+		return null;
+	}
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO 自动生成的方法存根
+		return show;
+	}
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO 自动生成的方法存根
+		return touch;
+	}
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if (x<0||x>SKSceneManage.getInstance().getCurrentScene().nSceneWidth) {
+				return false;
+			}
+			if (x==info.getnLeftTopX()) {
+				return true;
+			}
+			info.setnLeftTopX((short)x);
+			int l=items.rect.left;
+			items.rect.left=x;
+			items.rect.right=x-l+items.rect.right;
+			items.mMoveRect=new Rect();
+			dTable.resetLeftTopX(x);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		
+		return false;
+	}
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if (y<0||y>SKSceneManage.getInstance().getCurrentScene().nSceneHeight) {
+				return false;
+			}
+			if (y==info.getnLeftTopY()) {
+				return true;
+			}
+			info.setnLeftTopY((short)y);
+			int t = items.rect.top;
+			items.rect.top = y;
+			items.rect.bottom = y - t + items.rect.bottom;
+			items.mMoveRect=new Rect();
+			dTable.resetLeftTopY(y);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if(w<0||w>SKSceneManage.getInstance().getCurrentScene().nSceneWidth){
+				return false;
+			}
+			if(w==info.getnWidth()){
+				return true;
+			}
+			info.setnWidth((short)w);
+			items.rect.right = w - items.rect.width() + items.rect.right;
+			items.mMoveRect=new Rect();
+			dTable.resetWidth(w);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if (h<0||h>SKSceneManage.getInstance().getCurrentScene().nSceneHeight) {
+				return false;
+			}
+			if(h==info.getnHeight()){
+				return true;
+			}
+			info.setnHeight((short)h);
+			items.rect.bottom = h - items.rect.height() + items.rect.bottom;
+			items.mMoveRect=new Rect();
+			dTable.resetHeigth(h);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		if (info==null) {
+			return false;
+		}
+		
+		int color=Color.rgb(r, g, b);
+		
+		if (color==info.getnTableColor()) {
+			return true;
+		}
+		info.setnTableColor(color);
+		dTable.resetBackcolor(color);
+		SKSceneManage.getInstance().onRefresh(items);
+		return false;
+	}
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		if (info==null) {
+			return false;
+		}
+		
+		int color=Color.rgb(r, g, b);
+		
+		if (color==info.getnFrameColor()) {
+			return true;
+		}
+		info.setnFrameColor(color);
+		dTable.resetLinecolor(color);
+		SKSceneManage.getInstance().onRefresh(items);
+		return false;
+	}
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		if (v==show) {
+			return true;
+		}
+		show=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		if (v==touch) {
+			return true;
+		}
+		touch=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			dTable.turnPage(0);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			dTable.turnPage(1);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			int type=0;
+			if (w<0) {
+				type=1;
+			}
+			dTable.moveRank(type,Math.abs(w));
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			int type=0;
+			if(h<0){
+				type=1;
+			}
+			dTable.moveRow(type, Math.abs(h));
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	/**
+	 * 颜色取反
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
+	}
 }

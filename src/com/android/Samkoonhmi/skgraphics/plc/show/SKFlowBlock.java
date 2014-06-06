@@ -6,6 +6,7 @@ import java.util.Vector;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Paint.Style;
@@ -13,6 +14,7 @@ import android.util.Log;
 import com.android.Samkoonhmi.SKTimer;
 import com.android.Samkoonhmi.graphicsdrawframe.RectItem;
 import com.android.Samkoonhmi.model.FlowBlockModel;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.plccommunicate.PlcRegCmnStcTools;
 import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
@@ -23,14 +25,13 @@ import com.android.Samkoonhmi.skenum.SPEED;
 import com.android.Samkoonhmi.skgraphics.plc.show.base.SKGraphCmnShow;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
 
-public class SKFlowBlock extends SKGraphCmnShow {
+public class SKFlowBlock extends SKGraphCmnShow implements IItem{
 	private FlowBlockModel flowBlockModel;// 流动块实体类
 	private Rect mRect;
 	private float everyWidth;// 每一个流动块的宽度
 	private int index = 0;// 时间索引
 	private int nUpdateTime = 0;// 时间更新值
 	private SKItems skItem;
-	private int sceneid;
 	private int itemId = 1;
 	private boolean isFlow;// 是否流动(根据触发地址判断)
 	private boolean isShowFlag;
@@ -38,7 +39,7 @@ public class SKFlowBlock extends SKGraphCmnShow {
 	private boolean showByAddr;
 	private Paint mLinePaint;
 	private DIRECTION eShowWay;//当前的流动方向
-	private Flow mFlow;
+	private Flow mFlow=new Flow();
 	private Bitmap mDuctBitmap;
 	private Bitmap mFlowBitmap;
 	private Bitmap mLineBitmap; 
@@ -50,7 +51,7 @@ public class SKFlowBlock extends SKGraphCmnShow {
 		isShowFlag = true;
 		showByUser = false;
 		showByAddr = false;
-		this.sceneid = sceneid;
+		isFlow=false;//是否流动
 		this.itemId = itemId;
 		
 		mRect=new Rect();
@@ -65,16 +66,52 @@ public class SKFlowBlock extends SKGraphCmnShow {
 		
 		if (flowBlockModel!=null) {
 			skItem=new SKItems();
-			Rect mRect=new Rect(flowBlockModel.getStartX(), flowBlockModel.getStartY(),
+			Rect rect=new Rect(flowBlockModel.getStartX(), flowBlockModel.getStartY(),
 					flowBlockModel.getStartX() + flowBlockModel.getRectWidth(),
 					flowBlockModel.getStartY() + flowBlockModel.getRectHeight());
 			
 			skItem.nCollidindId = flowBlockModel.getnCollidindId();
 			skItem.nZvalue = flowBlockModel.getnZvalue();
-			skItem.rect = mRect;
+			skItem.rect = rect;
 			skItem.itemId = itemId;
 			skItem.sceneId = sceneid;
 			skItem.mGraphics=this;
+			
+			if (null != flowBlockModel.getShowInfo()) {
+				if (null != flowBlockModel.getShowInfo().getShowAddrProp()) {
+					showByAddr = true;
+				}
+				if (flowBlockModel.getShowInfo().isbShowByUser()) {
+					showByUser = true;
+				}
+			}
+			
+			if (showByAddr) {
+				ADDRTYPE addrType = flowBlockModel.getShowInfo().geteAddrType();
+				if (addrType == ADDRTYPE.BITADDR) {
+					SKPlcNoticThread.getInstance().addNoticProp(flowBlockModel.getShowInfo().getShowAddrProp(),
+							showCall, true,sceneid);
+				} else {
+					SKPlcNoticThread.getInstance().addNoticProp(flowBlockModel.getShowInfo().getShowAddrProp(),
+							showCall, false,sceneid);
+				}
+
+			}
+			if (null != flowBlockModel.getnTriggerAddress()) {
+				SKPlcNoticThread.getInstance().addNoticProp(flowBlockModel.getnTriggerAddress(),
+						triggerCall, true,sceneid);// 触发地址
+			}
+			if (flowBlockModel.isbTouchAddress() && null != flowBlockModel.getnTouchAddress()) {
+				SKPlcNoticThread.getInstance().addNoticProp(flowBlockModel.getnTouchAddress(),
+						touchCall, true,sceneid);// 反方向触控地址
+			}
+
+			if (flowBlockModel.geteSpeedType() == SPEED.TRENDFLOWSPEED
+					&& null != flowBlockModel.getnTrendFlowAddress()) {
+				SKPlcNoticThread.getInstance().addNoticProp(flowBlockModel.getnTrendFlowAddress(),
+						trendCall, false,sceneid);// 动态流动速度地址
+			}
+			
 		}
 
 	}
@@ -85,28 +122,16 @@ public class SKFlowBlock extends SKGraphCmnShow {
 	}
 
 	private void init() {
-
 		if (null == flowBlockModel) {
 			return;
 		}
 
-		if (null != flowBlockModel.getShowInfo()) {
-			if (null != flowBlockModel.getShowInfo().getShowAddrProp()) {
-				showByAddr = true;
-			}
-			if (flowBlockModel.getShowInfo().isbShowByUser()) {
-				showByUser = true;
-			}
-		}
-
-		isFlow=false;//是否流动
-		
 		initFlow();
 		
 		// 初始化显现标志
 		flowIsShow();
-		// 注册地址
-		registerAddr();
+		
+		setSKTimer();
 		
 		SKSceneManage.getInstance().onRefresh(skItem);
 	}
@@ -120,7 +145,6 @@ public class SKFlowBlock extends SKGraphCmnShow {
 		 * 把流动块和背景互换
 		 * 减少画的次数，提高刷新效率
 		 */
-		mFlow=new Flow();
 		
 		if (flowBlockModel.geteShowWay() == DIRECTION.LEVEL) {
 			
@@ -169,42 +193,7 @@ public class SKFlowBlock extends SKGraphCmnShow {
        
 	}
 	
-	/**
-	 * 注册地址
-	 */
-	private void registerAddr() {
-		if (showByAddr) {
-			ADDRTYPE addrType = flowBlockModel.getShowInfo().geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(flowBlockModel.getShowInfo().getShowAddrProp(),
-						showCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(flowBlockModel.getShowInfo().getShowAddrProp(),
-						showCall, false);
-			}
-
-		}
-		if (null != flowBlockModel.getnTriggerAddress()) {
-			SKPlcNoticThread.getInstance().addNoticProp(flowBlockModel.getnTriggerAddress(),
-					triggerCall, true);// 触发地址
-		}
-		if (flowBlockModel.isbTouchAddress() && null != flowBlockModel.getnTouchAddress()) {
-			SKPlcNoticThread.getInstance().addNoticProp(flowBlockModel.getnTouchAddress(),
-					touchCall, true);// 反方向触控地址
-		}
-
-		if (flowBlockModel.geteSpeedType() == SPEED.TRENDFLOWSPEED
-				&& null != flowBlockModel.getnTrendFlowAddress()) {
-			SKPlcNoticThread.getInstance().addNoticProp(flowBlockModel.getnTrendFlowAddress(),
-					trendCall, false);// 动态流动速度地址
-		}
-		
-		setSKTimer();
-
-	}
-	
 	private void setSKTimer(){
-
 		// 当流动类型为固定流动速度时
 		if (flowBlockModel.geteSpeedType() == SPEED.FIXEDFLOWSPEED) {
 			if (flowBlockModel.geteFixedFlowSpeed() == SPEED.HIGH) {// 当固定流动速度为高时
@@ -369,12 +358,7 @@ public class SKFlowBlock extends SKGraphCmnShow {
 	@Override
 	public void realseMemeory() {
 		SKTimer.getInstance().getBinder().onDestroy(callback);
-		isFlow = false;
-		/*注销通知接口*/
-		SKPlcNoticThread.getInstance().destoryCallback(showCall);//显现
-		SKPlcNoticThread.getInstance().destoryCallback(triggerCall);//触发
-		SKPlcNoticThread.getInstance().destoryCallback(touchCall);//反向触控
-		SKPlcNoticThread.getInstance().destoryCallback(trendCall);//动态速度
+//		isFlow = false;
 	}
 
 
@@ -652,5 +636,339 @@ public class SKFlowBlock extends SKGraphCmnShow {
 		}
 		
 		return mBitmap;
+	}
+
+	/**
+	 * 获取控件属性接口
+	 */
+	public IItem getIItem(){
+		return this;
+	}
+	
+	@Override
+	public int getItemLeft(int id) {
+		// TODO Auto-generated method stub
+		if(flowBlockModel!=null){
+			return flowBlockModel.getStartX();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO Auto-generated method stub
+		if(flowBlockModel!=null){
+			return flowBlockModel.getStartY();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO Auto-generated method stub
+		if(flowBlockModel!=null){
+			return flowBlockModel.getRectWidth();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO Auto-generated method stub
+		if(flowBlockModel!=null){
+			return flowBlockModel.getRectHeight();
+		}
+		return -1;
+	}
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO Auto-generated method stub
+		if(flowBlockModel!=null){
+			return getColor(flowBlockModel.getnDForeColor());
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO Auto-generated method stub
+		if(flowBlockModel!=null){
+			return getColor(flowBlockModel.getnDBackColor());
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO Auto-generated method stub
+		if(flowBlockModel!=null){
+			return getColor(flowBlockModel.getnFrameColor());
+		}
+		return null;
+	}
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO Auto-generated method stub
+		return isShowFlag;
+	}
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO Auto-generated method stub
+		if (flowBlockModel != null) {
+			if (x == flowBlockModel.getStartX()) {
+				return true;
+			}
+			if (x < 0|| x > SKSceneManage.getInstance().getSceneInfo().getnSceneWidth()) {
+				return false;
+			}
+			flowBlockModel.setStartX((short)x);
+			int l=skItem.rect.left;
+			skItem.rect.left=x;
+			skItem.rect.right=x-l+skItem.rect.right;
+			skItem.mMoveRect = new Rect();
+			
+			mRect.left=mRect.left+x-l;
+			mRect.right=mRect.right+x-l;
+			
+			SKSceneManage.getInstance().onRefresh(skItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO Auto-generated method stub
+		if(flowBlockModel!=null){
+			if(y==flowBlockModel.getStartY()){
+				return true;
+			}
+			if (y < 0
+					|| y > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			flowBlockModel.setStartY((short)y);
+			int t = skItem.rect.top;
+			skItem.rect.top = y;
+			skItem.rect.bottom = y - t + skItem.rect.bottom;
+			skItem.mMoveRect = new Rect();
+			
+			mRect.top=mRect.top+y-t;
+			mRect.bottom=mRect.bottom+y-t;
+			
+			SKSceneManage.getInstance().onRefresh(skItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO Auto-generated method stub
+		if (flowBlockModel != null) {
+			if (w == flowBlockModel.getRectWidth()) {
+				return true;
+			}
+			if (w < 0
+					|| w > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			flowBlockModel.setRectWidth(w);
+			skItem.rect.right = w - skItem.rect.width() + skItem.rect.right;
+			skItem.mMoveRect = new Rect();
+			
+			mRect.right=mRect.right+w-skItem.rect.width();
+			
+			initFlow();
+			mDuctBitmap=getBitmap();
+			mFlowBitmap=getFlowBitmap();
+			if(!flowBlockModel.isbSizeLine()){
+				mLineBitmap=getLineBitmap();
+			}
+			
+			SKSceneManage.getInstance().onRefresh(skItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO Auto-generated method stub
+		if (flowBlockModel != null) {
+			if (h == flowBlockModel.getRectHeight()) {
+				return true;
+			}
+			if (h < 0
+					|| h > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			flowBlockModel.setRectHeight(h);
+			skItem.rect.bottom = h - skItem.rect.height() + skItem.rect.bottom;
+			skItem.mMoveRect = new Rect();
+			
+			mRect.bottom=mRect.bottom+h-skItem.rect.height();
+			mDuctBitmap=getBitmap();
+			mFlowBitmap=getFlowBitmap();
+			if(!flowBlockModel.isbSizeLine()){
+				mLineBitmap=getLineBitmap();
+			}
+			
+			SKSceneManage.getInstance().onRefresh(skItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemForecolor(int id,short r,short g,short b) {
+		// TODO Auto-generated method stub
+		if (flowBlockModel==null) {
+			return false;
+		}
+		int color=Color.rgb(r, g, b);
+		if (color==flowBlockModel.getnDForeColor()) {
+			return true;
+		}
+		flowBlockModel.setnDForeColor(color);
+		mFlowBitmap=getFlowBitmap();
+		SKSceneManage.getInstance().onRefresh(skItem);
+		return true;
+	}
+
+	@Override
+	public boolean setItemBackcolor(int id,short r,short g,short b) {
+		// TODO Auto-generated method stub
+		if (flowBlockModel==null) {
+			return false;
+		}
+		
+		int color=Color.rgb(r, g, b);
+		
+		if (color==flowBlockModel.getnDBackColor()) {
+			return true;
+		}
+		flowBlockModel.setnDBackColor(color);
+		mFlowBitmap=getFlowBitmap();
+		SKSceneManage.getInstance().onRefresh(skItem);
+		return true;
+	}
+
+	@Override
+	public boolean setItemLineColor(int id,short r,short g,short b) {
+		// TODO Auto-generated method stub
+		if(flowBlockModel==null){
+			return false;
+		}
+		
+		int color=Color.rgb(r, g, b);
+		
+		if (color==flowBlockModel.getnFrameColor()) {
+			return true;
+		}
+		flowBlockModel.setnFrameColor(color);
+		if(!flowBlockModel.isbSizeLine()){
+			mLineBitmap=getLineBitmap();
+		}
+		SKSceneManage.getInstance().onRefresh(skItem);
+		return true;
+	}
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if(v==isShowFlag){
+			return true;
+		}
+		isShowFlag=v;
+		SKSceneManage.getInstance().onRefresh(skItem);
+		return true;
+	}
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemText(int id, int lid,String text) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	/**
+	 * 颜色取反
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
 	}
 }

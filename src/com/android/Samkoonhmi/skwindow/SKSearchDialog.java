@@ -4,12 +4,14 @@ import android.content.Context;
 import android.graphics.Rect;
 //import android.content.Intent;
 //import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
+import android.view.WindowManager.BadTokenException;
 import android.widget.EditText;
 import android.widget.PopupWindow;
 import android.widget.TextView;
@@ -75,6 +77,12 @@ public class SKSearchDialog implements OnEditorActionListener ,OnTouchListener{
 	public void showPopWindow() {
 		// TODO Auto-generated method stub
 		
+		if (!SKSceneManage.getInstance().isbWindowFocus()) {
+			//窗口未获取焦点
+			Log.e("AKPopupWindow", "no window forcus ...");
+			return ;
+		}
+		
 		if(isShow){
 			return;
 		}
@@ -93,12 +101,16 @@ public class SKSearchDialog implements OnEditorActionListener ,OnTouchListener{
 			return;
 		}
 		
-		if(null != popRect){
-			mPopupWindow.showAtLocation(parent,
-					Gravity.NO_GRAVITY, popRect.left, popRect.top);
-		}else{
-			mPopupWindow.showAtLocation(parent,
-					Gravity.CENTER, 0, 0);			
+		try{
+			if(null != popRect){
+				mPopupWindow.showAtLocation(parent,
+						Gravity.NO_GRAVITY, popRect.left, popRect.top);
+			}else{
+				mPopupWindow.showAtLocation(parent,
+						Gravity.CENTER, 0, 0);			
+			}
+		}catch(BadTokenException e){
+			return;
 		}
 		isShow=true;
 	}

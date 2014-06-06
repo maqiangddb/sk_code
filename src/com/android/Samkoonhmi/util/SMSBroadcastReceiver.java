@@ -1,106 +1,86 @@
 package com.android.Samkoonhmi.util;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map.Entry;
-
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Bundle;
-import android.telephony.gsm.SmsMessage;
-import android.text.TextUtils;
+import android.telephony.SmsMessage;
+import android.util.Log;
 
-public class SMSBroadcastReceiver extends BroadcastReceiver{
+public class SMSBroadcastReceiver {
 
-	private static HashMap<String, ArrayList<SmsCall>> callBacks = new HashMap<String, ArrayList<SmsCall>>();
-	
-	@Override
-	public void onReceive(Context context, Intent intent) {
-		// TODO Auto-generated method stub
-		Bundle bundle = intent.getExtras();
-		if (bundle != null) {
-			Object [] pdus = (Object[]) bundle.get("pdus");
-			
-			SmsMessage[] messages = new SmsMessage[pdus.length];
-			for(int i = 0; i < messages.length; i++){
-				byte[] pdu = (byte[])pdus[i];
-				messages[i] = SmsMessage.createFromPdu(pdu);
-			}
-			
-			for(SmsMessage msg: messages){
-				String smsContent = msg.getMessageBody();
-				String senderNum = msg.getDisplayOriginatingAddress();
-				
-				Iterator<Entry<String, ArrayList<SmsCall>>> iterator = callBacks.entrySet().iterator();
-				while (iterator.hasNext()) {
-					Entry<String, ArrayList<SmsCall>> entry =  iterator.next();
-					ArrayList<SmsCall> calls = entry.getValue();
-					
-					for(SmsCall call : calls){
-						if (call != null) {
-							call.onSmsCall(senderNum, smsContent);
-						}
-					}
-					
-				}
-			}
-			
-			
-			//终止广播
-			abortBroadcast();
+	private static final String TAG = "SMSBroadcastReceiver";
+	private static ArrayList<SmsCall> callBacks = new ArrayList<SmsCall>();
+	private static Object[] pduArray = null;
+
+	public static void sms(Context context, Intent intent) {
+
+		pduArray = (Object[]) intent.getExtras().get("pdus");
+		if (pduArray==null||pduArray.length==0) {
+			return;
 		}
+		
+		SmsMessage[] messages = new SmsMessage[pduArray.length];
+		for (int i = 0; i < pduArray.length; i++) {
+			messages[i] = SmsMessage.createFromPdu((byte[]) pduArray[i]);
+		}
+		
+		for (SmsMessage cur : messages) {
+			for (int i = 0; i < callBacks.size(); i++) {
+				SmsCall call=callBacks.get(i);
+				if (call != null) {
+					Log.d(TAG, "call sms=" + cur.getDisplayMessageBody()
+							+ ",num=" + cur.getDisplayOriginatingAddress());
+					call.onSmsCall(cur.getDisplayOriginatingAddress(),
+							cur.getDisplayMessageBody());
+				}
+				
+			}
+		}
+
 	}
-	
-	
-	
-	public interface IBinder{
-		 void onRegister(String key, SmsCall call); // 注册短信 接受短信
-		 void onDestroy(String key);  // 注销接受短信
-	
+
+	public interface IBinder {
+		boolean onRegister(SmsCall call); // 注册短信 接受短信
+
+		void onDestroy(SmsCall call); // 注销接受短信
+
 	}
-	
-	public interface SmsCall{
+
+	public interface SmsCall {
 		void onSmsCall(String fromNum, String content);// 短信回调
 	}
-	
-	private final static String mSmsKey ="SMS_KEY";
+
 	private static IBinder binder = new IBinder() {
-		
+
 		@Override
-		public synchronized void onRegister(String key, SmsCall call) {
+		public boolean onRegister(SmsCall call) {
 			// TODO Auto-generated method stub
-			key = (TextUtils.isEmpty(key) ? mSmsKey : key);
-			
-			if (!callBacks.containsKey(key)) {
-				ArrayList<SmsCall> callList = new ArrayList<SMSBroadcastReceiver.SmsCall>();
-				callBacks.put(key, callList);
+
+			if (call==null) {
+				return false;
 			}
-			
-			ArrayList<SmsCall> calls = callBacks.get(key);
-			calls.add(call);
-			
+			remove(call);
+			callBacks.add(call);
+			return true;
 		}
-		
+
 		@Override
-		public synchronized void onDestroy(String key) {
+		public void onDestroy(SmsCall call) {
 			// TODO Auto-generated method stub
-			ArrayList<SmsCall> calls = callBacks.get(key);
-			if (calls != null) {
-				while (calls.size() > 0) {
-					SmsCall call = calls.remove(0);
-					call = null;
-				}
-				
-				calls = null;
-			}
 		}
 
 	};
-	
-	public static IBinder getBinder(){
+
+	public static IBinder getBinder() {
 		return binder;
 	}
 
+	private static void remove(SmsCall call){
+		for (int i = 0; i < callBacks.size(); i++) {
+			if (callBacks.get(i)==call) {
+				callBacks.remove(i);
+				break;
+			}
+		}
+	}
 }

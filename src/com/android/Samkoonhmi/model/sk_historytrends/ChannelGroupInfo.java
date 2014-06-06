@@ -16,24 +16,36 @@ import android.os.Parcelable;
  */
 
 public class ChannelGroupInfo implements Parcelable{
- 	private short	nNumOfChannel;	//通道号	 	
-	LINE_TYPE nLineType;	//线型	 
-	short nLineThickness;	//线条宽度	 
-	int nDisplayColor;	//显示颜色	 	
-	HISTORYSHOW_TYPE nDisplayCondition;	//显示条件	 	
-	AddrProp	nDisplayAddr;	//显示ON/OFF地址	 	
+	private AddrProp mXAddrProp;//x轴起始地址
+	private AddrProp mYAddrProp;//y轴其实地址
+	private short	nNumOfChannel;	//通道号	 	
+	private LINE_TYPE nLineType;	//线型	 
+	private short nLineThickness;	//线条宽度	 
+	private int nDisplayColor;	//显示颜色	 	
+	private  HISTORYSHOW_TYPE nDisplayCondition;	//显示条件	 	
+	private AddrProp	nDisplayAddr;	//显示ON/OFF地址	 	
 	
 	public ChannelGroupInfo() {
 		super();
 	}
-	public ChannelGroupInfo(short	nNumOfChannel, LINE_TYPE nLineType,short nLineThickness,int nDisplayColor,HISTORYSHOW_TYPE nDisplayCondition,AddrProp	nDisplayAddr) {
-		super();
-		this.nNumOfChannel = nNumOfChannel;
-		this.nLineType = nLineType;
-		this.nLineThickness = nLineThickness;
-		this.nDisplayColor = nDisplayColor;
-		this.nDisplayCondition = nDisplayCondition;
-		this.nDisplayAddr = nDisplayAddr;
+
+	public AddrProp getmXAddrProp() {
+		return mXAddrProp;
+	}
+
+
+	public void setmXAddrProp(AddrProp mXAddrProp) {
+		this.mXAddrProp = mXAddrProp;
+	}
+
+
+	public AddrProp getmYAddrProp() {
+		return mYAddrProp;
+	}
+
+
+	public void setmYAddrProp(AddrProp mYAddrProp) {
+		this.mYAddrProp = mYAddrProp;
 	}
 
 	public short getnNumOfChannel() {

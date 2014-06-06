@@ -1,5 +1,7 @@
 package com.android.Samkoonhmi.model;
 
+import java.util.ArrayList;
+
 import com.android.Samkoonhmi.skenum.DATA_TYPE;
 import com.android.Samkoonhmi.skenum.INPUT_TYPE;
 import com.android.Samkoonhmi.skenum.SHOWAREA;
@@ -71,9 +73,32 @@ public class NumberDisplayInfo {
 	private AddrProp inputMaxAddr;//输入最大值地址
 	private AddrProp inputMinAddr;//输入最小值地址
     private boolean bAutoChangeBit ;//位地址控制键盘弹出 是否自动复位 
+    private boolean inputIsShow;//输入跟显示地址是否一致
+    private AddrProp inputAddr;//输入地址
+    private boolean bShowExp;//	Booble类型	是否选择显示表达式
+    private ArrayList<ExpressModel> showExpModel;//	Int	显示表达式的编号，对应express表中的nExpressId
+    private boolean bInputExp;//	Boolean 	是否选择输入表达式
+    private ArrayList<ExpressModel> inputExpModel	;//Int	输入表达式的编号，对应express表中的nExpressId
 
 	
-    public AddrProp getmOffSetAddress() {
+    
+    public boolean isInputIsShow() {
+		return inputIsShow;
+	}
+
+	public void setInputIsShow(boolean inputIsShow) {
+		this.inputIsShow = inputIsShow;
+	}
+
+	public AddrProp getInputAddr() {
+		return inputAddr;
+	}
+
+	public void setInputAddr(AddrProp inputAddr) {
+		this.inputAddr = inputAddr;
+	}
+
+	public AddrProp getmOffSetAddress() {
 		return mOffSetAddress;
 	}
 
@@ -586,5 +611,45 @@ public class NumberDisplayInfo {
 	public void setmOffSetAddr(AddrProp mOffSetAddr) {
 		this.mOffSetAddr = mOffSetAddr;
 	}
+
+	public boolean isbShowExp() {
+		return bShowExp;
+	}
+
+	public void setbShowExp(boolean bShowExp) {
+		this.bShowExp = bShowExp;
+	}
+
+
+
+	public boolean isbInputExp() {
+		return bInputExp;
+	}
+
+	public void setbInputExp(boolean bInputExp) {
+		this.bInputExp = bInputExp;
+	}
+
+	public ArrayList<ExpressModel> getShowExpModel() {
+		return showExpModel;
+	}
+
+	public void setShowExpModel(ArrayList<ExpressModel> showExpModel) {
+		this.showExpModel = showExpModel;
+	}
+
+	public ArrayList<ExpressModel> getInputExpModel() {
+		return inputExpModel;
+	}
+
+	public void setInputExpModel(ArrayList<ExpressModel> inputExpModel) {
+		this.inputExpModel = inputExpModel;
+	}
+
+
+
+	
+
+	
 
 }

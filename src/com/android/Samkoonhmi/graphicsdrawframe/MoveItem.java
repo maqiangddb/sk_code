@@ -100,7 +100,12 @@ public class MoveItem {
 		
 		clicks=new boolean[]{false,false,false};
 		//paint=new Paint();
-		
+		if(nWidth<1){
+			nWidth=1;
+		}
+		if(nHeight<1){
+			nHeight=1;
+		}
 		mBitmap=Bitmap.createBitmap(nWidth, nHeight, Config.ARGB_8888);
 		mCanvas=new Canvas(mBitmap);
 		
@@ -144,7 +149,6 @@ public class MoveItem {
 		
 		//右边or底部
 		drawButton(2);
-		
 		canvas.drawBitmap(mBitmap, nLeftX, nLeftY, mBitmapPaint);
 		
 	}
@@ -770,7 +774,12 @@ public class MoveItem {
 				mRect.bottom=mRect.top+nLen;
 			}
 		}
-		
+		if(nWidth<1){
+			nWidth=1;
+		}
+		if(nHeight<1){
+			nHeight=1;
+		}
 		mBitmap=Bitmap.createBitmap(nWidth, nHeight, Config.ARGB_8888);
 		mCanvas=new Canvas(mBitmap);
 		
@@ -846,7 +855,12 @@ public class MoveItem {
 				nWidth=(int)mRect.width();
 			}
 		}
-		
+		if(nWidth<1){
+			nWidth=1;
+		}
+		if(nHeiht<1){
+			nHeiht=1;
+		}
 		bitmap1=Bitmap.createBitmap(nWidth,nHeiht, Config.ARGB_8888);
 		Canvas mCanvas=new Canvas(bitmap1);
 		

@@ -9,5 +9,6 @@ public enum KEYBOARD_OPERATION {
 	TEXT,//文本
 	ENTER,//确定
 	CLR,//清除全部
-	ESC//取消
+	ESC,//取消
+	CAPS//大写
 }

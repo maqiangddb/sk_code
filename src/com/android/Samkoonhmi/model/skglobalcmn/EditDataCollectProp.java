@@ -22,4 +22,9 @@ public class EditDataCollectProp {
 	public OperCall mOperCall;
 	//存储路径
 	public STORAGE_MEDIA mMedia;
+	//是否是自动保存
+	public boolean bAuto;
+	public long nStartTime;		//开始时间
+	public long nEndTime=0;		//结束时间
+	public boolean bHasEndTime; //是否有结束时间
 }

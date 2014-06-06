@@ -88,7 +88,12 @@ public class VTitleItem {
 		for (int i = 0; i < nRow; i++) {
 			mItems.add("");
 		}
-		
+		if(nWidth<1){
+			nWidth=1;
+		}
+		if(nHeight<1){
+			nHeight=1;
+		}
 		mBitmap=Bitmap.createBitmap(nWidth, nHeight, Config.ARGB_8888);
 		mCanvas=new Canvas(mBitmap);
 		mPaint=new Paint();

@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
 <resources>
-
     <string name="hello">Hello World, Samkoon Hmi!</string>
     <string name="app_name">Samkoonhmi</string>
     <string name="username">User Name</string>
@@ -36,6 +35,7 @@
     <string name="confirm">Confirm</string>
     <string name="add_user_message">Describe:</string>
     <string name="user_manage">User manage</string>
+    <string name="user_message">User message</string>
     <string name="group_name">Group</string>
     <string name="exit">Exit</string>
     <string name="hint_pwd_error">Password error!</string>
@@ -54,7 +54,7 @@
     <string name="hint_update_succeed">Update succeed!</string>
     <string name="hint_sure_to_delete">Sure to delete:</string>
     <string name="logout_info">Logout</string>
-    <string name="islogining">Please wait, is login!</string>
+    <string name="islogining">Loading...!</string>
     <string name="outtime">Has entered the screensaver screen, click anywhere to enter the main interface!</string>
     <string name="userisnull">The user name can not be empty!</string>
     <string name="islogin">Has been in the registry!</string>
@@ -95,7 +95,6 @@
     <string name="isupate_system">Do you want to update the system?</string>
     <string name="clr_boardsuccess">Message clear success!</string>
     <string name="clr_boardfail">Message clear failed!</string>
-    
     <string name="plc_station_id">\t PLC station is: \t </string>
     <string name="plc_reg_id">\t\t\t\t PLC register number: </string>
     <string name="addr_value">RW address value：</string>
@@ -112,7 +111,6 @@
     <string name="link_faild">\t connect fail</string>
     <string name="protocol_name">\t\t protocol name：</string>
     <string name="error_info">\t\t error info：</string>
-    
     <string name="write_database">Saving the database to csv file... </string>
     <string name="save_fail_path">Failed to save storage, Because path does not exist</string>
     <string name="save_fail_exist">Failed to save file already exists in the current time</string>
@@ -121,25 +119,24 @@
     <string name="save_success">Successfully saved,Recommended: prompt box disappears and then pull out the memory card, file in: \n</string>
     <string name="save_datetime">Date, time \t</string>
     <string name="save_data_title">data</string>
-    
     <string name="recipe_read">Reading recipe from the PLC... </string>
     <string name="recipe_path_noexist">The file path does not exist\n</string>
-    <string name= "recipe_import">Recipe Group is being imported from a file</string>
-	<string name= "recipe_import_fail">Import failed</string>
-	<string name= "recipe_len_error">Import failed, formula elements wrong length</string>
-	<string name= "recipe_success">Import was successful</string>
-	<string name= "recipe_file_used">The current recipe file is in use, and an unsuccessful attempt to save</string>
-	<string name= "recipe_writing_group">Writing a recipe group：</string>
-	<string name= "recipe_fail_nomedium">Export Failed, U disk or SD card is not recognized</string>
-	<string name= "recipe_write">writing a recipe to the PLC</string>
-	<string name= "recipe_issave">Do you want to save the recipe？</string>
-	<string name= "recipe_yes">yes</string>
-	<string name= "recipe_no">no</string>
-	<string name= "recipe_write_sucess">Write the recipe success</string>
-	<string name= "recipe_write_fail">Failed to write the recipe</string>
-	<string name= "recipe_cover">Whether to overwrite an existing recipe？</string>
-	<string name= "recipe_Title">RecipeName, recipeID, recipeDesc</string>
-    
+    <string name="recipe_import">Recipe Group is being imported from a file</string>
+    <string name="recipe_import_fail">Import failed</string>
+    <string name="recipe_len_error">Import failed, formula elements wrong length</string>
+    <string name="recipe_success">Import was successful</string>
+    <string name="recipe_file_used">The current recipe file is in use, and an unsuccessful attempt to save</string>
+    <string name="recipe_writing_group">Writing a recipe group：</string>
+    <string name="recipe_fail_nomedium">Export Failed, U disk or SD card is not recognized</string>
+    <string name="recipe_write">writing a recipe to the PLC</string>
+    <string name="recipe_issave">Do you want to save the recipe？</string>
+    <string name="recipe_yes">yes</string>
+    <string name="recipe_no">no</string>
+    <string name="recipe_write_sucess">Write the recipe success</string>
+    <string name="recipe_write_fail">Failed to write the recipe</string>
+    <string name="recipe_cover">Whether to overwrite an existing recipe？</string>
+    <string name="recipe_Title">RecipeName, recipeID, recipeDesc</string>
+    <string name="recipe_element_name">elemet,</string>
     <string name="cmn_nomal">Communication is normal</string>
     <string name="fun_error">Function code error</string>
     <string name="addr_rang">Address cross-border error</string>
@@ -173,7 +170,7 @@
     <string name="add_recipe">Add recipe</string>
     <string name="modify_recipes">Mmodify recipes</string>
     <string name="recipe_group">Recipe Group</string>
-     <string name="storage_path">Storage path</string>
+    <string name="storage_path">Storage path</string>
     <string name="save_data">Save data...</string>
     <string name="load_data">Load data...</string>
     <string name="delete_failed">Delete failed!</string>
@@ -202,8 +199,8 @@
     <string name="end_data">End Date:</string>
     <string name="start_time">Start Time:</string>
     <string name="end_time">End Time:</string>
-    <string name="di"></string>
-    <string name="row"></string>
+    <string name="di"/>
+    <string name="row"/>
     <string name="screenshot_upan">U Disk/</string>
     <string name="screenshot_error">Please insert the SD card or U disk!</string>
     <string name="screenshoting">Being Screenshots!</string>
@@ -213,14 +210,14 @@
     <string name="no_data">No data!</string>
     <string name="alarm_delete">Alarm data, delete successfully!</string>
     <string name="his_alarm_delete">Historical alarm data,\n delete the success!</string>
-    <string name ="loaddata">loading data,please wait...</string>
+    <string name="loaddata">loading data,please wait...</string>
     <string name="his_show_all_data">Display all the data</string>
     <string name="his_now">Now</string>
-    <string name = "selectnotnull">Selected object is null can not be deleted!</string>
-    <string name ="suredelete">The message you sure you want to delete it?</string>
+    <string name="selectnotnull">Selected object is null can not be deleted!</string>
+    <string name="suredelete">The message you sure you want to delete it?</string>
     <string name="nullsee">The selected object is empty you can not see</string>
-    <string name = "recipesearch">please write recipect name</string>
-    <string name = "setcurrentrecipect">set as current recipect</string>
+    <string name="recipesearch">please write recipect name</string>
+    <string name="setcurrentrecipect">set as current recipect</string>
     <string name="iperror">IP segment is not set legal!</string>
     <string name="ipnull">IP segment set can not be empty!</string>
     <string name="neterror">The subnet mask paragraph is not set legal!</string>
@@ -230,4 +227,76 @@
     <string name="alarm_clear">alarm data</string>
     <!-- The title of the time picker dialog. [CHAR LIMIT=NONE] -->
     <string name="time_picker_dialog_title">Set time</string>
+    <string name="alarm_writing_group">Writing a alarm group：</string>
+    <string name="email_from">From：</string>
+    <string name="email_to">To：</string>
+    <string name="email_set">Set</string>
+    <string name="email_add">Add</string>
+    <string name="email_del">Del</string>
+    <string name="email_files">Accessory</string>
+    <string name="email_send">Send</string>
+    <string name="email_password">Password：</string>
+    <string name="email_server">Server：</string>
+    <string name="email_sure">Sure</string>
+    <string name="email_cancel">Cancel</string>
+    <string name="email_input_tip">Input new mailbox：</string>
+    <string name="email_del_tip">Delete discarded mailbox</string>
+    <string name="email_alarm">Alarm</string>
+    <string name="email_recipe">Recipe</string>
+    <string name="email_history">History data</string>
+    <string name="email_message">Message</string>
+    <string name="email_input_content">please input mail content</string>
+    <string name="email_start_time">start time</string>
+    <string name="email_end_time">end time</string>
+    <string name="email_illegal">Illegal mailbox</string>
+    <string name="email_all_info">Please input all messages</string>
+    <string name="email_reset_time">Please input a right time </string>
+    <string name="email_no_net">Net error</string>
+    <string name="email_exit">exit</string>
+    <string name="email_start_send">start sending to </string>
+    <string name="email_send_sucess">send sucessful</string>
+    <string name="email_send_filed">send failed</string>
+    <string name="email_haveno_data">Have no data!!!</string>
+    <string name="recipe_import_error">Date Error!!!</string>
+    <string name="group_no_master">There is no master in this group</string>
+    <string name="usr_no_in_group">User is no in this group</string>
+    <string name="set_master">Set master</string>
+    <string name="master">Master</string>
+    <string name="nul"/>
+    <string name="user_not_master">User is NOT a master!</string>
+    <string name="keyboard_words">`1234567890-=\\~!@#$%^&amp;*()_+|qwertyuiop[]asdfghjkl;\'zxcvbnm,./QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM&amp;gt;&amp;lt;?</string>
+    <string name="ipname">IP address:</string>
+    <string name="netname">Subnet Mask:</string>
+    <string name="gatename">Gateway:</string>
+    <string name="dnsname">DNS address</string>
+    <string name="dhcp">DHCP</string>
+    <string name="static_ip">Static</string>
+    <string name="dnseerror">DNS segment is not set legal!</string>
+    <string name="dnsenull">DNS segment setting can not be empty!</string>
+    <string name="netnamehint">Subnet Mask</string>
+    <string name="gatenamehint">Gateway</string>
+    <string name="networkisunable">Network is not connected, the remote service does not start, check!</string>
+    <string name="vnc_hint">Not allow remote monitoring!</string>
+    <string name="apopen">Hotspot is already open, start the remote services!</string>
+    <string name="alreadyvncstart">VNC is started</string>
+    <string name="confirm_operation">Sure to do it ?</string>
+    <string name="recipe_copy_tile">Copying recipe data</string>
+    <string name="recipe_copy_frme">From:</string>
+    <string name="recipe_copy_to">To:</string>
+    <string name="recipe_data_location">source</string>
+    <string name="recipe_data_memory">memory</string>
+    <string name="recipe_copy_no_path">Have no the path</string>
+    <string name="recipe_copy_no_recipe">Have no the recipe</string>
+    <string name="recipe_copy_input_error">Select error</string>
+    <string name="pleaseselect">Please select recipect!</string>
+    <string name="data_collect_success">Save history data: success!</string>
+    <string name="data_collect_fail">Save history data: fail!</string>
+    <string name="history_show_finished">History Show Finished!</string>
+    <string name="history_start_time">Already at the start time!</string>
+    <string name="history_last_time">Already in the last time!</string>
+    <string name="history_largest">Has the largest!</string>
+    <string name="history_minimum">Have minimum!</string>
+    <string name="history_time_error">Time error, setup fails!</string>
+    <string name="history_port_error">Port error, setup fails!</string>
+    
 </resources>

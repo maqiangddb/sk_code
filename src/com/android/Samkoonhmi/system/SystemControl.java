@@ -3,6 +3,8 @@ package com.android.Samkoonhmi.system;
 import java.util.Calendar;
 import android.app.Activity;
 import android.content.Intent;
+import android.util.Log;
+
 import com.android.Samkoonhmi.SKThread;
 import com.android.Samkoonhmi.SKThread.ICallback;
 import com.android.Samkoonhmi.databaseinterface.DBTool;
@@ -149,15 +151,11 @@ public class SystemControl {
 				if(msg==null){
 					break;
 				}
-
 				//清除旧的授权窗口
 				SKSceneManage.getInstance().closeLockWindow();
-				
 				//设置新OnePassWord
 				PassWordInfo psinfo=(PassWordInfo) msg;
-				LockInfoBiz.getInstance().SetbIsLock(true);
-				LockInfoBiz.getInstance().SetPassWord(psinfo.getsPwdStr());
-				LockInfoBiz.getInstance().SetInfo(psinfo.getsTimeOut());
+				LockInfoBiz.getInstance().update(true, psinfo.getsPwdStr(), psinfo.getsTimeOut());
 				result=SKSceneManage.getInstance().turnToLockWindow(LockInfo.GetInfo(),LockInfo.GetPassWord());
 				break;
 			case SYSTEM_UNLOCK:

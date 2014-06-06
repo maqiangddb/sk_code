@@ -1,6 +1,10 @@
 package com.android.Samkoonhmi.databaseinterface;
 
 import java.util.ArrayList;
+
+import javax.xml.transform.Templates;
+
+import android.content.Context;
 import android.database.Cursor;
 import com.android.Samkoonhmi.model.CommonGraphInfo;
 import com.android.Samkoonhmi.model.GraphBaseInfo;
@@ -22,8 +26,11 @@ public class GraphBiz extends DataBase{
 		
 		Graph.GRAPH_TYPE type=Graph.GRAPH_TYPE.COMMON;
 		String sql = "select * from graphShow where nSceneId="+sid;
+		
 		Cursor cursor = null;
-		String common="",meter="";
+		StringBuffer common=new StringBuffer();
+		StringBuffer meter=new StringBuffer();
+		
 		boolean [] init=new boolean[]{true,true};
 		db = SkGlobalData.getProjectDatabase();
 		int nItemId=0;
@@ -40,10 +47,10 @@ public class GraphBiz extends DataBase{
 					case COMMON:
 						info=new CommonGraphInfo();
 						if(init[0]){
-							common+=" nItemId="+nItemId;
+							common.append(" nItemId in("+nItemId);
 							init[0]=false;
 						}else {
-							common+=" or nItemId="+nItemId;
+							common.append(","+nItemId);
 						}
 						break;
 					case STATISTICS:
@@ -51,10 +58,10 @@ public class GraphBiz extends DataBase{
 					case METER:
 						info=new GraphBaseInfo();
 						if(init[1]){
-							meter+=" nItemId="+nItemId;
+							meter.append(" nItemId in("+nItemId);
 							init[1]=false;
 						}else {
-							meter+=" or nItemId="+nItemId;
+							meter.append(","+nItemId);
 						}
 						break;
 					}
@@ -128,10 +135,14 @@ public class GraphBiz extends DataBase{
 			
 			if (list.size()>0) {
 				if (common.length()>0) {
-					selectCommon(list,common);
+					common.append(")");
+					String temp=common.toString();
+					selectCommon(list,temp);
 				}
 				if (meter.length()>0) {
-					selectMeter(list, meter);
+					meter.append(")");
+					String temp=meter.toString();
+					selectMeter(list, temp);
 				}
 			}
 		}

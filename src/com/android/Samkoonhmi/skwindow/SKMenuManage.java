@@ -174,7 +174,7 @@ public class SKMenuManage {
 	/**
 	 * 将dip转化为PX
 	 */
-	public int dip2px(Context context, float dip){
+	public static int dip2px(Context context, float dip){
 		float scale = context.getResources().getDisplayMetrics().density;
 		return (int)(scale*dip + 0.5);
 	}

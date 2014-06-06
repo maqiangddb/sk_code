@@ -9,15 +9,18 @@ import com.android.Samkoonhmi.SKThread;
 import com.android.Samkoonhmi.SKTimer;
 import com.android.Samkoonhmi.databaseinterface.AddrPropBiz;
 import com.android.Samkoonhmi.databaseinterface.ImageViewerBiz;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.ImageViewerInfo;
 import com.android.Samkoonhmi.model.PictureInfo;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.StakeoutInfo;
 import com.android.Samkoonhmi.model.StateBmpCache;
+import com.android.Samkoonhmi.model.SystemInfo;
 import com.android.Samkoonhmi.plccommunicate.PlcRegCmnStcTools;
 import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
 import com.android.Samkoonhmi.skenum.ADDRTYPE;
 import com.android.Samkoonhmi.skenum.DATA_TYPE;
+import com.android.Samkoonhmi.skenum.HMIMODEL;
 import com.android.Samkoonhmi.skenum.READ_WRITE_COM_TYPE;
 import com.android.Samkoonhmi.skgraphics.plc.show.base.SKGraphCmnShow;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.base.SKGraphCmnTouch;
@@ -47,7 +50,7 @@ import android.view.MotionEvent;
  * @author 魏 科
  * @date   2012-06-04
  * */
-public class SKImageViewer  extends SKGraphCmnTouch{
+public class SKImageViewer  extends SKGraphCmnTouch implements IItem{
 
 	private int      mItemID;          //控件ID 
 	private int      mSceneID;         //场景ID
@@ -96,39 +99,57 @@ public class SKImageViewer  extends SKGraphCmnTouch{
 		mPaintRef.setDither(true);
 		mPaintRef.setAntiAlias(true);
 		this.mIVInfo=info;
-
-	}
-
-	/**
-	 * 初始化描述符
-	 * */
-	public void initItem(){
-		if(null == mTheItem){
-			mTheItem = new SKItems();
-			if(null == mIVInfo){
-				Log.e("SKImageViewer","initItem: mIVInfo is null");
+		
+		mTheItem = new SKItems();
+		mTheItem.nZvalue = mIVInfo.getZValue(); 
+		mTheItem.itemId  = this.mItemID;
+		mTheItem.sceneId = this.mSceneID;
+		mTheItem.nCollidindId = mIVInfo.getCollidindId(); 
+		mTheItem.mGraphics=this;
+		
+		mAreaRect   = new Rect(mIVInfo.getLp(),mIVInfo.getTp(),mIVInfo.getLp()+mIVInfo.getWidth(),mIVInfo.getTp()+mIVInfo.getHeight());
+		mTheItem.rect   = mAreaRect;      //绑定矩形区域
+		
+		if(0 != mIVInfo.getChangeCondition()){//受地址控制
+			if(null == mIVInfo.getWatchAddr()){
+				Log.e("SKImageViewer","initGraphics: AddrProp is null");
 				return;
 			}
-			mTheItem.nZvalue = mIVInfo.getZValue(); 
-			mTheItem.itemId  = this.mItemID;
-			mTheItem.sceneId = this.mSceneID;
-			mTheItem.nCollidindId = mIVInfo.getCollidindId(); 
-			mTheItem.mGraphics=this;
+			SKPlcNoticThread.getInstance().addNoticProp(mIVInfo.getWatchAddr(), notifyAddrDataCallback, false,sceneid);//绑定地址数据回调
 		}
+
+		if (mIVInfo.getmShowInfo() != null) {
+
+			if (mIVInfo.getmShowInfo().isbShowByAddr()) {
+				if (mIVInfo.getmShowInfo().getnAddrId() > 0) {
+					// 受地址控制
+					showByAddr = true;
+				}
+			}
+			if (mIVInfo.getmShowInfo().isbShowByUser()) {
+				// 受用户权限控制
+				showByUser = true;
+			}
+			
+		}
+		
+		//注册显现地址
+		if (showByAddr) {
+			ADDRTYPE addrType = mIVInfo.getmShowInfo().geteAddrType();
+			if (addrType == ADDRTYPE.BITADDR) {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						mIVInfo.getmShowInfo().getShowAddrProp(), showCall,
+						true,sceneid);
+			} else {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						mIVInfo.getmShowInfo().getShowAddrProp(), showCall,
+						false,sceneid);
+
+			}
+		}
+
 	}
 
-	/**
-	 * 初始化区域矩形
-	 * */
-	public void initArea(){
-		if(null == mAreaRect){
-			if(null == mIVInfo){
-				Log.e("SKDynamicRect","mIVInfo is null");
-				return;
-			}
-			mAreaRect   = new Rect(mIVInfo.getLp(),mIVInfo.getTp(),mIVInfo.getLp()+mIVInfo.getWidth(),mIVInfo.getTp()+mIVInfo.getHeight());
-		}
-	}
 
 	/**
 	 * 擦除区域矩形
@@ -285,7 +306,7 @@ public class SKImageViewer  extends SKGraphCmnTouch{
 		}
 
 		if(null == tmpImg){//图片解码失败
-			Log.e("SKImageViewer","drawImage: Image decode failed, mItemID: " + this.mItemID);
+			//Log.e("SKImageViewer","drawImage: Image decode failed, mItemID: " + this.mItemID);
 			return;
 		}
 
@@ -505,15 +526,6 @@ public class SKImageViewer  extends SKGraphCmnTouch{
 		SKTimer.getInstance().getBinder().onDestroy(SChangeTimerCallback);
 		SKThread.getInstance().getBinder().onDestroy(SChangeTaskCallback, mTaskID);
 
-		if(mIVInfo != null && 0 != mIVInfo.getChangeCondition()){//受地址控制
-			SKPlcNoticThread.getInstance().destoryCallback(notifyAddrDataCallback);
-		}
-
-		//注册显现地址
-		if (showByAddr) {
-			SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		}
-
 		mTaskID       = null;
 
 		mTouchX = -1;
@@ -630,48 +642,14 @@ public class SKImageViewer  extends SKGraphCmnTouch{
 		}
 
 		if(0 == mPaintState){
-			initItem();   //初始化层描述符
-			initArea();   //初始化矩形区域
 			initMatrix();
 			mCurSID = 0;  //初始化当前状态号
-			mTheItem.rect   = mAreaRect;      //绑定矩形区域
 		}
 
-		if(0 != mIVInfo.getChangeCondition()){//受地址控制
-			if(null == mIVInfo.getWatchAddr()){
-				Log.e("SKImageViewer","initGraphics: AddrProp is null");
-				return;
-			}
-			SKPlcNoticThread.getInstance().addNoticProp(mIVInfo.getWatchAddr(), notifyAddrDataCallback, false);//绑定地址数据回调
-		}
-
-		if (mIVInfo.getmShowInfo() != null) {
-
-			if (mIVInfo.getmShowInfo().isbShowByAddr()) {
-				if (mIVInfo.getmShowInfo().getnAddrId() > 0) {
-					// 受地址控制
-					showByAddr = true;
-				}
-			}
-			if (mIVInfo.getmShowInfo().isbShowByUser()) {
-				// 受用户权限控制
-				showByUser = true;
-			}
-			itemIsShow();
-		}
-
+		itemIsShow();
+		
 		SKSceneManage.getInstance().onRefresh(mTheItem);
 
-		//注册显现地址
-		if (showByAddr) {
-			ADDRTYPE addrType = mIVInfo.getmShowInfo().geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(mIVInfo.getmShowInfo().getShowAddrProp(),showCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(mIVInfo.getmShowInfo().getShowAddrProp(),showCall, false);
-
-			}
-		}
 		
 		if( (1 == mIVInfo.getFunType())||((0 == mIVInfo.getFunType()) && (true == mIVInfo.isFlicker()))){//地址控制或按时间闪烁
 
@@ -799,6 +777,9 @@ public class SKImageViewer  extends SKGraphCmnTouch{
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 		// TODO Auto-generated method stub
+		if (!show||SystemInfo.getModel()==HMIMODEL.MID) {
+			return false;
+		}
 		SKSceneManage.getInstance().time=0;
 		boolean result=false;
 		
@@ -806,9 +787,9 @@ public class SKImageViewer  extends SKGraphCmnTouch{
 		float y=event.getY(0);
 		if (x>=mIVInfo.getLp()&&x<(mIVInfo.getTp()+mIVInfo.getWidth())
 				&&y>mIVInfo.getTp()&&y<(mIVInfo.getTp()+mIVInfo.getHeight())) {
-			result=true;
 			
 			if (event.getPointerCount()>1) {
+				result=true;
 				if (dialog==null||!dialog.isShow) {
 					dialog=new ImageShowDialog(SKSceneManage.getInstance().mContext);
 					dialog.setCanceledOnTouchOutside(false);
@@ -820,6 +801,269 @@ public class SKImageViewer  extends SKGraphCmnTouch{
 		
 		
 		return result;
+	}
+	/**
+	 * 脚本对外接口
+	 */
+	@Override
+	public IItem getIItem() {
+		// TODO Auto-generated method stub
+		return this;
+	}
+
+	@Override
+	public int getItemLeft(int id) {
+		// TODO Auto-generated method stub
+		if (mIVInfo!=null) {
+			return mIVInfo.getLp();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO Auto-generated method stub
+		if (mIVInfo!=null) {
+			return mIVInfo.getTp();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO Auto-generated method stub
+		if (mIVInfo!=null) {
+			return mIVInfo.getWidth();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO Auto-generated method stub
+		if (mIVInfo!=null) {
+			return mIVInfo.getHeight();
+		}
+		return -1;
+	}
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO Auto-generated method stub
+		return show;
+	}
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO Auto-generated method stub
+		if (mIVInfo != null) {
+			if (x == mIVInfo.getLp()) {
+				return true;
+			}
+			if (x < 0|| x > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			mIVInfo.setLp((short) x);
+			int l = mTheItem.rect.left;
+			mTheItem.rect.left = x;
+			mTheItem.rect.right = x - l + mTheItem.rect.right;
+			mTheItem.mMoveRect=new Rect();
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO Auto-generated method stub
+		if (mIVInfo != null) {
+			if (y == mIVInfo.getTp()) {
+				return true;
+			}
+			if (y < 0|| y > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			mIVInfo.setTp((short) y);
+			int t = mTheItem.rect.top;
+			mTheItem.rect.top = y;
+			mTheItem.rect.bottom = y - t + mTheItem.rect.bottom;
+			mTheItem.mMoveRect=new Rect();
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO Auto-generated method stub
+		if (mIVInfo != null) {
+			if (w == mIVInfo.getWidth()) {
+				return true;
+			}
+			if (w < 0|| w > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			mIVInfo.setWidth((short) w);
+			mTheItem.rect.right = w - mTheItem.rect.width() + mTheItem.rect.right;
+			mTheItem.mMoveRect=new Rect();
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO Auto-generated method stub
+		if (mIVInfo != null) {
+			if (h == mIVInfo.getHeight()) {
+				return true;
+			}
+			if (h < 0|| h > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			mIVInfo.setHeight((short) h);
+			mTheItem.rect.bottom = h - mTheItem.rect.height() + mTheItem.rect.bottom;
+			mTheItem.mMoveRect=new Rect();
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v==show) {
+			return true;
+		}
+		show=v;
+		SKSceneManage.getInstance().onRefresh(mTheItem);
+		return true;
+	}
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+	
+	/**
+	 * 颜色取反
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
 	}
 
 }//End of class

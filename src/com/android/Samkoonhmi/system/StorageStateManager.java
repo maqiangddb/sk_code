@@ -1,10 +1,13 @@
 package com.android.Samkoonhmi.system;
 
+import java.io.File;
+
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -12,22 +15,25 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
-
+import android.widget.ProgressBar;
 import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
 import com.android.Samkoonhmi.skzip.SkLoad;
 
 
 public class StorageStateManager {
+	private static final String TAG="StorageStateManager";
 	private boolean UsbMounted = false;
 	private boolean SDMounted = false;
-
 	private BroadcastReceiver StateMntRecv = null;
 	private Context           InnerContent = null;
 	private static StorageStateManager mSelfInstance = null; //自持单例
 
 	public StorageStateManager() {
+		UsbMounted=isUseUDisk();
+		SDMounted=isUseSD();
 	}
+	
 	/**
 	 * 获取自持单例
 	 * */
@@ -48,12 +54,57 @@ public class StorageStateManager {
 		}
 	}
 	
+	/**
+	 * U盘是否可以使用
+	 */
 	public boolean isUSBMounted(){
 		return UsbMounted;
 	}
 	
+	/**
+	 * SD卡是否可以使用
+	 */
 	public boolean isSDMounted(){
 		return SDMounted;
+	}
+	
+	
+	/**
+	 * SD是否可以使用
+	 */
+	private boolean isUseSD(){
+		boolean result=false;
+		try { 
+			String name=System.currentTimeMillis()+"";
+			File file=new File("/mnt/sdcard/"+name);
+			file.createNewFile();
+			file.delete();
+			result=true;
+	    } catch (Exception e) { 
+	        //e.printStackTrace(); 
+	    	Log.e(TAG, "no sdcard...");
+	    } 
+		SystemVariable.getInstance().setSDCardMntState(result);
+		return result;
+	}
+	
+	/**
+	 * U盘是否可以使用
+	 */
+	private boolean isUseUDisk(){
+		boolean result=false;
+		try { 
+			String name=System.currentTimeMillis()+"";
+			File file=new File("/mnt/usb2/"+name);
+			file.createNewFile();
+			file.delete();
+			result=true;
+	    } catch (Exception e) { 
+	        //e.printStackTrace(); 
+	    	Log.e(TAG, "no udisk...");
+	    } 
+		SystemVariable.getInstance().setUDiskMntState(result);
+		return result;
 	}
 	
 	private Handler uiHandler  = new Handler(Looper.getMainLooper()){
@@ -62,6 +113,8 @@ public class StorageStateManager {
 			showDialog(flag);
 		};
 	};
+	
+	
 	
 	public void initStateMntRecv(Context content) {
 
@@ -115,79 +168,99 @@ public class StorageStateManager {
 			content.registerReceiver(StateMntRecv,intentFilter);
 		}
 	}
+	
+	
+	
+	
 	/**
 	 * 对话框
 	 */
 	private AlertDialog dlg = null;
 	private Button sureButton = null;
 	private Button cancleButton =  null;
+	private ProgressBar mBar=null;
 	/**
 	 * 跳出系统的对话框
 	 */
 	public void showDialog(final int flag) {
-		if (null == dlg) {
-			dlg = new AlertDialog.Builder(SKSceneManage.getInstance().getActivity()).create();
-		}
-		dlg.show();
-		LayoutInflater inflate  = LayoutInflater.from(SKSceneManage.getInstance().getActivity());
-		View view = inflate.inflate(R.layout.update_system_dialog, null);
-		sureButton = (Button) view.findViewById(R.id.update_ok);
-		cancleButton = (Button) view.findViewById(R.id.update_cancel);
-        sureButton.setOnClickListener(new View.OnClickListener() {
+		try {
+			if (null == dlg) {
+				if (SKSceneManage.getInstance().getActivity()==null) {
+					return;
+				}
+				dlg = new AlertDialog.Builder(SKSceneManage.getInstance().getActivity()).create();
+			}
+			dlg.show();
+			dlg.setCanceledOnTouchOutside(false);
+			LayoutInflater inflate  = LayoutInflater.from(SKSceneManage.getInstance().getActivity());
+			View view = inflate.inflate(R.layout.update_system_dialog, null);
+			sureButton = (Button) view.findViewById(R.id.update_ok);
+			cancleButton = (Button) view.findViewById(R.id.update_cancel);
+			mBar=(ProgressBar)view.findViewById(R.id.ak_update_bar);
+			mBar.setVisibility(View.GONE);
 			
-			@Override
-			public void onClick(View v) {
-				// TODO Auto-generated method stub
+	        sureButton.setOnClickListener(new View.OnClickListener() {
 				
-				SKSceneManage.getInstance().time=0;
-				if(flag==1)
-				{
-					try {
-						new Thread(){
+				@Override
+				public void onClick(View v) {
+					// TODO Auto-generated method stub
+					
+					SKSceneManage.getInstance().time=0;
+					sureButton.setEnabled(false);
+					cancleButton.setEnabled(false);
+					mBar.setVisibility(View.VISIBLE);
+					if(flag==1)
+					{
+						try {
+							new Thread(){
 
-							@Override
-							public void run() {
-								// TODO Auto-generated method stub
-								super.run();
-								SkLoad.getInstance().update_from_udisk();
-							}
-							
-						}.start();
-					} catch (Exception e) {
+								@Override
+								public void run() {
+									// TODO Auto-generated method stub
+									super.run();
+									SkLoad.getInstance().update_from_udisk();
+								}
+								
+							}.start();
+						} catch (Exception e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}				
+					}
+					else
+					{
+						try {
+							new Thread(){
+
+								@Override
+								public void run() {
+									// TODO Auto-generated method stub
+									super.run();
+									SkLoad.getInstance().update_from_sdcard();
+								}
+								
+							}.start();
+						} catch (Exception e) {
 						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}				
+							e.printStackTrace();
+						}					
+					}
+					
 				}
-				else
-				{
-					try {
-						new Thread(){
-
-							@Override
-							public void run() {
-								// TODO Auto-generated method stub
-								super.run();
-								SkLoad.getInstance().update_from_sdcard();
-							}
-							
-						}.start();
-					} catch (Exception e) {
-					// TODO Auto-generated catch block
-						e.printStackTrace();
-					}					
-				}
+			});
+	        cancleButton.setOnClickListener(new View.OnClickListener() {
 				
-			}
-		});
-        cancleButton.setOnClickListener(new View.OnClickListener() {
-			
-			@Override
-			public void onClick(View v) {
-				SKSceneManage.getInstance().time=0;
-				// TODO Auto-generated method stub
-				dlg.dismiss();
-			}
-		});
-		dlg.getWindow().setContentView(view);
+				@Override
+				public void onClick(View v) {
+					SKSceneManage.getInstance().time=0;
+					// TODO Auto-generated method stub
+					dlg.dismiss();
+				}
+			});
+			dlg.getWindow().setContentView(view);
+		} catch (Exception e2) {
+			e2.printStackTrace();
+		}
+		
 	}
 }

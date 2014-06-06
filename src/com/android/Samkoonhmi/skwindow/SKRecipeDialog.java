@@ -3,26 +3,11 @@ package com.android.Samkoonhmi.skwindow;
 import java.io.File;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Observable;
 import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import com.android.Samkoonhmi.R;
-import com.android.Samkoonhmi.SKThread;
-import com.android.Samkoonhmi.databaseinterface.DBTool;
-import com.android.Samkoonhmi.model.CurrentRecipe;
-import com.android.Samkoonhmi.model.RecipeOprop;
-import com.android.Samkoonhmi.model.SystemInfo;
-import com.android.Samkoonhmi.model.skglobalcmn.RecipeDataProp;
-import com.android.Samkoonhmi.model.skglobalcmn.RecipeDataProp.recipeOGprop;
-import com.android.Samkoonhmi.skenum.DATA_TYPE;
-import com.android.Samkoonhmi.skenum.KEYBOARD_OPERATION;
-import com.android.Samkoonhmi.skenum.STORAGE_MEDIA;
-import com.android.Samkoonhmi.skglobalcmn.RecipeDataCentre;
-import com.android.Samkoonhmi.skglobalcmn.RecipeDataCentre.EditRecipeInfo;
-import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKKeyPopupWindow;
-import com.android.Samkoonhmi.system.StorageStateManager;
-import com.android.Samkoonhmi.util.AlarmGroup;
-import com.android.Samkoonhmi.util.MODULE;
+
 import android.content.Context;
 import android.graphics.Color;
 import android.os.Handler;
@@ -32,7 +17,6 @@ import android.text.InputType;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.view.inputmethod.EditorInfo;
@@ -43,6 +27,25 @@ import android.widget.PopupWindow;
 import android.widget.RadioButton;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.android.Samkoonhmi.R;
+import com.android.Samkoonhmi.SKThread;
+import com.android.Samkoonhmi.databaseinterface.DBTool;
+import com.android.Samkoonhmi.model.CurrentRecipe;
+import com.android.Samkoonhmi.model.RecipeOGprop;
+import com.android.Samkoonhmi.model.RecipeOprop;
+import com.android.Samkoonhmi.model.SystemInfo;
+import com.android.Samkoonhmi.skenum.DATA_TYPE;
+import com.android.Samkoonhmi.skenum.KEYBOARD_OPERATION;
+import com.android.Samkoonhmi.skenum.STORAGE_MEDIA;
+import com.android.Samkoonhmi.skglobalcmn.RecipeDataCentre;
+import com.android.Samkoonhmi.skglobalcmn.RecipeDataCentre.EditRecipeInfo;
+import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKButtonFunction;
+import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKKeyPopupWindow;
+import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKRecipeShow;
+import com.android.Samkoonhmi.system.StorageStateManager;
+import com.android.Samkoonhmi.util.AlarmGroup;
+import com.android.Samkoonhmi.util.MODULE;
 
 public class SKRecipeDialog {
 
@@ -59,6 +62,7 @@ public class SKRecipeDialog {
 	private Button btnCancel;
 	private LinearLayout addLayout;
 	private LinearLayout fileLayout;
+	private LinearLayout topLayout;
 	private SKRecipeSpinner mView;
 	public boolean isShow;
 	private ArrayList<EditText> mList;
@@ -86,6 +90,7 @@ public class SKRecipeDialog {
 	 *      4=配方组导出文件，
 	 *      5=文件导入到配方组
 	 *      6=历史报警数据导出
+	 *      7=导出全部配方
 	 */
 	public SKRecipeDialog(Context context,int type){
 		this.mContext=context;
@@ -116,17 +121,23 @@ public class SKRecipeDialog {
 		}else if (type==4) {
 			//配方组导出文件
 			nWidth=350;
-			nHeight=160;
+			nHeight=180;
 		}else if (type==5) {
 			//文件导入到配方组
 			nWidth=350;
-			nHeight=160;
+			nHeight=180;
 		}else if (type==6) {
 			//历史报警数据导出
 			nWidth=350;
 			nHeight=130;
+		}else if (type==7) {
+			nWidth=350;
+			nHeight=140;
 		}
 		view = inflater.inflate(R.layout.recipe_edit_view, null);
+		
+		topLayout=(LinearLayout)view.findViewById(R.id.edit_layout_top);
+		
 		addLayout=(LinearLayout)view.findViewById(R.id.recipe_layout);
 		addLayout.setOrientation(LinearLayout.VERTICAL);
 		
@@ -180,15 +191,29 @@ public class SKRecipeDialog {
 			btnFrame.setOnClickListener(listener);
 			fileLayout.setVisibility(View.VISIBLE);
 			
+			// 给btnFrame 赋初值
+			nGroupId = 0;
+			Vector<RecipeOGprop> list=RecipeDataCentre.getInstance().getRecipeDataProp().getmRecipeGroupList();
+			if (list != null && list.size() > 0) {
+				btnFrame.setText(list.get(0).getsRecipeGName());
+			}
+			
 		}else if (type==5) {
 			txtName.setText(mContext.getString(R.string.recipe_group));
 			selectLayout.setVisibility(View.VISIBLE);
 			addLayout.setVisibility(View.GONE);
-			mTextGroup.setVisibility(View.VISIBLE);
-			mTextGroup.setText("");
+			mTextGroup.setVisibility(View.GONE);
 			gName=new ArrayList<String>();
+			fileLayout.setVisibility(View.VISIBLE);
 			btnFrame=(TextView)view.findViewById(R.id.spinner_recipe);
 			btnFrame.setOnClickListener(listener);
+			
+			// 给btnFrame 赋初值
+			nGroupId = 0;
+			Vector<RecipeOGprop> list=RecipeDataCentre.getInstance().getRecipeDataProp().getmRecipeGroupList();
+			if (list != null && list.size() > 0) {
+				btnFrame.setText(list.get(0).getsRecipeGName());
+			}
 			
 		}else if (type==6) {
 			txtName.setText(mContext.getString(R.string.storage_path));
@@ -199,10 +224,15 @@ public class SKRecipeDialog {
 			btnFrame=(TextView)view.findViewById(R.id.spinner_recipe);
 			btnFrame.setOnClickListener(listener);
 			fileLayout.setVisibility(View.VISIBLE);
+		}else if (type==7) {
+			topLayout.setVisibility(View.GONE);
+			fileLayout.setVisibility(View.VISIBLE);
 		}
 		mPopupWindow=new PopupWindow(view,nWidth, nHeight);
 		return reslut;
 	}
+	
+	
 	
 	/**
 	 * 添加view
@@ -211,7 +241,7 @@ public class SKRecipeDialog {
 		
 		mTitleNameList=mRecipeData.getsElemNameList();
 		eDataTypeList=mRecipeData.geteDataTypeList();
-		len=mRecipeData.getnRecipeLen()+3;
+		len=mRecipeData.getnRecipeLen()+1;
 		mList.clear();
 		
 		String data;
@@ -220,17 +250,19 @@ public class SKRecipeDialog {
 			if(i==0){
 				//配方名称
 				data=mContext.getString(R.string.recipe_name);
-			}else if (i==1) {
-				//配方id
-				data=mContext.getString(R.string.recipe_id);
-			}else if (i==2) {
-				//配方描述
-				data=mContext.getString(R.string.recipe_des);
-			}else {
+			}
+//			else if (i==1) {
+//				//配方id
+//				data=mContext.getString(R.string.recipe_id);
+//			}else if (i==2) {
+//				//配方描述
+//				data=mContext.getString(R.string.recipe_des);
+//			}
+			else {
 				if (mTitleNameList!=null) {
-					if (mTitleNameList.size()>i-3) {
-						if (mTitleNameList.get(i-3).size()>SystemInfo.getCurrentLanguageId()) {
-							data=mTitleNameList.get(i-3).get(SystemInfo.getCurrentLanguageId());
+					if (mTitleNameList.size()>i-1) {
+						if (mTitleNameList.get(i-1).size()>SystemInfo.getCurrentLanguageId()) {
+							data=mTitleNameList.get(i-1).get(SystemInfo.getCurrentLanguageId());
 						}
 					}
 				}
@@ -242,6 +274,7 @@ public class SKRecipeDialog {
 			item.setGravity(Gravity.CENTER_HORIZONTAL|Gravity.BOTTOM);
 			item.setLayoutParams(new LayoutParams(100, 40));
 			mTopLayout.addView(item);
+			
 			
 			
 			//元素数据
@@ -269,12 +302,12 @@ public class SKRecipeDialog {
 			}
 			//加上提示
 			editText.setHint(data);
-			//item.setLines(1);
+			//editText.setLines(1);
 			editText.setLayoutParams(new LayoutParams(100, 60));
-			if (i==1) {
-				int id=DBTool.getInstance().getmRecipeDataBiz().getRecipeId(nGroupId);
-				editText.setText(id+"");
-			}
+//			if (i==1) {
+//				int id=DBTool.getInstance().getmRecipeDataBiz().getRecipeId(nGroupId);
+//				editText.setText(id+"");
+//			}
 			mList.add(editText);
 			mBottomLayout.addView(editText);
 		}
@@ -286,7 +319,7 @@ public class SKRecipeDialog {
 	 */
 	private boolean convert=false;//显示数据是否需要转换
 	private int len;
-	private RecipeDataProp.recipeOGprop mRecipeData;
+	private RecipeOGprop mRecipeData;
 	private Vector<RecipeOprop> mRecipeLists = null;// 配方元素据
 	private Vector<Vector<String>> mTitleNameList = null; // 配方名称
 	private Vector<DATA_TYPE > eDataTypeList;//配方元素类型
@@ -313,13 +346,16 @@ public class SKRecipeDialog {
 		mBottomLayout=new LinearLayout(mContext);
 		mBottomLayout.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
 		
+		
 		mTopLayout=new LinearLayout(mContext);
 		mTopLayout.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
+		
 		
 		mLoadLayout=new LinearLayout(mContext);
 		mLoadLayout.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
 		
-		len=mRecipeData.getnRecipeLen()+3;
+		//len=mRecipeData.getnRecipeLen()+3;
+		len=mRecipeData.getnRecipeLen()+1;
 		
 		mTitleNameList=mRecipeData.getsElemNameList();
 		eDataTypeList=mRecipeData.geteDataTypeList();
@@ -353,6 +389,8 @@ public class SKRecipeDialog {
 		reslut=true;
 		return reslut;
 	}
+	
+
 	
 	private int nTaskId=1;
 	SKThread.ICallback callback=new SKThread.ICallback() {
@@ -400,36 +438,38 @@ public class SKRecipeDialog {
 						data=recipe.getsRecipeName().get(SystemInfo.getCurrentLanguageId());
 					}
 				}
-			}else if (i==1) {
-				//配方id
-				sTitleName=mContext.getString(R.string.recipe_id);
-				if (recipe!=null) {
-					data=recipe.getnRecipeId()+"";
-				}
-			}else if (i==2) {
-				//配方描述
-				sTitleName=mContext.getString(R.string.recipe_des);
-				if (recipe.getsRecipeDescri()!=null) {
-					if (recipe.getsRecipeDescri().size()>SystemInfo.getCurrentLanguageId()) {
-						data=recipe.getsRecipeDescri().get(SystemInfo.getCurrentLanguageId());
-					}
-				}
-			}else{
-				//配方元素名称
+			}
+//			else if (i==1) {
+//				//配方id
+//				sTitleName=mContext.getString(R.string.recipe_id);
+//				if (recipe!=null) {
+//					data=recipe.getnRecipeId()+"";
+//				}
+//			}else if (i==2) {
+//				//配方描述
+//				sTitleName=mContext.getString(R.string.recipe_des);
+//				if (recipe.getsRecipeDescri()!=null) {
+//					if (recipe.getsRecipeDescri().size()>SystemInfo.getCurrentLanguageId()) {
+//						data=recipe.getsRecipeDescri().get(SystemInfo.getCurrentLanguageId());
+//					}
+//				}
+//			}
+			else{
+				//配方元素名称.
 				if (mTitleNameList!=null) {
-					if (mTitleNameList.size()>i-3) {
-						if (mTitleNameList.get(i-3).size()>SystemInfo.getCurrentLanguageId()) {
-							sTitleName=mTitleNameList.get(i-3).get(SystemInfo.getCurrentLanguageId());
+					if (mTitleNameList.size()>i-1) {
+						if (mTitleNameList.get(i-1).size()>SystemInfo.getCurrentLanguageId()) {
+							sTitleName=mTitleNameList.get(i-1).get(SystemInfo.getCurrentLanguageId());
 						}
 					}
 				}
 				
 				if (elems!=null) {
-					if (elems.length>i-3) {
-						data=elems[i-3];
+					if (elems.length>i-1) {
+						data=elems[i-1];
 						convert=false;
-						if (eDataTypeList.size()>i-3) {
-							DATA_TYPE type=eDataTypeList.get(i-3);
+						if (eDataTypeList.size()>i-1) {
+							DATA_TYPE type=eDataTypeList.get(i-1);
 							if (type==DATA_TYPE.BIT_1||type==DATA_TYPE.INT_16||type==DATA_TYPE.INT_32
 									||type==DATA_TYPE.POSITIVE_INT_16||type==DATA_TYPE.POSITIVE_INT_32) {
 								convert=true;
@@ -467,7 +507,10 @@ public class SKRecipeDialog {
 			txtEditText.setImeOptions(EditorInfo.IME_ACTION_DONE);
 			txtEditText.setLines(1);
 			txtEditText.setText(data);
+	
 			txtEditText.setLayoutParams(new LinearLayout.LayoutParams(100, 60));
+			txtEditText.setGravity(Gravity.CENTER);
+
 			
 			if (mRecipeData.getnKeyId()!=-1) {
 				boolean reulst=SKKeyPopupWindow.existKeyBroad(mRecipeData.getnKeyId());
@@ -491,6 +534,7 @@ public class SKRecipeDialog {
 			}
 			mList.add(txtEditText);
 			mBottomLayout.addView(txtEditText);
+			mBottomLayout.setGravity(Gravity.CENTER);
 				
 		}
 		
@@ -513,7 +557,7 @@ public class SKRecipeDialog {
 					addLayout.removeView(mLoadLayout);
 					
 					addLayout.addView(mTopLayout, LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT);
-					mTopLayout.layout(0, 50, nWidth, 100);
+				    mTopLayout.layout(0, 40, nWidth, 100);
 					
 					addLayout.addView(mBottomLayout, LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT);
 					mBottomLayout.layout(0, 100, nWidth, 180);
@@ -549,7 +593,7 @@ public class SKRecipeDialog {
 				addLayout.removeView(mLoadLayout);
 				
 				addLayout.addView(mTopLayout, LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT);
-				mTopLayout.layout(0, 50, nWidth, 100);
+				mTopLayout.layout(0, 40, nWidth, 100);
 				
 				addLayout.addView(mBottomLayout, LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT);
 				mBottomLayout.layout(0, 100, nWidth, 180);
@@ -570,6 +614,11 @@ public class SKRecipeDialog {
 	 * 显示
 	 */
 	public synchronized void showPopWindow(){
+		if (!SKSceneManage.getInstance().isbWindowFocus()) {
+			//窗口未获取焦点
+			Log.e("AKPopupWindow", "no window forcus ...");
+			return ;
+		}
 		if (!isShow) {
 			if (SKSceneManage.getInstance().getCurrentScene()==null) {
 				Log.d("SKScene", "current scene null....");
@@ -638,7 +687,7 @@ public class SKRecipeDialog {
 				}
 			}else if (v.equals(btnFrame)) {
 				ArrayList<String> group=new ArrayList<String>();
-				Vector<recipeOGprop> list=RecipeDataCentre.getInstance().getRecipeDataProp().getmRecipeGroupList();
+				Vector<RecipeOGprop> list=RecipeDataCentre.getInstance().getRecipeDataProp().getmRecipeGroupList();
 				if (list!=null) {
 					for (int i = 0; i < list.size(); i++) {
 						group.add(list.get(i).getsRecipeGName());
@@ -652,7 +701,7 @@ public class SKRecipeDialog {
 					if (type==1) {
 						if (SKSceneManage.nSceneWidth==800) {
 							mSpinner.showPopWindow(btnFrame,-btnFrame.getLeft(),32);
-						}else if (SKSceneManage.nSceneWidth==480) {
+						}else {
 							mSpinner.showPopWindow(btnFrame,22,32);
 						}
 					}else if (type==3) {
@@ -682,6 +731,14 @@ public class SKRecipeDialog {
 				String[] mm=getMaxAndMin( mRecipeData.geteDataTypeList().get(0));
 				if (SKKeyPopupWindow.keyFlagIsShow) {
 					popKey.setLastText(((EditText)v).getText().toString());
+					if(nListIndex ==0){//修改配方名称
+						popKey.setKeyType(false);
+						popKey.setInputType(false);
+					}
+					else {//修改配方元素
+						popKey.setKeyType(true);
+						popKey.setInputType(true);
+					}
 					popKey.setShowMax(mm[1]);
 					popKey.setShowMin(mm[0]);
 					popKey.setnStartX(mRecipeData.getnBoardX());
@@ -781,6 +838,7 @@ public class SKRecipeDialog {
 	private boolean deleteGroup(int gid){
 		if (gid>-1) {
 			RecipeDataCentre.getInstance().msgDeleteRecipeGroup(gid);
+			Toast.makeText( SKRecipeDialog.this.mContext,"当前配方組已成功删除", Toast.LENGTH_SHORT).show();
 		}else {
 			return false;
 		}
@@ -792,6 +850,17 @@ public class SKRecipeDialog {
 	 */
 	private boolean readFile(int gid){
 		if (gid>-1) {
+			RecipeOGprop oGprop=RecipeDataCentre.getInstance().getOGRecipeData(gid);
+			
+			if (btnU.isChecked()) {
+				if (oGprop!=null) {
+					oGprop.seteSaveMedia(STORAGE_MEDIA.U_DISH);
+				}
+			}else {
+				if (oGprop!=null) {
+					oGprop.seteSaveMedia(STORAGE_MEDIA.SD_DISH);
+				}
+			}
 			CurrentRecipe cinfo=new CurrentRecipe();
 			cinfo.setCurrentGroupRecipeId(gid);
 			cinfo.setCurrentRecipeId(-1);
@@ -807,7 +876,7 @@ public class SKRecipeDialog {
 	 */
 	private boolean writeFile(int gid){
 		if (gid>-1) {
-            recipeOGprop oGprop=RecipeDataCentre.getInstance().getOGRecipeData(gid);
+			RecipeOGprop oGprop=RecipeDataCentre.getInstance().getOGRecipeData(gid);
 			
 			if (btnU.isChecked()) {
 				if (oGprop!=null) {
@@ -933,6 +1002,25 @@ public class SKRecipeDialog {
 		}else if (type==6) {
 			//历史报警数据导出
 			result=exportAlarmFile();
+		}else if (type==7) {
+			String path="";
+			if (btnU.isChecked()) {
+				//U盘
+				path="/mnt/usb2/";
+				if(!StorageStateManager.getInstance().isUSBMounted()){
+					SKToast.makeText(mContext.getString(R.string.u_pand), Toast.LENGTH_SHORT).show();
+					return false;
+				}
+			}else {
+				//sd卡
+				path = "/mnt/sdcard/";
+				if (!StorageStateManager.getInstance().isSDMounted()) {
+					SKToast.makeText(mContext.getString(R.string.sd_card), Toast.LENGTH_SHORT).show();
+					return false;
+				}
+			}
+			RecipeDataCentre.getInstance().msgWriteAllRecipeSToFiles(path);
+			result=true;
 		}
 		return result;
 	}
@@ -960,48 +1048,50 @@ public class SKRecipeDialog {
 						recipe.getsRecipeName().set(SystemInfo.getCurrentLanguageId(), name);
 					}
 				}
-			}else if (i==1) {
-				//配方id
-				String id=mList.get(i).getText().toString().trim();
-				//pid=recipe.getnRecipeId();
-				if (!id.equals(recipe.getnRecipeId())) {
-					if (!isNumeric(id)) {
-						SKToast.makeText(mContext,
-								mContext.getString(R.string.recipe_prompt)+", ID "
-								+mContext.getString(R.string.recipe_prompt_num), Toast.LENGTH_SHORT).show();
-						return false;
-					}else {
-						int temp=Integer.valueOf(id);
-						if (temp!=recipe.getnRecipeId()) {
-							boolean bid=DBTool.getInstance().getmRecipeDataBiz().existRecipeID(info.getCurrentGroupRecipeId()+"", id+"");
-							if (bid) {
-								SKToast.makeText(mContext,"ID:"+id+","
-							+mContext.getString(R.string.recipe_exists), Toast.LENGTH_SHORT).show();
-								return false;
-							}else{
-								if (temp<0||temp>32767){
-									SKToast.makeText(mContext,"ID:"+id+","
-											+mContext.getString(R.string.out_of_range), Toast.LENGTH_SHORT).show();
-									return false;
-								}
-								recipe.setnRecipeId(Integer.valueOf(id));
-							}
-						}
-					}
-				}
-				
-			}else if (i==2) {
-				//配方描述
-				String des=mList.get(i).getText().toString().trim()+" ";
-				if (recipe.getsRecipeDescri().size()==0) {
-					Vector<String> descri=new Vector<String>();
-					for (int j = 0; j < SystemInfo.getLanguageNumber(); j++) {
-						descri.add("");
-					}
-					recipe.setsRecipeDescri(descri);
-				}
-				recipe.getsRecipeDescri().set(SystemInfo.getCurrentLanguageId(), des);
-			}else {
+			}
+//			else if (i==1) {
+//				//配方id
+//				String id=mList.get(i).getText().toString().trim();
+//				//pid=recipe.getnRecipeId();
+//				if (!id.equals(recipe.getnRecipeId())) {
+//					if (!isNumeric(id)) {
+//						SKToast.makeText(mContext,
+//								mContext.getString(R.string.recipe_prompt)+", ID "
+//								+mContext.getString(R.string.recipe_prompt_num), Toast.LENGTH_SHORT).show();
+//						return false;
+//					}else {
+//						int temp=Integer.valueOf(id);
+//						if (temp!=recipe.getnRecipeId()) {
+//							boolean bid=DBTool.getInstance().getmRecipeDataBiz().existRecipeID(info.getCurrentGroupRecipeId()+"", id+"");
+//							if (bid) {
+//								SKToast.makeText(mContext,"ID:"+id+","
+//							+mContext.getString(R.string.recipe_exists), Toast.LENGTH_SHORT).show();
+//								return false;
+//							}else{
+//								if (temp<0||temp>32767){
+//									SKToast.makeText(mContext,"ID:"+id+","
+//											+mContext.getString(R.string.out_of_range), Toast.LENGTH_SHORT).show();
+//									return false;
+//								}
+//								recipe.setnRecipeId(Integer.valueOf(id));
+//							}
+//						}
+//					}
+//				}
+//				
+//			}else if (i==2) {
+//				//配方描述
+//				String des=mList.get(i).getText().toString().trim()+" ";
+//				if (recipe.getsRecipeDescri().size()==0) {
+//					Vector<String> descri=new Vector<String>();
+//					for (int j = 0; j < SystemInfo.getLanguageNumber(); j++) {
+//						descri.add("");
+//					}
+//					recipe.setsRecipeDescri(descri);
+//				}
+//				recipe.getsRecipeDescri().set(SystemInfo.getCurrentLanguageId(), des);
+//			}
+			else {
 				//配方元素
 				String value=mList.get(i).getText().toString().trim();
 				if (!value.equals("")) {
@@ -1018,7 +1108,7 @@ public class SKRecipeDialog {
 						}else {
 							temp=Double.valueOf(value);
 						}
-						int k=i-3;
+						int k=i-1;
 						if (eDataTypeList!=null) {
 							if (eDataTypeList.size()>k) {
 								DATA_TYPE type=eDataTypeList.get(k);
@@ -1117,17 +1207,40 @@ public class SKRecipeDialog {
 		
 		CurrentRecipe cInfo=new CurrentRecipe();
 		cInfo.setCurrentGroupRecipeId(info.getCurrentGroupRecipeId());
-		cInfo.setCurrentRecipeId(info.getCurrentRecipeId());
+		cInfo.setCurrentRecipeId(recipe.getnRecipeId());
 		
-		RecipeDataCentre.getInstance().setCurrRecipe(info.getCurrentGroupRecipeId(), recipe.getnRecipeId());
+		//RecipeDataCentre.getInstance().setCurrRecipe(info.getCurrentGroupRecipeId(), recipe.getnRecipeId());
 		eInfo.mRecipeData=recipe;
 		eInfo.mRecipeInfo=cInfo;
 		eInfo.sValueList=elemsValue;
 		
 		
-		RecipeDataCentre.getInstance().setRecipeData(info.getCurrentGroupRecipeId(), recipe.getnRecipeId(), elemsValue);
+		//RecipeDataCentre.getInstance().setRecipeData(info.getCurrentGroupRecipeId(), recipe.getnRecipeId(), elemsValue);
 		RecipeDataCentre.getInstance().msgEditRecipeSave(eInfo);
+		
+		//编辑完成之后 进行广播
+		notifiSelect(recipe.getnRecipeId());
 		return true;
+	}
+	
+	private void notifiSelect(int editId){
+		if (SKRecipeShow.mObservers != null && SKRecipeShow.mObservers.size() > 0) {
+			SelectObser observable = new SelectObser();
+			for(int i = 0; i < SKRecipeShow.mObservers.size(); i++){
+				observable.addObserver(SKRecipeShow.mObservers.get(i));
+			}
+			observable.mEditId = editId;
+			observable.notifyChanges();
+		}
+	}
+	
+	class SelectObser extends Observable{
+		
+		public int mEditId = 0;
+		public void notifyChanges(){
+			setChanged();
+			notifyObservers(mEditId);
+		}
 	}
 	
 	/**
@@ -1166,42 +1279,44 @@ public class SKRecipeDialog {
 					}
 				}
 				
-			}else if (i==1) {
-				//配方id
-				String id=mList.get(i).getText().toString().trim();
-				if (id==null||id.equals("")) {
-					SKToast.makeText(mContext,"ID,"
-							+mContext.getString(R.string.recipe_add_null), Toast.LENGTH_SHORT).show();
-					return false;
-				}else{
-					if (!id.equals(recipe.getnRecipeId())) {
-						if (!isNumeric(id)) {
-							SKToast.makeText(mContext,
-									mContext.getString(R.string.recipe_prompt)+", ID "
-									+mContext.getString(R.string.recipe_prompt_num), Toast.LENGTH_SHORT).show();
-							return false;
-						}else {
-							boolean bid=DBTool.getInstance().getmRecipeDataBiz().existRecipeID(nGroupId+"",id);
-							if (bid) {
-								SKToast.makeText(mContext,"ID:"+id+","
-							+mContext.getString(R.string.recipe_exists), Toast.LENGTH_SHORT).show();
-								return false;
-							}else{
-								recipe.setnRecipeId(Integer.valueOf(id));
-							}
-						}
-					}
-				}
-				
-			}else if (i==2) {
-				//配方描述
-				String des=mList.get(i).getText().toString().trim();
-				Vector<String> desList=new Vector<String>();
-				for (int j = 0; j < count; j++) {
-					desList.add(des);
-				}
-				recipe.setsRecipeDescri(desList);
-			}else {
+			}
+//			else if (i==1) {
+//				//配方id
+//				String id=mList.get(i).getText().toString().trim();
+//				if (id==null||id.equals("")) {
+//					SKToast.makeText(mContext,"ID,"
+//							+mContext.getString(R.string.recipe_add_null), Toast.LENGTH_SHORT).show();
+//					return false;
+//				}else{
+//					if (!id.equals(recipe.getnRecipeId())) {
+//						if (!isNumeric(id)) {
+//							SKToast.makeText(mContext,
+//									mContext.getString(R.string.recipe_prompt)+", ID "
+//									+mContext.getString(R.string.recipe_prompt_num), Toast.LENGTH_SHORT).show();
+//							return false;
+//						}else {
+//							boolean bid=DBTool.getInstance().getmRecipeDataBiz().existRecipeID(nGroupId+"",id);
+//							if (bid) {
+//								SKToast.makeText(mContext,"ID:"+id+","
+//							+mContext.getString(R.string.recipe_exists), Toast.LENGTH_SHORT).show();
+//								return false;
+//							}else{
+//								recipe.setnRecipeId(Integer.valueOf(id));
+//							}
+//						}
+//					}
+//				}
+//				
+//			}else if (i==2) {
+//				//配方描述
+//				String des=mList.get(i).getText().toString().trim();
+//				Vector<String> desList=new Vector<String>();
+//				for (int j = 0; j < count; j++) {
+//					desList.add(des);
+//				}
+//				recipe.setsRecipeDescri(desList);
+//			}
+			else {
 				//配方元素
 				
 				String value=mList.get(i).getText().toString().trim();
@@ -1224,7 +1339,7 @@ public class SKRecipeDialog {
 					temp=Double.valueOf(value);
 				}
 				
-				int k=i-3;
+				int k=i-1;
 				if (eDataTypeList!=null) {
 					if (eDataTypeList.size()>k) {
 						DATA_TYPE type=eDataTypeList.get(k);
@@ -1309,6 +1424,15 @@ public class SKRecipeDialog {
 			}
 			
 		}
+		
+		//设置配方ID
+		int id=DBTool.getInstance().getmRecipeDataBiz().getRecipeId(nGroupId);
+		recipe.setnRecipeId(id);
+		//设置配方描述
+		Vector<String> desList=new Vector<String>();
+		desList.add("");
+		recipe.setsRecipeDescri(desList );
+		
 
 		EditRecipeInfo eInfo=RecipeDataCentre.getInstance().new EditRecipeInfo();
 		
@@ -1385,6 +1509,7 @@ public class SKRecipeDialog {
 	 * 报警历史数据导出
 	 */
 	private boolean exportAlarmFile(){
+	
 		boolean result=false;
 		String path="";
 		String sMsg="";

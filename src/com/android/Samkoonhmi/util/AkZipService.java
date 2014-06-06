@@ -66,26 +66,36 @@ public class AkZipService extends Service{
 					Log.d(TAG, "ak loadown start...");
 					SavaInfo.setState(1);//开始下载，把ak状态设置为NO
 					
-					SharedPreferences sharedPreferences = mContext.getSharedPreferences(
-							"information", 0);
+					SharedPreferences sharedPreferences = mContext.getSharedPreferences("information", 0);
 					boolean result = sharedPreferences.getBoolean("update_state", false);
 				
 					//设置更新状态
-					SharedPreferences.Editor shareEditor = mContext.getSharedPreferences(
-							"information", 0).edit();
+					SharedPreferences.Editor shareEditor = mContext.getSharedPreferences("information", 0).edit();
 					shareEditor.putBoolean("update_state", false);
 					shareEditor.commit();
-					
-					//停止服务
-//					Intent server=new Intent();
-//					server.setClass(this, AkZipService.class);
-//					stopService(server);
 					
 					if (result) {
 						SKSceneManage.getInstance().closeDB();
 						SKSceneManage.getInstance().destroy();
 					}
+					//android.os.Process.killProcess(android.os.Process.myPid());
+					
+				}else if(update.equals("emu_start")){
+					super.stopSelf();
+					SharedPreferences sharedPreferences = mContext.getSharedPreferences("information", 0);
+					boolean result = sharedPreferences.getBoolean("update_state", false);
+					//设置更新状态
+					SharedPreferences.Editor shareEditor = mContext.getSharedPreferences("information", 0).edit();
+					shareEditor.putBoolean("update_state", false);
+					shareEditor.commit();
+					if(result){
+						SKSceneManage.getInstance().closeDB();
+						SKSceneManage.getInstance().destroy();
+					}else {
+						android.os.Process.killProcess(android.os.Process.myPid());
+					}
 				}else if (update.equals("file")) {
+					AKFileUpdate.flag=1;
 					Log.d(TAG, "ak emu file update...");
 					isAkEmu=true;
 					update();
@@ -98,6 +108,7 @@ public class AkZipService extends Service{
 	}
 	
 	private synchronized void update(){
+		
 		skToast=SKToast.makeText(this.getApplicationContext(), R.string.ak_update, Toast.LENGTH_LONG, Gravity.CENTER, 0, 60);
 		isShow=true;
 		mHandler.sendEmptyMessage(SHOW);
@@ -130,11 +141,13 @@ public class AkZipService extends Service{
 
 		@Override
 		public void run() {
+			long start = System.currentTimeMillis();
 			super.run();
 			
 			Log.d(TAG, "ak update file...");
 			bPlcDown=false;
 			//SavaInfo.setState(1);//开始下载，把ak状态设置为NO
+			upState(false);//上载状态
 			
 			File file=new File("/data/data/com.android.Samkoonhmi/samkoonhmi.akz");
 			//真机
@@ -142,13 +155,14 @@ public class AkZipService extends Service{
 				SkLoad.getInstance().update_from_release(mContext,
 						"/data/data/com.android.Samkoonhmi/samkoonhmi.akz");
 				AKFileUpdate.getInstance(mContext).update();
+				upState(true);//上载状态
 			}else {
 				//模拟器
-				File emu=new File("/mnt/shared/esd/samkoonhmi.akz");
+				File emu=new File("/mnt/shared/esd/Udisk");
 				if (emu.exists()) {
-					SkLoad.getInstance().update_from_release(mContext,
-							"/mnt/shared/esd/samkoonhmi.akz");
+					AKFileUpdate.getInstance(mContext).linkFileToEmu();
 					AKFileUpdate.getInstance(mContext).update();
+					upState(true);//上载状态
 				}else {
 					startHMI();
 					return;
@@ -209,7 +223,7 @@ public class AkZipService extends Service{
 			}else {
 				startHMI();
 			}
-			
+			//System.out.println("^^^spand time:"+(System.currentTimeMillis()-start));
 		}
 		
 	}
@@ -258,6 +272,17 @@ public class AkZipService extends Service{
 		}
 		
 		SavaInfo.setState(2);//更新完毕，把ak状态设置为YES
+	}
+	
+	
+	/**
+	 * 更新下载状态
+	 */
+	private void upState(boolean state){
+		//Log.d(TAG, "update file state="+state);
+		SharedPreferences.Editor shareEditor = mContext.getSharedPreferences("information", 0).edit();
+		shareEditor.putBoolean("ak_updte_file", state);
+		shareEditor.commit();
 	}
 	
 	/**

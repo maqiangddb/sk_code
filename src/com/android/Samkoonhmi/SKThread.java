@@ -38,14 +38,12 @@ public class SKThread {
 	}
 
 	private SKThread() {
-		if (mThread == null) {
-			TASK_ID = 0;
-			mThread = new HandlerThread("backThread");
-			mThread.start();
+		TASK_ID = 0;
+		mThread = new HandlerThread("backThread");
+		mThread.start();
 
-			mHandler = new SKHandler(mThread.getLooper());
-			mCallbacks = new Vector<SKThreadCallbackInfo>();
-		}
+		mHandler = new SKHandler(mThread.getLooper());
+		mCallbacks = new Vector<SKThreadCallbackInfo>();
 	}
 
 	public void startThread() {
@@ -351,6 +349,7 @@ public class SKThread {
 			}
 			case TASK.SCENE_AND_ITEM: {
 				// 画面信息和控件信息
+				//Log.d(TAG, "SCENE_AND_ITEM..............");
 				if (mSceneCallback != null) {
 					mSceneCallback.onUpdate(msg.mParam, msg.nTaskId);
 				}
@@ -633,43 +632,49 @@ public class SKThread {
 	private synchronized ICallback doCallback(int type,ICallback callback,String name){
 		
 		ICallback iCallback = null;
-		if (type==1) {
-			//获取
-			if (name == null || name.equals("")) {
-				return null;
-			}
-			if (mCallbacks != null) {
-				for (int i = 0; i < mCallbacks.size(); i++) {
-					SKThreadCallbackInfo info = mCallbacks.get(i);
-					if (info.name.equals(name)) {
-						return info.iCallback;
+		try {
+			if (type==1) {
+				//获取
+				if (name == null || name.equals("")) {
+					return null;
+				}
+				if (mCallbacks != null) {
+					for (int i = 0; i < mCallbacks.size(); i++) {
+						SKThreadCallbackInfo info = mCallbacks.get(i);
+						if (info.name.equals(name)) {
+							return info.iCallback;
+						}
 					}
 				}
+				return iCallback;
+			}else if (type==2) {
+				//注册
+	            if (mCallbacks != null) {
+					removeReigter(callback);
+					SKThreadCallbackInfo info = new SKThreadCallbackInfo();
+					info.name = TASK_ID + "";
+					info.iCallback = callback;
+					mCallbacks.add(info);
+					//Log.d(TAG, "register name:"+info.name);
+					//Log.d(TAG, "mCallbacks size:"+mCallbacks.size());
+				}
+			}else if (type==3) {
+				//删除注册
+				remove(name);
+			}else if (type==4) {
+				//清除
+				if (mCallbacks != null) {
+					mCallbacks.clear();
+					TASK_ID = 0;
+					//Log.d(TAG, "destory size:"+mCallbacks.size());
+					//Log.d(TAG, "skthread destory");
+				}
 			}
-			return iCallback;
-		}else if (type==2) {
-			//注册
-            if (mCallbacks != null) {
-				removeReigter(callback);
-				SKThreadCallbackInfo info = new SKThreadCallbackInfo();
-				info.name = TASK_ID + "";
-				info.iCallback = callback;
-				mCallbacks.add(info);
-				//Log.d(TAG, "register name:"+info.name);
-				//Log.d(TAG, "mCallbacks size:"+mCallbacks.size());
-			}
-		}else if (type==3) {
-			//删除注册
-			remove(name);
-		}else if (type==4) {
-			//清除
-			if (mCallbacks != null) {
-				mCallbacks.clear();
-				TASK_ID = 0;
-				//Log.d(TAG, "destory size:"+mCallbacks.size());
-				//Log.d(TAG, "skthread destory");
-			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e(TAG, "SKThread doCallback error !!! ");
 		}
+		
 		return iCallback;
 	}
 	

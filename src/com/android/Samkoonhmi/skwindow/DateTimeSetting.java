@@ -22,6 +22,7 @@ import com.android.Samkoonhmi.model.sk_historytrends.CollectItem;
 import com.android.Samkoonhmi.model.skglobalcmn.CollectDataInfo;
 import com.android.Samkoonhmi.model.skglobalcmn.HistoryDataCollect;
 import com.android.Samkoonhmi.skglobalcmn.DataCollect;
+import com.android.Samkoonhmi.skglobalcmn.RecipeDataCentre;
 import com.android.Samkoonhmi.util.AlarmGroup;
 
 import android.app.DatePickerDialog;
@@ -47,6 +48,7 @@ import android.view.WindowManager;
 import android.view.View.OnClickListener;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
+import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -129,7 +131,7 @@ public class DateTimeSetting  extends Dialog implements OnClickListener {
 	private String HistoryShowId="";
 	private CollectAdapter mAdapter;
 	private ArrayList<CollectItem> data;
-	private AlarmDateAdapter alarmAdapter;
+	private AlarmDateAdapter commAdapter;
 	private BroadcastReceiver TimeTickReceiver;
 	
 	public String getHistoryShowId() {
@@ -404,6 +406,8 @@ public class DateTimeSetting  extends Dialog implements OnClickListener {
 			ArrayList<AlarmGroupInfo> list = AlarmGroup.getInstance().getAlarmGroupList();
 			if (list != null && list.size() > 0)
 			{
+				
+				
 				view = inflater.inflate(R.layout.collect_view, null);
 				((TextView)view.findViewById(R.id.layout_topText)).setText(R.string.alarm_clear);
 				btnCancel = (Button) view.findViewById(R.id.btn_cancel);
@@ -412,17 +416,85 @@ public class DateTimeSetting  extends Dialog implements OnClickListener {
 				cbxAll.setOnCheckedChangeListener(checked);
 				btnCancel.setOnClickListener(this);
 				btnOk.setOnClickListener(this);
-	
+				
 				listView=(ListView)view.findViewById(R.id.list_gid);
-				alarmAdapter = new AlarmDateAdapter(list, mContext);
-				listView.setAdapter(alarmAdapter);
+				commAdapter = new AlarmDateAdapter (mContext);
+				commAdapter.setAlarmList(list);
+				listView.setAdapter(commAdapter);
+		
+//				view = inflater.inflate(R.layout.collect_view, null);
+//				((TextView)view.findViewById(R.id.layout_topText)).setText(R.string.alarm_clear);
+//				btnCancel = (Button) view.findViewById(R.id.btn_cancel);
+//				btnOk = (Button) view.findViewById(R.id.btn_ok);	
+//				cbxAll=(CheckBox)view.findViewById(R.id.cbx_all);
+//				cbxAll.setOnCheckedChangeListener(checked);
+//				btnCancel.setOnClickListener(this);
+//				btnOk.setOnClickListener(this);
+//	
+//				listView=(ListView)view.findViewById(R.id.list_gid);
+//				listView.setAdapter(commAdapter);
+				
 			}
 		}
 		break;
+//		case EMAIL_FORMULA:
+//		{
+//			Vector<recipeOGprop> list=RecipeDataCentre.getInstance().getRecipeDataProp().getmRecipeGroupList();
+//			if (list != null && list.size() > 0) {
+//				commAdapter =  new AlarmDateAdapter(mContext);
+//				commAdapter.setRecipeList(list);
+//				
+//				createDialogView(commAdapter, R.string.email_recipe);
+//			}
+//			Vector<recipeOGprop> list=RecipeDataCentre.getInstance().getRecipeDataProp().getmRecipeGroupList();
+//			alarmAdapter = new AlarmDateAdapter(list, mContext);
+//			
+//			view = inflater.inflate(R.layout.collect_view, null);
+//			((TextView)view.findViewById(R.id.layout_topText)).setText(R.string.email_recipe);
+//			btnCancel = (Button) view.findViewById(R.id.btn_cancel);
+//			btnOk = (Button) view.findViewById(R.id.btn_ok);	
+//			cbxAll=(CheckBox)view.findViewById(R.id.cbx_all);
+//			cbxAll.setOnCheckedChangeListener(checked);
+//			btnCancel.setOnClickListener(this);
+//			btnOk.setOnClickListener(this);
+//			
+//			listView=(ListView)view.findViewById(R.id.list_gid);
+//			listView.setAdapter(alarmAdapter);
+//		}
+//		break;
+//		case EMAIL_ALARMDATA:
+//		{
+//			ArrayList<AlarmGroupInfo> list = AlarmGroup.getInstance().getAlarmGroupList();
+//			if (list !=  null  && list.size() > 0) {
+//				commAdapter = new AlarmDateAdapter (mContext);
+//				commAdapter.setAlarmList(list);
+//				
+//				createDialogView(commAdapter, R.string.email_alarm);
+//			}
+//		}
+//		break;
 		}
 		
 		view.setLayoutParams(new LayoutParams(width, height));
 		setContentView(view);
+	}
+	
+	/**
+	 * 
+	 * 创建带listview的弹出框
+	 */
+	private void createDialogView(BaseAdapter baseAdapter, int stringId){
+		view = inflater.inflate(R.layout.collect_view, null);
+		((TextView)view.findViewById(R.id.layout_topText)).setText(stringId);
+		btnCancel = (Button) view.findViewById(R.id.btn_cancel);
+		btnOk = (Button) view.findViewById(R.id.btn_ok);	
+		cbxAll=(CheckBox)view.findViewById(R.id.cbx_all);
+		cbxAll.setOnCheckedChangeListener(checked);
+		btnCancel.setOnClickListener(this);
+		btnOk.setOnClickListener(this);
+		
+		listView=(ListView)view.findViewById(R.id.list_gid);
+		listView.setAdapter(baseAdapter);
 	}
 	
 	OnCheckedChangeListener checked=new OnCheckedChangeListener() {
@@ -442,12 +514,11 @@ public class DateTimeSetting  extends Dialog implements OnClickListener {
 			}
 			else if (mType == TYPE.ALARM_CLEAR_HISTOTY || mType == TYPE.ALARM_CLEAR || mType == TYPE.ALARM_CONFIRM) 
 			{
-				for(int i = 0; i < listView.getCount(); i++)
+				for(int i = 0; i < commAdapter.getCount(); i++)
 				{
-					View view = listView.getChildAt(i);
-					ViewHolder holder = (ViewHolder) view.getTag();
-					holder.checkView.setChecked(isChecked);
+					commAdapter.setCheckState(i, isChecked);
 				}
+				commAdapter.notifyDataSetChanged();
 			}
 			
 		}
@@ -747,6 +818,7 @@ public class DateTimeSetting  extends Dialog implements OnClickListener {
 		ALARM_CLEAR_HISTOTY,//清除历史报警数据
 		ALARM_CLEAR,//报警清除
 		ALARM_CONFIRM,//报警确定
+		EMAIL_ALARMDATA,
 	}
 
 	/**
@@ -846,16 +918,7 @@ public class DateTimeSetting  extends Dialog implements OnClickListener {
 			}
 			else if (mType == TYPE.ALARM_CLEAR_HISTOTY || mType == TYPE.ALARM_CLEAR || mType == TYPE.ALARM_CONFIRM)
 			{
-				ArrayList<Integer> delList = new ArrayList<Integer>();
-				
-				for(int i = 0; i < listView.getCount(); i++)
-				{
-					View itemView = listView.getChildAt(i);
-					ViewHolder holder = (ViewHolder) itemView.getTag();
-					if (holder.checkView.isChecked()) {
-						delList.add(holder.nGroupId);
-					}
-				}
+				ArrayList<Integer> delList = commAdapter.getAlarmList();
 				
 				if (delList.size() > 0) {
 					if (mType == TYPE.ALARM_CLEAR_HISTOTY) {
@@ -869,6 +932,32 @@ public class DateTimeSetting  extends Dialog implements OnClickListener {
 					}
 				}
 			}
+//			else if (mType == TYPE.EMAIL_FORMULA) {
+//				ArrayList<Integer> email_list = new ArrayList<Integer>();
+//				for(int i = 0; i < listView.getCount(); i++){
+//					ViewHolder holder = (ViewHolder) listView.getChildAt(i).getTag();
+//					if (holder.checkView.isChecked()) {
+//						email_list.add(holder.nGroupId);
+//					}
+//				}
+//				
+//				RecipeDataCentre.getInstance().msgWriteRecipeSToFiles(email_list);
+//				
+//			}
+//			else if (mType == TYPE.EMAIL_ALARMDATA) {
+//				ArrayList<Email_AlarmBean> email_list = new ArrayList<Email_AlarmBean>();
+//				for(int i = 0; i < listView.getCount(); i++){
+//					ViewHolder holder = (ViewHolder) listView.getChildAt(i).getTag();
+//					if (holder.checkView.isChecked()) {
+//						Email_AlarmBean bean = new Email_AlarmBean();
+//						bean.nGroupId = holder.nGroupId;
+//						bean.nGroupName = holder.contentView.getText().toString();
+//						email_list.add(bean);
+//					}
+//				}
+//				
+//				AlarmGroup.getInstance().emailFiles(email_list);
+//			}
 
 			closePopWindow();
 			// 设值
@@ -961,6 +1050,8 @@ public class DateTimeSetting  extends Dialog implements OnClickListener {
 			}
 		}
 	}
+	
+
 
 	/**
 	 * 获取用户设置

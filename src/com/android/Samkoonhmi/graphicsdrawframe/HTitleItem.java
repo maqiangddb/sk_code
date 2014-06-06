@@ -2,6 +2,8 @@ package com.android.Samkoonhmi.graphicsdrawframe;
 
 import java.util.ArrayList;
 
+import javax.mail.internet.NewsAddress;
+
 import com.android.Samkoonhmi.R;
 
 import android.content.Context;
@@ -10,6 +12,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
@@ -19,8 +22,11 @@ import android.graphics.Paint.Align;
 import android.graphics.Paint.FontMetrics;
 import android.graphics.Paint.Join;
 import android.graphics.Paint.Style;
+import android.os.Handler;
 import android.view.MotionEvent;
 import com.android.Samkoonhmi.skenum.TEXT_PIC_ALIGN;
+import com.android.Samkoonhmi.skwindow.SKMenuManage;
+import com.android.Samkoonhmi.util.ContextUtl;
 import com.android.Samkoonhmi.util.TextAlignUtil;
 
 
@@ -95,6 +101,13 @@ public class HTitleItem {
 		mBitmapPaint.setAntiAlias(true);
 		mBitmapPaint.setDither(true);
 		mTextAlignUtil=new TextAlignUtil();
+		if (nColunm>nShowColunm) {
+			nShowColunm=nColunm;
+		}
+		for (int i = 0; i < nShowColunm; i++) {
+			mItems.add("");
+		}
+		
 	}
 
 	/**
@@ -116,12 +129,12 @@ public class HTitleItem {
 			nShowColunm=nColunm;
 		}
 		
-		mItems.clear();
-		
-		for (int i = 0; i < nShowColunm; i++) {
-			mItems.add("");
+		if(nWidth<1){
+			nWidth=1;
 		}
-		
+		if(nHeight<1){
+			nHeight=1;
+		}
 		mBitmap = Bitmap.createBitmap(nWidth, nHeight, Config.ARGB_8888);
 		
 		mCanvas = new Canvas(mBitmap);
@@ -361,9 +374,18 @@ public class HTitleItem {
 	 */
 	private void drawEnterKeyImage(){
 
-		if(getEnteKeyShow()){
+		if(getEnteKeyShow() && bDrawEnterKey){
 			mEnterKey.OnDraw();
 		}
+	}
+	
+	private boolean bDrawEnterKey = true;
+	/**
+	 * 设置 是否绘制 画返回键
+	 * @param ret
+	 */
+	public void setDrawEnterKey(boolean ret){
+		bDrawEnterKey = ret;
 	}
 	
 	/**
@@ -396,14 +418,25 @@ public class HTitleItem {
 ////			}
 			Double tempDouble = mRowHeight.get(0)>mRowWidth.get(0)?mRowWidth.get(0):mRowHeight.get(0);
 			int temp = tempDouble.intValue();
-			
 			EnterKeyRect = new Rect();
 			EnterKeyRect.top =  mShowRect.top;
 			EnterKeyRect.left = mShowRect.left;
-			EnterKeyRect.bottom = EnterKeyRect.top+temp;
-			EnterKeyRect.right = EnterKeyRect.left+temp;
+			if (bDrawEnterKey) { // 绘制返回键
+				EnterKeyRect.bottom = EnterKeyRect.top+temp;
+				EnterKeyRect.right = EnterKeyRect.left+temp;
+			}
+			else { //不绘制返回键
+				EnterKeyRect.bottom = mShowRect.bottom;
+				EnterKeyRect.right = mShowRect.right;
+			}
+			
+			
+			
 		}
 		
+		
+		float downX = 0; //action_down 执行是 x的坐标
+		float downY = 0; //action_down 执行是 y的坐标
 		/**
 		 * 返回键触摸响应
 		 * @param event 触摸事件
@@ -412,6 +445,7 @@ public class HTitleItem {
 		private boolean OnTouch(MotionEvent event){
 			float X = event.getX();
 			float Y = event.getY();
+		
 			boolean result = false;
 			if(null != EnterKeyRect){
 				if(EnterKeyRect.contains((int)X,(int) Y)){
@@ -419,13 +453,28 @@ public class HTitleItem {
 					
 					switch(event.getAction()){
 						case MotionEvent.ACTION_DOWN:	
+							downX = X;
+							downY = Y;
+							setLongTouchListener((int)downX, (int)downY);
 							break;
-							
+						case MotionEvent.ACTION_MOVE:
+							if (Math.abs(downX - X) > TOUCH_SLOP  || Math.abs(downY - Y) > TOUCH_SLOP) {//  超出 长按返回，则 取消长按事件
+								cancelLongTouch();
+							}
+							break;
 						case MotionEvent.ACTION_UP:
+							cancelLongTouch();
+							if(mTouchRun.isLongTouch()){ //长按事件 则 屏蔽点击事件
+								return true;
+							}
+							
 							if(null != iEnterKeyCallBack){
 								iEnterKeyCallBack.onPress();
 								return true;
 							}
+							break;
+						case MotionEvent.ACTION_CANCEL:
+							cancelLongTouch();
 							break;
 							
 						default:
@@ -435,6 +484,51 @@ public class HTitleItem {
 			}
 			
 			return result;
+		}
+		
+		private void cancelLongTouch(){
+			mHandler.removeCallbacks(mTouchRun);
+		}
+		
+		private void setLongTouchListener(int clickX, int clickY){
+			cancelLongTouch();
+			
+			mTouchRun.setClickPoint(clickX, clickY);
+			mHandler.postDelayed(mTouchRun, 500);//0.5s 响应
+		}
+		
+		private final int TOUCH_SLOP = SKMenuManage.dip2px(ContextUtl.getInstance(), 30); //移动的阀值20dip
+		private LongTouchRun mTouchRun = new LongTouchRun();
+		private Handler mHandler = new Handler();
+		
+		class LongTouchRun implements Runnable {
+			private Point clickPoint = null;
+			private boolean isRun = false; // true 表示长按事件
+			
+			public LongTouchRun(){
+				clickPoint = new Point();
+			}
+			
+			public void setClickPoint(int x, int y){
+				clickPoint.x = x;
+				clickPoint.y = y;
+				
+				isRun = false;
+			}
+			
+			public boolean isLongTouch(){
+				return isRun;
+			}
+			
+			
+			@Override
+			public void run() {
+				// TODO Auto-generated method stub
+				if(null != iEnterKeyCallBack){
+					iEnterKeyCallBack.onLongTouch(clickPoint.x, clickPoint.y);
+					isRun = true;
+				}
+			}
 		}
 		
 		/**
@@ -476,7 +570,9 @@ public class HTitleItem {
 		/**
 		 * 按下ENTER键后响应
 		 */
-		void onPress();
+		public void onPress();
+		
+		public void onLongTouch(int x, int y);
 	}
 	
 	/**
@@ -496,4 +592,41 @@ public class HTitleItem {
 	public Rect getmShowRect(){
 		return mShowRect;
 	}
+	
+	/**
+	 * 重新设置宽度
+	 * @param w-宽度
+	 */
+	public void resetWidth(int w){
+		
+		double tmp=mShowRect.width();
+		mShowRect.right=mShowRect.right+(int)(w-tmp);
+		nWidth=w;
+		
+		double len=(w-tmp)/nShowColunm;
+		for (int i = 0; i < mRowWidth.size(); i++) {
+			double ww=mRowWidth.get(i);
+			mRowWidth.set(i, len+ww);
+		}
+		
+		initData();
+	}
+	
+	/**
+	 * 重新设置高度
+	 * @param h-高度
+	 */
+	public void resetHeight(double len){
+		//标题
+		mShowRect.bottom=mShowRect.bottom+(int)(len);
+		nHeight=mShowRect.height();
+		
+		for (int i = 0; i < mRowHeight.size(); i++) {
+			double ww=mRowHeight.get(i);
+			mRowHeight.set(i, len+ww);
+		}
+		
+		initData();
+	}
+	
 }

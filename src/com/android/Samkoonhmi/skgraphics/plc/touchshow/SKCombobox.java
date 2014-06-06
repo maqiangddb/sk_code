@@ -6,17 +6,23 @@ import java.util.Map;
 import java.util.Vector;
 import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.adapter.ComboxListAdapt;
+import com.android.Samkoonhmi.databaseinterface.DBTool;
 import com.android.Samkoonhmi.graphicsdrawframe.FoldLineItem;
 import com.android.Samkoonhmi.graphicsdrawframe.RectItem;
 import com.android.Samkoonhmi.graphicsdrawframe.TextItem;
 import com.android.Samkoonhmi.macro.MacroManager;
 import com.android.Samkoonhmi.model.ComboBoxInfo;
 import com.android.Samkoonhmi.model.ComboxItemInfo;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.StaticTextModel;
 import com.android.Samkoonhmi.model.SystemInfo;
+import com.android.Samkoonhmi.model.skbutton.ButtonInfo;
+import com.android.Samkoonhmi.model.skbutton.WordButtonInfo;
 import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
 import com.android.Samkoonhmi.skenum.ADDRTYPE;
+import com.android.Samkoonhmi.skenum.BUTTON.BUTTON_TYPE;
+import com.android.Samkoonhmi.skenum.BUTTON.WORD_OPER_TYPE;
 import com.android.Samkoonhmi.skenum.CSS_TYPE;
 import com.android.Samkoonhmi.skenum.TEXT_PIC_ALIGN;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.base.SKGraphCmnTouch;
@@ -29,6 +35,7 @@ import com.android.Samkoonhmi.util.MSERV;
 import com.android.Samkoonhmi.util.SKLanguage;
 import com.android.Samkoonhmi.util.TASK;
 
+import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -56,12 +63,12 @@ import android.widget.Toast;
 
 //import SKGraphCmnTouch;
 /**
- * 下拉框
+ * 多功能选择按钮
  * 
  * @author Administrator
  * 
  */
-public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
+public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener,IItem{
 	private ComboBoxInfo info;
 	private Rect rectBoder;// 矩形边框
 	private Rect rectBox;// 显示下拉三角形的矩形
@@ -87,7 +94,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 	private TextItem textItem;
 	private StaticTextModel text;
 	private RectItem rectItems;
-	private RectItem borderReceItem;
+	// private RectItem borderReceItem;
 	private FoldLineItem foldLineItem;
 	private SKItems items;
 	private int itemId;
@@ -120,12 +127,11 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 		mPaint = new Paint();
 		showFunctionName = null;
 		this.info = info;
-		
-		if(info!=null){
+
+		if (info != null) {
 			// 下拉列表数据
 			data = new ArrayList<ComboxItemInfo>();
 			data = info.getFunctionList();
-			
 			// 控件的矩形大小
 			myRect = new Rect(info.getnStartX(), info.getnStartY(),
 					info.getnStartX() + info.getnWidth(), info.getnStartY()
@@ -138,13 +144,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 			rectBoder.right = info.getnStartX() + info.getnWidth() - rect2Width;
 			rectBoder.top = info.getnStartY();
 			rectBoder.bottom = info.getnStartY() + info.getnHeight();
-			
-			borderReceItem = new RectItem(myRect);
-			borderReceItem.setAlpha(255);
-			borderReceItem.setLineAlpha(255);
-			borderReceItem.setBackColor(Color.TRANSPARENT);
-			borderReceItem.setLineColor(Color.rgb(183, 211, 252));
-			
+
 			// 文字对象
 			text = new StaticTextModel();
 			text.setM_eTextAlign(TEXT_PIC_ALIGN.LEFT);
@@ -152,16 +152,16 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 			text.setM_nFontSize(info.getNfontSize());
 			text.setM_textPro((short) (info.geteFontCss()));
 			text.setM_backColorPadding(info.getnBackColor());
-			text.setStartX(info.getnStartX());
-			text.setStartY(info.getnStartY());
-			text.setRectHeight(rectBoder.height());
-			text.setRectWidth(rectBoder.width());
+			text.setStartX(info.getnStartX() + 1);
+			text.setStartY(info.getnStartY() + 1);
+			text.setRectHeight(rectBoder.height() - 2);
+			text.setRectWidth(rectBoder.width() - 1);
 			text.setLineColor(Color.rgb(183, 211, 252));
 			text.setM_sFontFamly(info.getsFontType());
-			text.setLineWidth(2);
+			text.setLineWidth(1);
 			text.setM_alphaPadding(info.getnAlpha());
-			text.setBorderAlpha(info.getnAlpha());
-			
+			text.setBorderAlpha(255);
+
 			textItem = new TextItem(text);
 			textItem.initTextPaint();
 			textItem.initRectBoderPaint();
@@ -171,16 +171,16 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 			rectBox = new Rect();
 			rectBox.left = rectBoder.right;
 			rectBox.right = rectBoder.right + rect2Width;
-			rectBox.top = rectBoder.top - 1;
-			rectBox.bottom = rectBoder.bottom + 1;
-			
+			rectBox.top = rectBoder.top;
+			rectBox.bottom = rectBoder.bottom;
+
 			rectItems = new RectItem(rectBox);
 			rectItems.setLineColor(Color.rgb(183, 211, 252));
 			rectItems.setStyle(CSS_TYPE.CSS_SOLIDCOLOR);
 			rectItems.setBackColor(Color.rgb(183, 211, 252));
-			rectItems.setLineWidth(2);
+			rectItems.setLineWidth(1);
 			rectItems.setAlpha(info.getnAlpha());
-			
+
 			// 三角下拉的点集合
 			int leftPX = rectBox.left + rect2Width * 1 / 4;
 			int leftPY = myRect.top + myRect.height() * 7 / 18;
@@ -192,7 +192,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 			pointList.add(new Point(leftPX, leftPY));
 			pointList.add(new Point(buttomX, buttomY));
 			pointList.add(new Point(rightPX, rightPY));
-			
+
 			// 三角下拉的折线
 			foldLineItem = new FoldLineItem(pointList);
 			foldLineItem.setLineColor(Color.rgb(77, 97, 133));
@@ -205,7 +205,52 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 			items.nZvalue = info.getnZvalue();
 			items.sceneId = this.sceneId;
 			items.rect = myRect;
-			items.mGraphics=this;
+			items.mGraphics = this;
+
+			if (null != info.getTouchInfo()) {
+				if (null != info.getTouchInfo().getTouchAddrProp()) {
+					touchByAddr = true;
+				}
+				if (info.getTouchInfo().isbTouchByUser()) {
+					touchByUser = true;
+				}
+			}
+			if (null != info.getShowInfo()) {
+				if (null != info.getShowInfo().getShowAddrProp()) {
+					showByAddr = true;
+				}
+				if (info.getShowInfo().isbShowByUser()) {
+					showByUser = true;
+				}
+			}
+
+			// 触控地址
+			if (touchByAddr) {
+				ADDRTYPE addrType = info.getTouchInfo().geteCtlAddrType();
+				if (addrType == ADDRTYPE.BITADDR) {
+					SKPlcNoticThread.getInstance().addNoticProp(
+							info.getTouchInfo().getTouchAddrProp(), touchCall,
+							true, sceneId);
+				} else {
+					SKPlcNoticThread.getInstance().addNoticProp(
+							info.getTouchInfo().getTouchAddrProp(), touchCall,
+							false, sceneId);
+				}
+			}
+			// 显现地址
+			if (showByAddr) {
+				ADDRTYPE addrType = info.getShowInfo().geteAddrType();
+				if (addrType == ADDRTYPE.BITADDR) {
+					SKPlcNoticThread.getInstance().addNoticProp(
+							info.getShowInfo().getShowAddrProp(), showCall,
+							true, sceneId);
+				} else {
+					SKPlcNoticThread.getInstance().addNoticProp(
+							info.getShowInfo().getShowAddrProp(), showCall,
+							false, sceneId);
+				}
+
+			}
 		}
 
 	}
@@ -217,31 +262,28 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 		if (null == info) {
 			return;
 		}
-		initFlag = true;
-//		boxHeight = 200;
-		
+		if (null != data) {
+			// 初始化显示在矩形框的记录值
+			for (int i = 0; i < data.size(); i++) {
+				ComboxItemInfo infos = data.get(i);
+				if (infos.isbSaveIndex()) {
+					Map<Integer, String> functionNames = infos
+							.getFunctionNames();
+					if (null != functionNames) {
+						showFunctionName = functionNames;
+					}
+					break;
+				}
+			}
+		}
 
-		if (null != info.getTouchInfo()) {
-			if (null != info.getTouchInfo().getTouchAddrProp()) {
-				touchByAddr = true;
-			}
-			if (info.getTouchInfo().isbTouchByUser()) {
-				touchByUser = true;
-			}
-		}
-		if (null != info.getShowInfo()) {
-			if (null != info.getShowInfo().getShowAddrProp()) {
-				showByAddr = true;
-			}
-			if (info.getShowInfo().isbShowByUser()) {
-				showByUser = true;
-			}
-		}
+		initFlag = true;
+		// boxHeight = 200;
+
 		if (null != SKSceneManage.getInstance().getCurrentInfo()) {
 			screenHeight = SKSceneManage.getInstance().getCurrentInfo()
 					.getnSceneHeight();
 		}
-		
 		// 注册地址接口
 		registAddr();
 		comboxIsShow();
@@ -260,10 +302,10 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 		boolean touch = false;
 		int touchX = (int) event.getX();
 		int touchY = (int) event.getY();
-		if (null == info||null == rectBoder) {
+		if (null == info || null == rectBoder) {
 			return false;
 		}
-		
+
 		if (touchX < info.getnStartX()
 				|| touchX > info.getnStartX() + info.getnWidth()
 				|| touchY < info.getnStartY()
@@ -275,7 +317,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 			}
 
 		} else {
-			
+
 			// 不可显现或者不可触摸
 			if (!isTouchFlag || !isShowFlag) {
 				if (!isTouchFlag && info != null) {
@@ -289,7 +331,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 				}
 				return false;
 			}
-			
+
 			if (event.getAction() == MotionEvent.ACTION_DOWN) {
 				isOnClick = true;
 				if (info.getTouchInfo() == null) {
@@ -301,7 +343,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 							hand = new myMainHandler(Looper.getMainLooper());
 						}
 						hand.sendEmptyMessageDelayed(TOUCHHANDER, info
-								.getTouchInfo().getnPressTime() * 1000);
+								.getTouchInfo().getnPressTime() * 100);
 					} else {
 						doTouch();
 					}
@@ -320,6 +362,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 	}
 
 	private static final int TOUCHHANDER = 1;
+	private static final int SUREBUTTONTOUCH=2;
 
 	private class myMainHandler extends Handler {
 		public myMainHandler(Looper loop) {
@@ -334,6 +377,11 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 				if (isOnClick) {
 					doTouch();
 				}
+			}else if(msg.what == SUREBUTTONTOUCH){
+				if(!sureIsOnclick){ //如果在500毫秒内还没点击确定按钮 ，则关闭窗口
+					mPopupWindow.dismiss();
+					popIsShow = false;
+				}
 			}
 		}
 	}
@@ -346,31 +394,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 	}
 
 	private void registAddr() {
-		// 触控地址
-		if (touchByAddr) {
-			ADDRTYPE addrType = info.getTouchInfo().geteCtlAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance()
-						.addNoticProp(info.getTouchInfo().getTouchAddrProp(),
-								touchCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getTouchInfo().getTouchAddrProp(), touchCall,
-						false);
-			}
-		}
-		// 显现地址
-		if (showByAddr) {
-			ADDRTYPE addrType = info.getShowInfo().geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getShowInfo().getShowAddrProp(), showCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getShowInfo().getShowAddrProp(), showCall, false);
-			}
 
-		}
 		// 注册多语言切换接口
 		SKLanguage.getInstance().getBinder().onRegister(languageICallback);
 	}
@@ -419,6 +443,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 	 */
 	int length = 0;
 
+	@SuppressLint("NewApi")
 	private void initPopupWindow() {
 		if (null != data && !data.isEmpty()) {
 			length = data.size();
@@ -509,12 +534,6 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 								itemInfo.setChecked(true);
 								// 重新给选中的值赋给矩形显示框
 								selectIndex = i;
-								Map<Integer, String> functionNames = itemInfo
-										.getFunctionNames();
-								if (null != functionNames) {
-									showFunctionName = functionNames;
-									// SKSceneManage.getInstance().onRefresh(items);
-								}
 							} else {
 								data.get(i).setChecked(false);
 							}
@@ -534,6 +553,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 
 			}
 
+			@SuppressLint("NewApi")
 			@Override
 			public void onScroll(AbsListView view, int firstVisibleItem,
 					int visibleItemCount, int totalItemCount) {
@@ -542,7 +562,6 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 
 			}
 		});
-
 		// 获取确定和取消按钮，并加入点击事件
 		sureButton1 = (Button) cView.findViewById(R.id.sure);
 		sureButton2 = (Button) cView.findViewById(R.id.sure1);
@@ -558,7 +577,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 		cancelButton2.setBackgroundColor(upColor);
 		// 设置窗口的大小
 		mPopupWindow = new PopupWindow(cView, rectBoder.width()
-				+ rectBox.width(), boxHeight);
+				+ rectBox.width()-1, boxHeight);
 		// 做一个不在焦点外的处理事件监听
 		mPopupWindow.getContentView().setOnTouchListener(
 				new View.OnTouchListener() {
@@ -576,6 +595,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 	/**
 	 * 显示下拉窗口的位置
 	 */
+	@SuppressLint("NewApi")
 	private void showPopupWindow() {
 		// 窗口显示时要加上的窗口标题栏的高度
 		popIsShow = true;
@@ -586,13 +606,14 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 				.getCurrentScene().getContext(), data, info);
 		listView.setAdapter(adapter);
 		adapter.notifyDataSetChanged();
+		
 		int i = this.screenHeight - rectBoder.bottom;
 		SHOW_TYPE showType = SHOW_TYPE.DEFAULT;
 		if (null != SKSceneManage.getInstance().getCurrentInfo()) {
 			showType = SKSceneManage.getInstance().getCurrentInfo().geteType();
 		}
 
-		if (showType == SHOW_TYPE.FLOATING) {
+		if (showType == SHOW_TYPE.FLOATING && SKSceneManage.getInstance().getCurrentInfo().isbShowTitle()) {
 			// 窗口
 			if (i >= boxHeight) {
 				mPopupWindow.showAtLocation(SKSceneManage.getInstance()
@@ -608,12 +629,12 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 			// 画面
 			if (i >= boxHeight) {
 				mPopupWindow.showAtLocation(SKSceneManage.getInstance()
-						.getCurrentScene(), Gravity.NO_GRAVITY, myRect.left,
+						.getCurrentScene(), Gravity.NO_GRAVITY, myRect.left+1,
 						myRect.top + info.getnHeight());
 			} else {
 
 				mPopupWindow.showAtLocation(SKSceneManage.getInstance()
-						.getCurrentScene(), Gravity.NO_GRAVITY, myRect.left,
+						.getCurrentScene(), Gravity.NO_GRAVITY, myRect.left+1,
 						myRect.top - boxHeight);
 
 			}
@@ -675,8 +696,6 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 	 */
 	private void draw(Paint paint, Canvas canvas) {
 		// TODO Auto-generated method stub
-		// 画矩形边框
-		borderReceItem.draw(paint, canvas);
 		// 初始化文本
 		drawTextValue(canvas);
 		// 画带下拉三角形的矩形
@@ -684,15 +703,14 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 		// 画三角形
 		foldLineItem.draw(paint, canvas);
 		// 不可触控加上锁图标
-		if (!isTouchFlag) {
-			if(SKSceneManage.getInstance().mContext!=null)
-			{
+		if (!isTouchFlag && SystemInfo.isbLockIcon()) {
+			if (SKSceneManage.getInstance().mContext != null) {
 				if (mLockBitmap == null) {
-					mLockBitmap = ImageFileTool
-							.getBitmap(R.drawable.lock, SKSceneManage.getInstance().mContext);
+					mLockBitmap = ImageFileTool.getBitmap(R.drawable.lock,
+							SKSceneManage.getInstance().mContext);
 				}
 			}
-		
+
 			if (mLockBitmap != null) {
 				canvas.drawBitmap(mLockBitmap, info.getnStartX(),
 						info.getnStartY(), null);
@@ -731,7 +749,7 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 	 * 确定按钮事件
 	 */
 	boolean sureflag = false;
-
+	boolean sureIsOnclick= false;
 	@Override
 	public boolean onTouch(View v, MotionEvent event) {
 		// TODO Auto-generated method stub
@@ -749,11 +767,13 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 					sureButton2.setBackgroundColor(pressColor);
 					sureflag = true;
 					touch = true;
+					
 				} else if (event.getAction() == MotionEvent.ACTION_UP
 						|| MotionEvent.ACTION_CANCEL == event.getAction()) {
 					// 按钮弹起的颜色
 					sureButton1.setBackgroundColor(upColor);
 					sureButton2.setBackgroundColor(upColor);
+				
 					if (sureflag) {
 						SKToast.makeText(
 								SKSceneManage.getInstance().getCurrentScene()
@@ -768,16 +788,28 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 				ComboxItemInfo comboxItem = info.getFunctionList().get(
 						selectIndex);
 				SKButton button = comboxItem.getButton();
+				ButtonInfo BInfo=button.getInfo();
+				boolean bWordLoop= false;//标识是否是字按钮的连加或连减
+				if (BInfo.geteButtonType()==BUTTON_TYPE.WORD) {
+					WordButtonInfo wInfo=(WordButtonInfo)BInfo;
+					if(wInfo.geteOperType()==WORD_OPER_TYPE.ADD_LOOPER||wInfo.geteOperType()==WORD_OPER_TYPE.MINUS_LOOPER){
+						bWordLoop = true;
+					}
+				}
+
+				Log.d("combox", "event.getAction() ="+event.getAction());
 				if (event.getAction() == MotionEvent.ACTION_DOWN) {
 					// 设置按钮点击下去的背景颜色
 					sureButton1.setBackgroundColor(pressColor);
 					sureButton2.setBackgroundColor(pressColor);
 					SKSceneManage.getInstance().onRefresh(items);
-					button.doTouch(true, true);
+					button.doTouch(true, true,event.getAction());
 					touch = true;
+					sureIsOnclick = true;
+					//记录操作
+					setOperate(comboxItem);
 					if (true == info.isbIsStartStatement()) {
 						// 请求执行控件宏指令
-						Log.d("Number", "宏指令执行");
 						MacroManager.getInstance(null).Request(MSERV.CALLCM,
 								(short) info.getnScriptId());
 					}
@@ -788,14 +820,23 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 					sureButton1.setBackgroundColor(upColor);
 					sureButton2.setBackgroundColor(upColor);
 					SKSceneManage.getInstance().onRefresh(items);
-					button.doTouch(false, true);
-					mPopupWindow.dismiss();
-					popIsShow = false;
+					button.doTouch(false, true,event.getAction());
+					sureIsOnclick = false;
+					if(bWordLoop){
+						if(null == hand){
+							hand = new myMainHandler(Looper.getMainLooper());
+						}
+						hand.sendEmptyMessageDelayed(SUREBUTTONTOUCH, 500);
+					}else{
+						mPopupWindow.dismiss();
+						popIsShow = false;
+					}
 					touch = true;
 				}
 
 				// 执行完按钮功能，进行操作通知
 				noticeAddr(info.getTouchInfo(), true);
+
 			}
 		} else if (v.getId() == R.id.cancalbox || v.getId() == R.id.cancalbox1) {
 			// 按下再松开则提示
@@ -821,6 +862,33 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 	}
 
 	/**
+	 * 记录操作
+	 * 
+	 * @param comboxItem
+	 */
+	private void setOperate(ComboxItemInfo comboxItem) {
+		// 修改数据库的标识
+		DBTool.getInstance().getmComboxInfoBiz().updateSate(comboxItem);
+		// 修改实体类属性
+		if (data != null) {
+			for (int i = 0; i < data.size(); i++) {
+				ComboxItemInfo in = data.get(i);
+				if (in.getFunctionId() != comboxItem.getFunctionId()) {
+					in.setbSaveIndex(false);
+				} else {
+					in.setbSaveIndex(true);
+				}
+			}
+		}
+		// 通知界面刷新显示
+		Map<Integer, String> functionNames = comboxItem.getFunctionNames();
+		if (null != functionNames) {
+			showFunctionName = functionNames;
+			SKSceneManage.getInstance().onRefresh(items);
+		}
+	}
+
+	/**
 	 * 按下取消按钮要执行的动作
 	 */
 	private void cancelOnclick() {
@@ -843,10 +911,398 @@ public class SKCombobox extends SKGraphCmnTouch implements OnTouchListener {
 			mPopupWindow.dismiss();
 			popIsShow = false;
 		}
-		// initFlag = true;
-		// 销毁注册地址
-		SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		SKPlcNoticThread.getInstance().destoryCallback(touchCall);
+	}
+
+	/**
+	 * 脚本对外接口
+	 */
+	@Override
+	public IItem getIItem() {
+		// TODO Auto-generated method stub
+		return this;
+	}
+
+
+	@Override
+	public int getItemLeft(int id) {
+		// TODO Auto-generated method stub
+		if (info!=null) {
+			return info.getnStartX();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO Auto-generated method stub
+		if (info!=null) {
+			return info.getnStartY();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO Auto-generated method stub
+		if (info!=null) {
+			return info.getnWidth();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO Auto-generated method stub
+		if (info!=null) {
+			return info.getnHeight();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO Auto-generated method stub
+		//nCurrentState;
+		if (info!=null) {
+			return getColor(info.getnBackColor());
+		}
+		return null;
+	}
+	
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO Auto-generated method stub
+		return isShowFlag;
+	}
+
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO Auto-generated method stub
+		return isTouchFlag;
+	}
+
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO Auto-generated method stub
+		
+		if (info != null) {
+			if (x == info.getnStartX()) {
+				return true;
+			}
+			if (x < 0|| x > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			info.setnStartX(x);
+			int l=items.rect.left;
+			items.rect.left=x;
+			items.rect.right=x-l+items.rect.right;
+			items.mMoveRect=new Rect();
+			
+			//外边框
+			rectBoder.left=info.getnStartX();
+			rectBoder.right = info.getnStartX() + info.getnWidth() - rect2Width;
+			
+			//文本显示区域
+			text.setStartX(info.getnStartX());
+			
+			//显示三角形区域
+			rectBox.left = rectBoder.right;
+			rectBox.right = rectBoder.right + rect2Width;
+			
+			//三角形
+			for (int i = 0; i < pointList.size(); i++) {
+				pointList.get(i).x=pointList.get(i).x+x-l;
+			}
+			
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (y == info.getnStartY()) {
+				return true;
+			}
+			if (y < 0|| y > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			info.setnStartY(y);
+			int t = items.rect.top;
+			items.rect.top = y;
+			items.rect.bottom = y - t + items.rect.bottom;
+			items.mMoveRect=new Rect();
+			
+			//外边框
+			rectBoder.top = info.getnStartY();
+			rectBoder.bottom = info.getnStartY() + info.getnHeight();
+			
+			//文本显示区域
+			text.setStartY(info.getnStartY());
+			
+			//显示三角形区域
+			rectBox.top = rectBoder.top ;
+			rectBox.bottom = rectBoder.bottom ;
+			
+			//三角形
+			for (int i = 0; i < pointList.size(); i++) {
+				pointList.get(i).y=pointList.get(i).y+y-t;
+			}
+			
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (w == info.getnWidth()) {
+				return true;
+			}
+			if (w < 0|| w > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			info.setnWidth((short)w);
+			items.rect.right = w - items.rect.width() + items.rect.right;
+			items.mMoveRect=new Rect();
+			
+			myRect.right=w-myRect.width()+myRect.right;
+			rect2Width = myRect.width() * 6 / 27;
+			
+			//外边框
+			rectBoder.right = info.getnStartX() + info.getnWidth() - rect2Width;
+			
+			//文本显示区域
+			text.setRectWidth(rectBoder.width()-1);
+			
+			//显示三角形区域
+			rectBox.left = rectBoder.right;
+			rectBox.right = rectBoder.right + rect2Width;
+			
+			// 下拉三角的点集合
+			int leftPX = rectBox.left + rect2Width * 1 / 4;
+			int leftPY = myRect.top + myRect.height() * 7 / 18;
+			int rightPX = rectBox.left + rect2Width * 3 / 4;
+			int rightPY = leftPY;
+			int buttomX = rectBox.left + rect2Width / 2;
+			int buttomY = rectBox.top + rectBox.height() * 11 / 18;
+			pointList.clear();
+			pointList.add(new Point(leftPX, leftPY));
+			pointList.add(new Point(buttomX, buttomY));
+			pointList.add(new Point(rightPX, rightPY));
+			
+			mPopupWindow=null;
+			
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (h == info.getnHeight()) {
+				return true;
+			}
+			if (h < 0|| h > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			int temp=info.getnHeight();
+			info.setnHeight((short)h);
+			items.rect.bottom = h - items.rect.height() + items.rect.bottom;
+			items.mMoveRect=new Rect();
+			
+			//外边框
+			rectBoder.bottom = info.getnStartY() + info.getnHeight();
+			
+			//文本显示区域
+			text.setRectHeight(rectBoder.height()-2);
+			
+			//显示三角形区域
+			rectBox.bottom = rectBoder.bottom ;
+			
+			//三角形
+			for (int i = 0; i < pointList.size(); i++) {
+				pointList.get(i).y=pointList.get(i).y+(h-temp)/2;
+			}
+			
+			mPopupWindow=null;
+			
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (info!=null) {
+			int color=Color.rgb(r, g, b);
+			if (color==info.getnBackColor()) {
+				return true;
+			}
+			info.setnBackColor(color);
+			textItem.resetColor(color, 2);
+			listView.setBackgroundColor(info.getnBackColor());
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v==isShowFlag) {
+			return true;
+		}
+		isShowFlag=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v==isTouchFlag) {
+			return true;
+		}
+		isTouchFlag=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+	
+	/**
+	 * 颜色取反
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
 	}
 
 }

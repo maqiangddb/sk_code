@@ -8,6 +8,7 @@ import android.graphics.Point;
 
 import com.android.Samkoonhmi.graphicsdrawframe.LineItem;
 import com.android.Samkoonhmi.skenum.LINE_TYPE;
+import com.android.Samkoonhmi.util.AddrProp;
 
 /**
  * 表格
@@ -41,6 +42,20 @@ public class TableModel {
 	private ArrayList<Double> nColums;//列
 	private ArrayList<LineItem> mRowItems;
 	private ArrayList<LineItem> mColumsItems;
+	private boolean bHControl;
+	private AddrProp nAddrHControl;
+	private boolean bVControl;
+	private AddrProp nAddrVControl;
+	private ShowInfo showInfo;
+	
+
+	public ShowInfo getShowInfo() {
+		return showInfo;
+	}
+
+	public void setShowInfo(ShowInfo showInfo) {
+		this.showInfo = showInfo;
+	}
 
 	public ArrayList<LineItem> getmRowItems() {
 		return mRowItems;
@@ -246,4 +261,35 @@ public class TableModel {
 		this.alpha = alpha;
 	}
 
+	public void setbHControl(boolean bHControl){
+		this.bHControl = bHControl;
+	}
+	
+	public boolean getbHControl(){
+		return bHControl;
+	}
+	
+	public void setnAddrHControl(AddrProp nAddrHControl){
+		this.nAddrHControl = nAddrHControl;
+	}
+	
+	public AddrProp getnAddHControl(){
+		return nAddrHControl;
+	}
+	
+	public void setbVControl(boolean bVControl){
+		this.bVControl = bVControl;
+	}
+	
+	public boolean getbVControl(){
+		return bVControl;
+	}
+	
+	public void setnAddrVControl(AddrProp nAddrVControl){
+		this.nAddrVControl = nAddrVControl;
+	}
+	
+	public AddrProp getnAddrVControl(){
+		return nAddrVControl;
+	}
 }

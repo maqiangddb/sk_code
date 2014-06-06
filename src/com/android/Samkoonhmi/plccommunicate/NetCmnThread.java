@@ -35,7 +35,7 @@ public class NetCmnThread {
 	 * @param nPort：端口号，0-65535
 	 * @return
 	 */
-	public boolean openNet(boolean bHaveSlave, short nOpenPort, PlcConnectionInfo mConnectInfo)
+	public boolean openNet(boolean bHaveSlave, short nOpenPort, PlcConnectionInfo mConnectInfo )
 	{
 		/*保存转发的口*/
 		bLocalHaveSlave = bHaveSlave;
@@ -46,17 +46,20 @@ public class NetCmnThread {
 		{
 			PlcSampInfo mTmpPlcInfo = new PlcSampInfo();
 			int nPlcListSize = mConnectInfo.getPlcAttributeList().size();
+			boolean isSlaveScreen = !mConnectInfo.isbMasterScreen();//从屏
 			for(int i = 0; i < nPlcListSize; i++)
 			{
 				mTmpPlcInfo.eConnectType = nOpenPort;
 				mTmpPlcInfo.nProtocolIndex = mConnectInfo.getPlcAttributeList().get(i).getnUserPlcId();
 				mTmpPlcInfo.nSampRate = mConnectInfo.getPlcAttributeList().get(i).getnMinCollectCycle();
 				mTmpPlcInfo.sProtocolName = mConnectInfo.getPlcAttributeList().get(i).getsPlcServiceType();
+				String IpAddr = mConnectInfo.getPlcAttributeList().get(i).getsIpAddr();
 				
 				int nNetPort = mConnectInfo.getPlcAttributeList().get(i).getnNetPortNum();
 				PROTOCOL_TYPE eProType = ProtocolInterfaces.getProtocolInterface().getProtocolType(mTmpPlcInfo);
-				if(eProType == PROTOCOL_TYPE.SLAVE_MODEL ||bHaveSlave)/*转发数据也建立服务*/
+				if(eProType == PROTOCOL_TYPE.SLAVE_MODEL ||isSlaveScreen)/*转发数据也建立服务*/
 				{
+					System.out.println(mTmpPlcInfo.sProtocolName + " is slave!and bHaveSlave="+isSlaveScreen+",ip="+IpAddr);
 					boolean bContain = false;
 					int nSize = mServerThreadList.size();
 					for(int k = 0; k < nSize; k++)
@@ -69,7 +72,7 @@ public class NetCmnThread {
 					}
 					if(!bContain)
 					{
-						ServerThread mServerThread = new ServerThread(nNetPort);
+						ServerThread mServerThread = new ServerThread(nNetPort , IpAddr);
 						mServerThreadList.add(mServerThread);
 					}
 				}
@@ -100,6 +103,28 @@ public class NetCmnThread {
 		
 		return true;
 	}
+	
+	public boolean removeCilentNet(int nPort ,String sIP)
+	{
+		/*关闭客服端*/
+		int nSize = mClientThreadList.size();
+		for(int i = 0; i < nSize; i++)
+		{
+			NetPramObj NetPram = mClientThreadList.get(i).mNetPramObj;
+			if(null != NetPram)
+			{
+				if(NetPram.nNetPort == nPort && NetPram.sIpAddress.equals(sIP))
+				{
+					mClientThreadList.get(i).closeNet();
+					mClientThreadList.remove(i);
+					break;
+				}
+			}
+			
+		}
+		
+		return true;
+	}
 
 	/**
 	 * 发送数据
@@ -112,7 +137,7 @@ public class NetCmnThread {
 		{
 			return false;
 		}
-		System.out.println(" senddata  ... mNetPram.bServer" + mNetPram.bServer + " size = "+  sSendData.length);
+//		System.out.println(" senddata  ... mNetPram.bServer" + mNetPram.bServer + " size = "+  sSendData.length);
 		boolean bSendSucces = false;
 		
 		/*如果是服务器程序*/
@@ -133,7 +158,7 @@ public class NetCmnThread {
 			/*不存在，则新建一个*/
 			if(!bContain)
 			{
-				ServerThread mServerThread = new ServerThread(mNetPram.nNetPort);
+				ServerThread mServerThread = new ServerThread(mNetPram.nNetPort,mNetPram.sIpAddress);
 				bSendSucces = mServerThread.sendData(sSendData, mNetPram);
 				mServerThreadList.add(mServerThread);
 			}
@@ -191,14 +216,13 @@ public class NetCmnThread {
 				{
 					bContain = true;
 					bSendSucces = mServerThreadList.get(i).getData(nGetBuff, mNetPram);
-					break;
 				}
 			}
 
 			/*不存在，则新建一个*/
 			if(!bContain)
 			{
-				ServerThread mServerThread = new ServerThread(mNetPram.nNetPort);
+				ServerThread mServerThread = new ServerThread(mNetPram.nNetPort,mNetPram.sIpAddress);
 				bSendSucces = mServerThread.getData(nGetBuff, mNetPram);
 				mServerThreadList.add(mServerThread);
 			}
@@ -305,8 +329,9 @@ public class NetCmnThread {
 		/**
 		 * 通过套接字新建的客户端线程
 		 * @param mSocket
+		 * @param nIndex 
 		 */
-		public ClientThread(Socket mSocket)
+		public ClientThread(Socket mSocket, String sIpAddr)
 		{
 			if(mSocket != null)
 			{
@@ -314,11 +339,9 @@ public class NetCmnThread {
 				mNetPramObj.nNetPort = mSocketCmnObj.getLocalPort();
 				mNetPramObj.bServer = true;
 				mNetPramObj.bTcpNet = true;
-				if(null != mSocketCmnObj.getInetAddress())
-				{
-					mNetPramObj.sIpAddress = mSocketCmnObj.getInetAddress().getHostAddress();
-				}
-				
+				mNetPramObj.sIpAddress = sIpAddr;
+				mNetPramObj.sHostIpAddress = mSocketCmnObj.getInetAddress().getHostAddress();
+				mNetPramObj.nHostPort = mSocketCmnObj.getPort();
 				bNetOpened = true;
 				start();
 			}
@@ -338,8 +361,8 @@ public class NetCmnThread {
 		 */
 		public boolean closeNet()
 		{
-			if(mNetPramObj.bServer) return true;
-				
+//			if(mNetPramObj.bServer) return true;
+			System.out.println("^^^^^^^^^^closeNet");
 			bNetOpened = false;
 			this.interrupt();
 			try {
@@ -358,9 +381,38 @@ public class NetCmnThread {
 					bSuccess = true;
 				} catch (IOException e) {
 //					e.printStackTrace();
+					if(mNetPramObj.bServer){
+						for(int i=0;i<mServerThreadList.size();i++){
+							if(mServerThreadList.get(i).getNetPort() == mNetPramObj.nNetPort){
+								int nSize = mServerThreadList.get(i).mClientList.size();
+								for(int j=nSize-1;j>=0;j--){
+									NetPramObj tempNP = mServerThreadList.get(i).mClientList.get(j).getNetPram();
+									if(tempNP.sHostIpAddress.equals(mNetPramObj.sHostIpAddress)&&
+											tempNP.nHostPort == mNetPramObj.nHostPort){
+										mServerThreadList.get(i).mClientList.remove(j);
+									}
+								}
+							}
+						}
+					}
 					bSuccess = false;
 				}
 				mSocketCmnObj = null;
+			}
+			
+			if(mNetPramObj.bServer){
+				for(int i=0;i<mServerThreadList.size();i++){
+					if(mServerThreadList.get(i).getNetPort() == mNetPramObj.nNetPort){
+						int nSize = mServerThreadList.get(i).mClientList.size();
+						for(int j=nSize-1;j>=0;j--){
+							NetPramObj tempNP = mServerThreadList.get(i).mClientList.get(j).getNetPram();
+							if(tempNP.sHostIpAddress.equals(mNetPramObj.sHostIpAddress)&&
+									tempNP.nHostPort == mNetPramObj.nHostPort){
+								mServerThreadList.get(i).mClientList.remove(j);
+							}
+						}
+					}
+				}
 			}
 			
 			return bSuccess;
@@ -398,14 +450,10 @@ public class NetCmnThread {
 		 */
 		public void clearRcvBuff()
 		{
-			/*判断接收容器是否存在*/
-			if(null == nRcvBuffList)
-			{
-				Log.e(TAG, "nRcvBuffList new failed, so restart system");
-				return ;
-			}
-
-			nRcvBuffList.clear();
+			int nSize = 0;
+			byte[] buffer = null;
+			Vector<Byte> nGetBuff = null;
+			SetRcvBuffList(nGetBuff,buffer,nSize  ,0);
 		}
 		
 		/**
@@ -423,8 +471,10 @@ public class NetCmnThread {
 					try {
 						// StrictMode.setThreadPolicy(new
 						// StrictMode.ThreadPolicy.Builder().detectDiskReads().detectDiskWrites().detectNetwork().penaltyLog().build());
-						mSocketCmnObj = new Socket(mNetPramObj.sIpAddress,
+						if(!mNetPramObj.bServer){
+							mSocketCmnObj = new Socket(mNetPramObj.sIpAddress,
 								mNetPramObj.nNetPort);
+						}
 
 					} catch (UnknownHostException e) {
 						// e.printStackTrace();
@@ -440,10 +490,8 @@ public class NetCmnThread {
 				startRcvThread();
 
 				try {
-					if (null != mSocketCmnObj.getOutputStream()) {
-						mSocketCmnObj.getOutputStream().write(sSendData);
-						return true;
-					}
+					mSocketCmnObj.getOutputStream().write(sSendData);
+					return true;
 				} catch (IOException e) {
 					closeNet();
 					// e.printStackTrace();
@@ -494,24 +542,10 @@ public class NetCmnThread {
 		 */
 		public boolean getData(Vector<Byte > nGetBuff)
 		{
-			nGetBuff.clear();
+			byte[] buffer = null;
+			int nSize = 0;
+			return SetRcvBuffList(nGetBuff,buffer,nSize ,2);
 			
-			/*判断接收容器是否存在*/
-			if(null == nRcvBuffList)
-			{
-				Log.e(TAG, "nRcvBuffList new failed, so restart system");
-				return false;
-			}
-			
-			int size = nRcvBuffList.size();
-			if(size <= 0 || null == nGetBuff) return false;
-
-			for(int i = 0; i < size; i++)
-			{
-				nGetBuff.add(nRcvBuffList.get(i));
-			}
-
-			return true;
 		}
 		
 		/**
@@ -520,27 +554,9 @@ public class NetCmnThread {
 		 * @param nSize
 		 */
 		private void onDataReceived(byte[] buffer, int nSize)
-		{
-			if(null == buffer ) return ;
-			int nLen = buffer.length;
-			if(nLen <= 0) return ;
-
-			if(nSize > nLen)
-			{
-				nSize = nLen;
-			}
-			if(nSize <= 0) return ;
-			
-			/*如果大于2048个字节，则自动清除*/
-			if(nRcvBuffList.size() > 65535)
-			{
-				nRcvBuffList.clear();
-			}
-
-			for(int i = 0; i < nSize; i++)
-			{
-				nRcvBuffList.add(buffer[i]);
-			}
+		{	
+			Vector<Byte > nGetBuff = new Vector<Byte>();
+			SetRcvBuffList(nGetBuff,buffer,nSize ,1);
 			
 			/*从站处理*/
 			if(mNetPramObj.bServer)
@@ -549,13 +565,14 @@ public class NetCmnThread {
 				if (null != mThreadObj) 
 				{
 					/*有数据，转发*/
-					int nRcvListSize = nRcvBuffList.size();
+					// Vector<Byte> temp=new Vector<Byte>(nRcvBuffList);
+					int nRcvListSize = nSize;
 					if(nRcvListSize > 0)
 					{
 						byte[] nSlaveList = new byte[nRcvListSize];
-						for(int i = 0; i < nRcvBuffList.size(); i++)
+						for(int i = 0; i < nSize; i++)
 						{
-							nSlaveList[i] = nRcvBuffList.get(i);
+							nSlaveList[i] = buffer[i];
 						}
 						NetSlaveProp mNetSlave = new NetSlaveProp();
 						mNetSlave.mNetPram = mNetPramObj;
@@ -566,17 +583,92 @@ public class NetCmnThread {
 			}
 		}
 		
+		/**
+		 * 具体接收的数据
+		 * @param buffer 设置数据
+		 * @param nSize  
+		 * @param type 0:clear , 1: set ,  2: get 
+		 */
+		private synchronized boolean SetRcvBuffList(Vector<Byte > nGetBuff, byte[] buffer,int nSize ,int type)
+		{
+			if(0 == type)
+			{
+				/*判断接收容器是否存在*/
+				if(null == nRcvBuffList)
+				{
+					Log.e(TAG, "nRcvBuffList new failed, so restart system");
+					return false ;
+				}
+				nRcvBuffList.clear();
+				return true;
+			}
+			else if(1 == type)
+			{
+				if(null == buffer ) return false;
+				int nLen = buffer.length;
+				if(nLen <= 0) return false;
+
+				if(nSize > nLen)
+				{
+					nSize = nLen;
+				}
+				if(nSize <= 0) return false;
+				
+				/*如果大于2048个字节，则自动清除*/
+				if(nRcvBuffList.size() > 65535)
+				{
+					nRcvBuffList.clear();
+				}
+
+				for(int i = 0; i < nSize; i++)
+				{
+					nRcvBuffList.add(buffer[i]);
+				}
+				return true;
+			}
+			else if(2 == type)
+			{
+				nGetBuff.clear();
+				
+				/*判断接收容器是否存在*/
+				if(null == nRcvBuffList)
+				{
+					Log.e(TAG, "nRcvBuffList new failed, so restart system");
+					return false;
+				}
+				
+				int size = nRcvBuffList.size();
+				if(size <= 0 || null == nGetBuff) return false;
+
+				for(int i = 0; i < size; i++)
+				{
+					nGetBuff.add(nRcvBuffList.get(i));
+				}
+				return true;
+			}
+			return true;
+		}
+		
 		@Override
 		public void run() {
 			super.run();
-
+			long start = System.currentTimeMillis();
+			boolean bTimeOut = false;
 			while(true)
 			{
 				while (bNetOpened)    // 通信口是否打开
 				{
 					if (mNetPramObj.bTcpNet) {
 						if (mSocketCmnObj == null)
+						{
+							try {
+								sleep(10);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
 							continue;
+						}
 
 						try {
 							/* 一直等待读数据 */
@@ -590,12 +682,24 @@ public class NetCmnThread {
 										nTmpReadBuff);
 								if (size > 0) {
 									onDataReceived(nTmpReadBuff, size);
+									start=System.currentTimeMillis();
+									bTimeOut = false;
+								}else{
+									bTimeOut = true;
 								}
+							}else{
+								bTimeOut = true;
 							}
-						} catch (IOException e) {
+						} catch (Exception e) {
 							closeNet();
 							// e.printStackTrace();
 						}
+						if(mNetPramObj.bServer&&bTimeOut){
+							if(System.currentTimeMillis()-start>=5000){
+								closeNet();
+							}
+						}
+						
 					} else {
 						if (null == mDataGramSocketClientObj) {
 							try {
@@ -606,6 +710,12 @@ public class NetCmnThread {
 							}
 						}
 						if (null == mDataGramSocketClientObj) {
+							try {
+								sleep(10);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
 							continue;
 						}
 						DatagramPacket recvPacket = new DatagramPacket(
@@ -643,6 +753,7 @@ public class NetCmnThread {
 	 *
 	 */
 	private class ServerThread extends Thread {
+		private String sIpAddr = "";
 		private int nNetPort = 502;
 		private boolean bNetOpened = false;
 		private ServerSocket mServerSocket = null;
@@ -650,23 +761,33 @@ public class NetCmnThread {
 		
 		/**
 		 * 新建一个服务器线程需要提供监视的端口号
-		 * @param nPort
+		 * @param nPort 端口号
+		 * @param ipAddr 上位设置的IP，只做比较用
 		 */
-		public ServerThread(int nPort)
-		{
+//		public ServerThread(int nPort)
+//		{
+//			nNetPort = nPort;
+//			bNetOpened = true;
+//			start();
+////			if(mServerSocket == null)
+////			{
+////				try {
+////					mServerSocket = new ServerSocket(nPort);
+////				} catch (IOException e) {
+////					e.printStackTrace();
+////				}
+////			}
+//		}
+		
+		public ServerThread(int nPort, String ipAddr) {
+			System.out.println("create server: port="+nPort+",ip="+ipAddr);
+			// TODO Auto-generated constructor stub
+			sIpAddr = ipAddr;
 			nNetPort = nPort;
 			bNetOpened = true;
 			start();
-//			if(mServerSocket == null)
-//			{
-//				try {
-//					mServerSocket = new ServerSocket(nPort);
-//				} catch (IOException e) {
-//					e.printStackTrace();
-//				}
-//			}
 		}
-		
+
 		/**
 		 * 获得服务器的监视端口
 		 * @return
@@ -708,18 +829,43 @@ public class NetCmnThread {
 		 */
 		public boolean sendData(byte[] sSendData, NetPramObj mNetPram)
 		{
-			if(null == mNetPram) return false;
+			if(null == mNetPram||mClientList==null||mClientList.size()==0){
+				return false;
+			}
 			
 			boolean bSendSucces = false;
-			int nSize = mClientList.size();
+			
+			if(SKCommThread.getComnThreadObj((short) 8).nScreenType == 2)
+			{
+				Vector<ClientThread> tempList = (Vector<ClientThread>) mClientList.clone();
+				int nSize = tempList.size();
+				for(int i = nSize -1; i >= 0; i--)
+				{
+					if(tempList.get(i).getNetPram().bServer == mNetPram.bServer &&
+							tempList.get(i).getNetPram().nNetPort == mNetPram.nNetPort &&
+									tempList.get(i).getNetPram().sIpAddress.equals(mNetPram.sIpAddress))
+					{
+						bSendSucces = tempList.get(i).sendData(sSendData);
+						if(!bSendSucces){
+							mClientList.remove(tempList.get(i));
+						}
+					}
+				}
+				return bSendSucces;
+			}
+			
+			Vector<ClientThread> tempList =  (Vector<ClientThread>) mClientList.clone();
+			int nSize = tempList.size();
 			for(int i = nSize -1; i >= 0; i--)
 			{
-				if(mClientList.get(i).getNetPram().bServer == mNetPram.bServer &&
-						mClientList.get(i).getNetPram().nNetPort == mNetPram.nNetPort &&
-						mClientList.get(i).getNetPram().sIpAddress.equals(mNetPram.sIpAddress))
+				if(tempList.get(i).getNetPram().bServer == mNetPram.bServer &&
+								tempList.get(i).getNetPram().nHostPort == mNetPram.nHostPort&&
+										tempList.get(i).getNetPram().sHostIpAddress.equals(mNetPram.sHostIpAddress))
 				{
-					bSendSucces = mClientList.get(i).sendData(sSendData);
-					break;
+					bSendSucces = tempList.get(i).sendData(sSendData);
+					if(!bSendSucces){
+						mClientList.remove(tempList.get(i));
+					}
 				}
 			}
 			
@@ -742,7 +888,9 @@ public class NetCmnThread {
 								mClientList.get(i).getNetPram().sIpAddress.equals(mNetPram.sIpAddress))
 				{
 					bSendSucces = mClientList.get(i).getData(nGetBuff);
-					break;
+					if(bSendSucces){
+						break;
+					}
 				}
 			}
 
@@ -754,14 +902,34 @@ public class NetCmnThread {
 		 */
 		public void clearRcvBuff(NetPramObj mNetPram)
 		{
-			int nSize = mClientList.size();
+			if(mClientList==null||mClientList.size()==0){
+				return;
+			}
+			if(SKCommThread.getComnThreadObj((short) 8).nScreenType == 2)
+			{
+				Vector<ClientThread> tempList = (Vector<ClientThread>) mClientList.clone();
+				int nSize = tempList.size();
+				for(int i = nSize -1; i >= 0; i--)
+				{
+					if(tempList.get(i).getNetPram().bServer == mNetPram.bServer &&
+							tempList.get(i).getNetPram().nNetPort == mNetPram.nNetPort &&
+									tempList.get(i).getNetPram().sIpAddress.equals(mNetPram.sIpAddress))
+					{
+						tempList.get(i).clearRcvBuff();
+						break;
+					}
+				}
+				return;
+			}
+			Vector<ClientThread> tempList = (Vector<ClientThread>) mClientList.clone();
+			int nSize = tempList.size();
 			for(int i = nSize -1; i >= 0; i--)
 			{
-				if(mClientList.get(i).getNetPram().bServer == mNetPram.bServer &&
-						mClientList.get(i).getNetPram().nNetPort == mNetPram.nNetPort &&
-								mClientList.get(i).getNetPram().sIpAddress.equals(mNetPram.sIpAddress))
+				if(tempList.get(i).getNetPram().bServer == mNetPram.bServer &&
+								tempList.get(i).getNetPram().nHostPort == mNetPram.nHostPort&&
+										tempList.get(i).getNetPram().sHostIpAddress.equals(mNetPram.sHostIpAddress))
 				{
-					mClientList.get(i).clearRcvBuff();
+					tempList.get(i).clearRcvBuff();
 					break;
 				}
 			}
@@ -796,7 +964,7 @@ public class NetCmnThread {
 					}
 					if(null != mNewClient)
 					{
-						ClientThread mNewClientThread = new ClientThread(mNewClient);
+						ClientThread mNewClientThread = new ClientThread(mNewClient,sIpAddr);
 						if(null != mNewClientThread)
 						{
 //							int nSize = mClientList.size();

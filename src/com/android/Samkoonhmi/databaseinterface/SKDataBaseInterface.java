@@ -1,7 +1,10 @@
 package com.android.Samkoonhmi.databaseinterface;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Vector;
+
+import javax.mail.internet.NewsAddress;
 
 import com.android.Samkoonhmi.SKThread;
 import com.android.Samkoonhmi.skglobalcmn.SkGlobalData;
@@ -385,12 +388,35 @@ public class SKDataBaseInterface{
      * @param nAddrId
      * @return
      */
-    public synchronized AddrProp getAddrById(int nAddrId){
-    	if (mAddrProp.containsKey(nAddrId)) {
-			return mAddrProp.get(nAddrId);
-		}else{
+    public AddrProp getAddrById(int nAddrId){
+    	boolean result=false;
+    	if (nAddrId<=0) {
+			return null;
+		}
+    	
+    	try {
+    		//list 里面的nV已经按照从小到大排序
+    		int size=mAddrList.size();
+        	for (int i = 0; i < size; i++) {
+        		AddrTableInfo info=mAddrList.get(i);
+        		//分段查询
+        		if (nAddrId<=info.nV) {
+        			result=true;
+    				return info.map.get(nAddrId);
+    			}
+    		}
+		} catch (Exception e) {
+			Log.e("DataBase", "read addr error !!!!!!!!!!!! ");
+			result=false;
+		}
+
+    	
+    	if (!result) {
+    		Log.d("DataBase", "read addr >>>>>>>>>>>>>> "+nAddrId);
 			return readAddr(nAddrId);
 		}
+    	
+    	return null;
     }
     
     /**
@@ -400,36 +426,51 @@ public class SKDataBaseInterface{
      */
     public synchronized AddrProp readAddr(int nAddrId)
     {
-	//	Cursor addrProp = getDatabaseByType("addr", null, CASE_COLUMN_TYPE.QUERY_BY_ID, nAddrId);
-		Cursor addrProp = getDatabaseBySql("select * from addr where nAddrId = " + nAddrId, null);
+		Cursor addrProp = getDatabaseBySql("select * from addr where nAddrId = ? and nPlcRegIndex>-1", new String[]{nAddrId+""});
 		if(addrProp != null)
 		{
 			AddrProp mTmpAddr = null;
 			if (addrProp.moveToNext()) {
+				
 				mTmpAddr=new AddrProp();
-				/*读取连接类型*/
-				mTmpAddr.eConnectType = addrProp.getShort(addrProp.getColumnIndex("eConnectType"));
 				
-				/*读取PLC自定义号*/
-				mTmpAddr.nUserPlcId = addrProp.getShort(addrProp.getColumnIndex("nUserPlcId"));
+				//nAddrId
+				mTmpAddr.nAddrId=addrProp.getInt(2);
 				
-				/*读取协议名字*/
-				mTmpAddr.sPlcProtocol = addrProp.getString(addrProp.getColumnIndex("sPlcProtocol"));
-				
-				/*读取PLC的站号*/
-				mTmpAddr.nPlcStationIndex = addrProp.getInt(addrProp.getColumnIndex("nPlcStationIndex"));
-				
-				/*读取PLC的寄存器号*/
-				mTmpAddr.nRegIndex = addrProp.getShort(addrProp.getColumnIndex("nPlcRegIndex")); 
-				
-				/*读取PLC的地址值*/
-				mTmpAddr.nAddrValue = addrProp.getInt(addrProp.getColumnIndex("nPlcStartAddr")); 
-				
-				/*读取PLC的地址长度*/
-				mTmpAddr.nAddrLen = addrProp.getInt(addrProp.getColumnIndex("nAddrLen")); 
-				
-				/*读取PLC的地址读写属性*/
-				mTmpAddr.eAddrRWprop = addrProp.getShort(addrProp.getColumnIndex("eRwLevel")); 
+    			/*读取连接类型*/
+    			//eConnectType
+    			mTmpAddr.eConnectType = addrProp.getShort(5);
+    			
+    			/*读取PLC自定义号*/
+    			//nUserPlcId
+    			mTmpAddr.nUserPlcId = addrProp.getShort(6);
+    			
+    			/*读取协议名字*/
+    			//sPlcProtocol
+    			mTmpAddr.sPlcProtocol = addrProp.getString(7);
+    			if (mTmpAddr.sPlcProtocol==null) {
+					mTmpAddr.sPlcProtocol="";
+				}
+    			
+    			/*读取PLC的站号*/
+    			//nPlcStationIndex
+    			mTmpAddr.nPlcStationIndex = addrProp.getInt(8);
+    			
+    			/*读取PLC的寄存器号*/
+    			//nPlcRegIndex
+    			mTmpAddr.nRegIndex = addrProp.getShort(9); 
+    			
+    			/*读取PLC的地址值*/
+    			//nPlcStartAddr
+    			mTmpAddr.nAddrValue = addrProp.getInt(10); 
+    			
+    			/*读取PLC的地址长度*/
+    			//nAddrLen
+    			mTmpAddr.nAddrLen = addrProp.getInt(11); 
+    			
+    			/*读取PLC的地址读写属性*/
+    			//eRwLevel
+    			mTmpAddr.eAddrRWprop = addrProp.getShort(12); 
 			}
 			addrProp.close();
 			return mTmpAddr;
@@ -442,46 +483,92 @@ public class SKDataBaseInterface{
     /**
      * 把地址从数据库加载到内存中
      */
-    private void readAddr(){
-    	//long start=System.currentTimeMillis();
+    private int nIndex=0;//分段地址序号
+    private int nCount=0;//记录地址数量
+    private synchronized void readAddr(String sql,ArrayList<AddrTableInfo> list){
     	
+    	nIndex=0;
+    	nCount=0;
     	SKDataBaseInterface db=SkGlobalData.getProjectDatabase();
     	if (db!=null) {
     		try {
-        		Cursor addrProp = db.getDatabaseBySql("select * from addr ", null);
+    			long time=System.currentTimeMillis();
+        		Cursor addrProp = db.getDatabaseBySql(sql, null);
         		if(addrProp != null){
+        			AddrTableInfo temp=null;
         			while (addrProp.moveToNext()) {
         				AddrProp mTmpAddr = new AddrProp();
             			
-        				int id=addrProp.getInt(addrProp.getColumnIndex("nAddrId"));
-        				
-        				mTmpAddr.nAddrId=id;
+        				//nAddrId
+        				mTmpAddr.nAddrId=addrProp.getInt(2);
         				
             			/*读取连接类型*/
-            			mTmpAddr.eConnectType = addrProp.getShort(addrProp.getColumnIndex("eConnectType"));
+            			//eConnectType
+            			mTmpAddr.eConnectType = addrProp.getShort(5);
             			
             			/*读取PLC自定义号*/
-            			mTmpAddr.nUserPlcId = addrProp.getShort(addrProp.getColumnIndex("nUserPlcId"));
+            			//nUserPlcId
+            			mTmpAddr.nUserPlcId = addrProp.getShort(6);
             			
             			/*读取协议名字*/
-            			mTmpAddr.sPlcProtocol = addrProp.getString(addrProp.getColumnIndex("sPlcProtocol"));
+            			//sPlcProtocol
+            			mTmpAddr.sPlcProtocol = addrProp.getString(7);
+            			if (mTmpAddr.sPlcProtocol==null) {
+            				mTmpAddr.sPlcProtocol="";
+						}
             			
             			/*读取PLC的站号*/
-            			mTmpAddr.nPlcStationIndex = addrProp.getInt(addrProp.getColumnIndex("nPlcStationIndex"));
+            			//nPlcStationIndex
+            			mTmpAddr.nPlcStationIndex = addrProp.getInt(8);
             			
             			/*读取PLC的寄存器号*/
-            			mTmpAddr.nRegIndex = addrProp.getShort(addrProp.getColumnIndex("nPlcRegIndex")); 
+            			//nPlcRegIndex
+            			mTmpAddr.nRegIndex = addrProp.getShort(9); 
             			
             			/*读取PLC的地址值*/
-            			mTmpAddr.nAddrValue = addrProp.getInt(addrProp.getColumnIndex("nPlcStartAddr")); 
+            			//nPlcStartAddr 
+            			mTmpAddr.nAddrValue = addrProp.getInt(10); 
             			
             			/*读取PLC的地址长度*/
-            			mTmpAddr.nAddrLen = addrProp.getInt(addrProp.getColumnIndex("nAddrLen")); 
+            			//nAddrLen
+            			mTmpAddr.nAddrLen = addrProp.getInt(11); 
             			
             			/*读取PLC的地址读写属性*/
-            			mTmpAddr.eAddrRWprop = addrProp.getShort(addrProp.getColumnIndex("eRwLevel")); 
-            			mAddrProp.put(id, mTmpAddr);
+            			//eRwLevel
+            			mTmpAddr.eAddrRWprop = addrProp.getShort(12); 
+            			
+            			nCount++;
+            			if (nIndex==0) {
+							if(temp==null){
+								nIndex++;
+								AddrTableInfo info=new AddrTableInfo();
+								HashMap<Integer, AddrProp> map=new HashMap<Integer, AddrProp>();
+								info.map=map;
+								temp=info;
+								list.add(info);
+							}
+						}else {
+							if(nCount>50){
+								nCount=1;
+								nIndex++;
+								AddrTableInfo info=new AddrTableInfo();
+								HashMap<Integer, AddrProp> map=new HashMap<Integer, AddrProp>();
+								info.map=map;
+								temp=info;
+								list.add(info);
+							}
+						}
+            			
+            			if (temp!=null) {
+            				temp.nV=mTmpAddr.nAddrId;
+                			temp.map.put(mTmpAddr.nAddrId, mTmpAddr);
+						}else {
+							Log.e("SKDataBaseInterface", "AK SKDataBaseInterface readAddr error ...");
+						}
+            			//Log.d("DataBase", "temp.nV="+temp.nV+",nIndex="+nIndex+",nCount="+nCount);
     				}
+        			
+        			Log.d("DataBase", "  time  =="+(System.currentTimeMillis()-time)+", size="+list.size() );
         			addrProp.close();
         		}
 			} catch (Exception e) {
@@ -495,40 +582,35 @@ public class SKDataBaseInterface{
     }
     
     /**
-     * 加载地址到内存
+     * 地址加载
      */
-    private static HashMap<Integer, AddrProp> mAddrProp=new HashMap<Integer, AddrProp>();
-    private int nTaskId=1;
     public void loadAddr(){
-    	mAddrProp.clear();
-    	SKThread.getInstance().getBinder().onTask(MODULE.CALLBACK, nTaskId, null, callback, 0);
+    	long time=System.currentTimeMillis();
+    	String sql="select * from addr where nPlcRegIndex>-1";
+    	//控件地址
+    	readAddr(sql, mAddrList);
+    	
+    	Log.d("DataBase", "load adrr time="+(System.currentTimeMillis()-time));
     }
     
+    /**
+     * 存储所有地址
+     */
+    private static ArrayList<AddrTableInfo> mAddrList=new ArrayList<AddrTableInfo>();
     
     /**
-     * 后台线程回调
+     * 地址分段存储
+     * 根据不同需要
+     * 分段存储，加快查询速度
      */
-    SKThread.ICallback callback=new SKThread.ICallback() {
-		
-		@Override
-		public void onUpdate(Object msg, int taskId) {
-			if (taskId==nTaskId) {
-				readAddr();
-			}
-		}
-		
-		@Override
-		public void onUpdate(int msg, int taskId) {
-			// TODO Auto-generated method stub
-			
-		}
-		
-		@Override
-		public void onUpdate(String msg, int taskId) {
-			// TODO Auto-generated method stub
-			
-		}
-	};
+    public class AddrTableInfo {
+
+    	//用于区分段之间的表示值
+    	public int nV;
+    	//存储某一段地址
+    	public HashMap<Integer, AddrProp> map;
+    }
+    
     
     public synchronized Vector<AddrProp > getAddrListBySql(String sSqlStr, String[] slecttionArgs)
     {
@@ -543,27 +625,38 @@ public class SKDataBaseInterface{
 				AddrProp mTmpAddr = new AddrProp();
 				
 				/*读取连接类型*/
+				//eConnectType
 				mTmpAddr.eConnectType = dataProp.getShort(dataProp.getColumnIndex("eConnectType"));
 				
 				/*读取PLC自定义号*/
+				//nUserPlcId
 				mTmpAddr.nUserPlcId = dataProp.getShort(dataProp.getColumnIndex("nUserPlcId"));
 				
 				/*读取协议名字*/
+				//sPlcProtocol
 				mTmpAddr.sPlcProtocol = dataProp.getString(dataProp.getColumnIndex("sPlcProtocol"));
+				if (mTmpAddr.sPlcProtocol==null) {
+					mTmpAddr.sPlcProtocol="";
+				}
 				
 				/*读取PLC的站号*/
+				//nPlcStationIndex
 				mTmpAddr.nPlcStationIndex = dataProp.getInt(dataProp.getColumnIndex("nPlcStationIndex"));
 				
 				/*读取PLC的寄存器号*/
+				//nPlcRegIndex
 				mTmpAddr.nRegIndex = dataProp.getShort(dataProp.getColumnIndex("nPlcRegIndex")); 
 				
 				/*读取PLC的地址值*/
+				//nPlcStartAddr
 				mTmpAddr.nAddrValue = dataProp.getInt(dataProp.getColumnIndex("nPlcStartAddr")); 
 				
 				/*读取PLC的地址长度*/
+				//nAddrLen
 				mTmpAddr.nAddrLen = dataProp.getInt(dataProp.getColumnIndex("nAddrLen")); 
 				
 				/*读取PLC的地址读写属性*/
+				//eRwLevel
 				mTmpAddr.eAddrRWprop = dataProp.getShort(dataProp.getColumnIndex("eRwLevel")); 
 				
 				mTmpAddrList.add(mTmpAddr);

@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
 <resources>
-
     <string name="hello">Hello World, Samkoon Hmi!</string>
     <string name="app_name">Samkoonhmi</string>
     <string name="username">用户名</string>
@@ -36,6 +35,7 @@
     <string name="confirm">确定</string>
     <string name="add_user_message">描述</string>
     <string name="user_manage">用户管理</string>
+    <string name="user_message">用户信息</string>
     <string name="group_name">用户所属组</string>
     <string name="exit">退出</string>
     <string name="hint_pwd_error">密码错误!</string>
@@ -54,7 +54,7 @@
     <string name="hint_update_succeed">更新成功!</string>
     <string name="hint_sure_to_delete">确定删除:</string>
     <string name="logout_info">注销用户</string>
-    <string name="islogining">请稍后,正在登录！</string>
+    <string name="islogining">加载数据中...</string>
     <string name="outtime">进入屏保界面  点击任何地方进入主界面</string>
     <string name="userisnull">用户名不能为空!</string>
     <string name="islogin">已经在登录!</string>
@@ -94,10 +94,9 @@
     <string name="message_notnull">留言信息不能为空！</string>
     <string name="message_long">留言信息不能超过600个字节！</string>
     <string name="message_more">留言记录不能超过100条,请删除后再添加！</string>
-    <string name="isupate_system">是否要更新系统?</string>
+    <string name="isupate_system">是否要更新组态?</string>
     <string name="clr_boardsuccess">留言信息清除成功！</string>
     <string name="clr_boardfail">留言信息清除失败！</string>
-
     <string name="plc_station_id">\t PLC站号为: \t </string>
     <string name="plc_reg_id">\t\t\t\t PLC寄存器编号: </string>
     <string name="addr_value">读写地址值：</string>
@@ -114,7 +113,6 @@
     <string name="link_faild">\t 连接失败</string>
     <string name="protocol_name">\t\t 协议名称为：</string>
     <string name="error_info">\t\t 错误信息是：</string>
-    
     <string name="write_database">正在保存数据库到csv文件中... </string>
     <string name="save_fail_path">保存失败,存储路径不存在</string>
     <string name="save_fail_exist">保存失败,已经存在当前时间的文件</string>
@@ -123,25 +121,24 @@
     <string name="save_success">保存成功，建议：提示框消失后再拔出存储卡，文件在：\n</string>
     <string name="save_datetime">日期, 时间  \t</string>
     <string name="save_data_title">数据</string>
-    
     <string name="recipe_read">正在从PLC中读配方... </string>
     <string name="recipe_path_noexist">文件路径不存在\n</string>
-    <string name= "recipe_import">正在从文件中导入配方组</string>
-	<string name= "recipe_import_fail">导入失败</string>
-	<string name= "recipe_len_error">导入失败, 配方元素长度不对</string>
-	<string name= "recipe_success">导入成功</string>
-	<string name= "recipe_file_used">当前配方文件正在使用，保存失败</string>
-	<string name= "recipe_writing_group">正在写配方组：</string>
-	<string name= "recipe_fail_nomedium">导出失败, U盘或SD卡未识别</string>
-	<string name= "recipe_write">正在写配方到PLC中</string>
-	<string name= "recipe_issave">是否保存配方？</string>
-	<string name= "recipe_yes">是</string>
-	<string name= "recipe_no">否</string>
-	<string name= "recipe_write_sucess">写配方成功</string>
-	<string name= "recipe_write_fail">写配方失败</string>
-	<string name= "recipe_cover">是否覆盖现有配方？</string>
-	<string name= "recipe_Title">配方名称,配方ID,配方描述 </string>
-    
+    <string name="recipe_import">正在从文件中导入配方组</string>
+    <string name="recipe_import_fail">导入失败</string>
+    <string name="recipe_len_error">导入失败, 配方元素长度不对</string>
+    <string name="recipe_success">导入成功</string>
+    <string name="recipe_file_used">当前配方文件正在使用，保存失败</string>
+    <string name="recipe_writing_group">正在写配方组：</string>
+    <string name="recipe_fail_nomedium">导出失败, U盘或SD卡未识别</string>
+    <string name="recipe_write">正在写配方到PLC中</string>
+    <string name="recipe_issave">是否保存配方？</string>
+    <string name="recipe_yes">是</string>
+    <string name="recipe_no">否</string>
+    <string name="recipe_write_sucess">写配方成功</string>
+    <string name="recipe_write_fail">写配方失败</string>
+    <string name="recipe_cover">是否覆盖现有配方？</string>
+    <string name="recipe_Title">配方名称,配方ID,配方描述 </string>
+    <string name="recipe_element_name">元素名称,</string>
     <string name="cmn_nomal">通信正常</string>
     <string name="fun_error">功能码错误</string>
     <string name="addr_rang">地址越界错误</string>
@@ -191,7 +188,7 @@
     <string name="u_pand">请插入U盘!</string>
     <string name="sd_error">SD卡不存在!</string>
     <string name="u_error">U盘不存在!</string>
-     <string name="enter">请输入 </string>
+    <string name="enter">请输入 </string>
     <string name="type">类型</string>
     <string name="maximum">已经最大!</string>
     <string name="minimum">已经最小!</string>
@@ -213,14 +210,14 @@
     <string name="no_data">暂无历史报警数据!</string>
     <string name="alarm_delete">报警数据,删除成功!</string>
     <string name="his_alarm_delete">历史报警数据,删除成功!</string>
-    <string name ="loaddata">正在加载数据，请稍后点击...</string>
+    <string name="loaddata">正在加载数据，请稍后点击...</string>
     <string name="his_show_all_data">显示所有数据</string>
     <string name="his_now">至今</string>
-    <string name = "selectnotnull">选中的对象为空不能删除</string>
-    <string name ="suredelete">确定要删除该留言信息么？</string>
+    <string name="selectnotnull">选中的对象为空不能删除</string>
+    <string name="suredelete">确定要删除该留言信息么？</string>
     <string name="nullsee">选中的对象为空不能查看</string>
-   <string name = "recipesearch">请输入配方名称</string>
-    <string name = "setcurrentrecipect">设置为当前配方</string>
+    <string name="recipesearch">请输入配方名称</string>
+    <string name="setcurrentrecipect">设置为当前配方</string>
     <string name="iperror">IP段设置不合法！</string>
     <string name="ipnull">IP段设置不能为空！</string>
     <string name="neterror">子网掩码段设置不合法！</string>
@@ -229,4 +226,75 @@
     <string name="gatenull">网关段设置不能为空！</string>
     <string name="alarm_clear">报警</string>
     <string name="time_picker_dialog_title">"设置时间"</string>
+    <string name="alarm_writing_group">正在写入报警组：</string>
+    <string name="email_from">发件人：</string>
+    <string name="email_to">收件人：</string>
+    <string name="email_set">设置</string>
+    <string name="email_add">添加</string>
+    <string name="email_del">删除</string>
+    <string name="email_files">添加附件</string>
+    <string name="email_send">发送</string>
+    <string name="email_password">密  码：</string>
+    <string name="email_server">服务器：</string>
+    <string name="email_sure">确定</string>
+    <string name="email_cancel">取消</string>
+    <string name="email_input_tip">请输入要添加的邮箱：</string>
+    <string name="email_del_tip">选择删除的邮件</string>
+    <string name="email_alarm">报警</string>
+    <string name="email_recipe">配方</string>
+    <string name="email_history">历史数据</string>
+    <string name="email_message">留言信息</string>
+    <string name="email_input_content">请输入邮件内容</string>
+    <string name="email_start_time">起始时间</string>
+    <string name="email_end_time">结束时间</string>
+    <string name="email_illegal">不合法的邮箱地址</string>
+    <string name="email_all_info">请输入完整的信息</string>
+    <string name="email_reset_time">请重新输入时间</string>
+    <string name="email_no_net">没有网络</string>
+    <string name="email_exit">退出</string>
+    <string name="email_start_send">开始发送</string>
+    <string name="email_send_sucess">发送成功</string>
+    <string name="email_send_filed">发送失败</string>
+    <string name="email_haveno_data">没有数据！！！</string>
+    <string name="recipe_import_error">导入数据有错误！！！</string>
+    <string name="group_no_master">该组没有管理员</string>
+    <string name="usr_no_in_group">用户不属于该组</string>
+    <string name="set_master">设为管理员</string>
+    <string name="master">管理员</string>
+    <string name="nul"/>
+    <string name="user_not_master">用户没有组管理权限!</string>
+    <string name="keyboard_words">`1234567890-=\\~!@#$%^&amp;*()_+|qwertyuiop[]asdfghjkl;\'zxcvbnm,./QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM&amp;gt;&amp;lt;?</string>
+    <string name="ipname">IP 地址：</string>
+    <string name="netname">子网掩码：</string>
+    <string name="gatename">网关：</string>
+    <string name="dnsname">DNS服务器</string>
+    <string name="dhcp">动态</string>
+    <string name="static_ip">静态</string>
+    <string name="dnseerror">DNS 设置不合法!</string>
+    <string name="dnsenull">DNS 设置不能为空!</string>
+    <string name="netnamehint">子网掩码</string>
+    <string name="gatenamehint">网关</string>
+    <string name="networkisunable">网络没有连接 ，远程服务不启动，请检查！</string>
+    <string name="vnc_hint">未允许远程监控!</string>
+    <string name="apopen">热点已经打开，启动远程服务!</string>
+    <string name="confirm_operation">确认要删除吗?</string>
+    <string name="recipe_copy_tile">配方数据拷贝</string>
+    <string name="recipe_copy_frme">从</string>
+    <string name="recipe_copy_to">到</string>
+    <string name="recipe_data_location">数据来源</string>
+    <string name="recipe_data_memory">内部区域</string>
+    <string name="recipe_copy_no_path">没有这个路径</string>
+    <string name="recipe_copy_no_recipe">没有配方文件</string>
+    <string name="recipe_copy_input_error">请检查您选择的内容</string>
+    <string name="alreadyvncstart">VNC 服务已经启动</string>
+    <string name="pleaseselect">请先选择配方</string>
+    <string name="data_collect_success">保存历史数据：成功！</string>
+    <string name="data_collect_fail">保存历史数据：失败！</string>
+    <string name="history_show_finished">显示完毕</string>
+    <string name="history_start_time">已经处于开始时间!</string>
+    <string name="history_last_time">已经处于最后时间!</string>
+    <string name="history_largest">已经最大!</string>
+    <string name="history_minimum">已经最小!</string>
+    <string name="history_time_error">时间错误,设置失败!</string>
+    <string name="history_port_error">端口错误,设置失败!</string>
 </resources>

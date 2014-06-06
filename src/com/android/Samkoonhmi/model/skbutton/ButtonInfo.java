@@ -80,7 +80,23 @@ public class ButtonInfo {
 	private boolean bSlid;
 	//切换条件 0-按值，1-寄存器的位,2-自定义值
 	private short nCondition;
+	//弹出执行脚本
+	private boolean isUpRun;
+	//弹起宏指令id
+	private int nStatemenUpId;
 	
+	public boolean isUpRun() {
+		return isUpRun;
+	}
+	public void setUpRun(boolean isUpRun) {
+		this.isUpRun = isUpRun;
+	}
+	public int getnStatemenUpId() {
+		return nStatemenUpId;
+	}
+	public void setnStatemenUpId(int nStatemenUpId) {
+		this.nStatemenUpId = nStatemenUpId;
+	}
 	public short getnCondition() {
 		return nCondition;
 	}

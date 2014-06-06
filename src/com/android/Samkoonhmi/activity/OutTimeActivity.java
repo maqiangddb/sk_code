@@ -38,7 +38,8 @@ public class OutTimeActivity extends Activity implements OnClickListener {
 	private EditText validatePass;
 	private String validatePassValue = "";
 	private TextView showTextView;
-	private String confirmStr=""; //超时提示字符串
+	private String confirmStr = ""; // 超时提示字符串
+	private SystemInfoBiz sysBiz;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -53,20 +54,20 @@ public class OutTimeActivity extends Activity implements OnClickListener {
 			validatePassValue = SystemInfo.getOnePassWord().getsPwdStr();
 			confirmStr = SystemInfo.getOnePassWord().getsTimeOut();
 		}
-		
-//		Log.d("pass", "activity要输入的密码：" + validatePassValue);
+
+		// Log.d("pass", "activity要输入的密码：" + validatePassValue);
 		showTextView = (TextView) findViewById(R.id.showText);
 		showTextView.setText(confirmStr);
 		validateButton = (Button) findViewById(R.id.validatePass);
 		validatePass = (EditText) findViewById(R.id.validateText);
 		validateButton.setOnClickListener(this);
-
+		sysBiz = new SystemInfoBiz();
 	}
 
 	@Override
 	public void onClick(View v) {
 		// TODO Auto-generated method stub
-		SKSceneManage.getInstance().time=0;
+		SKSceneManage.getInstance().time = 0;
 		if (v.getId() == R.id.validatePass) {
 			invalidate();
 		}
@@ -75,8 +76,18 @@ public class OutTimeActivity extends Activity implements OnClickListener {
 
 	private void invalidate() {
 		if (!validatePassValue.equals(validatePass.getText().toString().trim())) {
-			SKToast.makeText(this, R.string.validatewrong, Toast.LENGTH_SHORT).show();
+			SKToast.makeText(this, R.string.validatewrong, Toast.LENGTH_SHORT)
+					.show();
 		} else {
+
+			if(LoginActivity.readPassCount<SystemInfo.getPassWord().size() ){
+				// 将已用过的密码标记设为true
+				SystemInfo.getPassWord().get(LoginActivity.readPassCount).setUser(true);
+
+				boolean modifyBoo = sysBiz.updatePassUse(SystemInfo.getPassWord()
+						.get(LoginActivity.readPassCount).getId());
+			}
+			
 			// 重新设置使用天数
 			if (SystemInfo.isbProtectType() == false) {
 				SharedPreferences.Editor shareEditor = getSharedPreferences(
@@ -103,7 +114,7 @@ public class OutTimeActivity extends Activity implements OnClickListener {
 				SystemInfo.setOnePassWord(SystemInfo.getPassWord().get(
 						LoginActivity.readPassCount));
 			}
-			
+
 			Intent intent = new Intent(this, LoginActivity.class);
 			startActivity(intent);
 			finish();

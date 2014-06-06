@@ -102,57 +102,62 @@ public class AKFileUpdate {
 		}
 	}
 
-//	/**
-//	 * 复制整个文件夹内容
-//	 */
-//	public void copyFolder(FileInfo info) {
-//
-//		String oldPath = "/data/data/com.android.Samkoonhmi/update/"
-//				+ info.name;
-//	
-//		delAllFile(info.path);
-//		
-//		try {
-//			File aa=new File(info.path);
-//			if(!aa.exists()){
-//				aa.mkdir(); // 如果文件夹不存在 则建立新文件夹
-//			}
-//			File a = new File(oldPath);
-//			String[] file = a.list();
-//			if (file==null) {
-//				return;
-//			}
-//			File temp = null;
-//			for (int i = 0; i < file.length; i++) {
-//				if (oldPath.endsWith(File.separator)) {
-//					temp = new File(oldPath + file[i]);
-//				} else {
-//					temp = new File(oldPath + File.separator + file[i]);
-//				}
-//				if (temp.isFile()) {
-//					FileInputStream input = new FileInputStream(temp);
-//					String name=info.path+ (temp.getName()).toString();
-//					FileOutputStream output = new FileOutputStream(name);
-//					byte[] b = new byte[1024 * 5];
-//					int len;
-//					while ((len = input.read(b)) != -1) {
-//						output.write(b, 0, len);
-//					}
-//					output.flush();
-//					output.close();
-//					input.close();
-//				}
-//
-//			}
-//			
-//			//删除文件
-//			delAllFile(oldPath+info.name);
-//			
-//		} catch (Exception e) {
-//			e.printStackTrace();
-//		}
-//
-//	}
+	/**
+	 * 复制整个文件夹内容
+	 */
+	public void copyFolder(String sourcePath,String desPath) {
+
+		String sourcefolder = sourcePath;
+		String desfolder = desPath;
+	
+		delAllFile(desfolder);
+		
+		try {
+			File aa=new File(desfolder);
+			if(!aa.exists()){
+				aa.mkdirs(); // 如果文件夹不存在 则建立新文件夹
+			}
+			File a = new File(sourcefolder);
+			String[] file = a.list();
+			if (file==null) {
+				return;
+			}
+			File temp = null;
+			for (int i = 0; i < file.length; i++) {
+				if (sourcefolder.endsWith(File.separator)) {
+					temp = new File(sourcefolder + file[i]);
+				} else {
+					temp = new File(sourcefolder + File.separator + file[i]);
+				}
+				if (temp.isFile()) {
+					FileInputStream input = new FileInputStream(temp);
+					String name=desfolder;
+					if (name.endsWith(File.separator)) {
+						name = name +  file[i];
+					} else {
+						name = name + File.separator+ file[i];
+					}
+					FileOutputStream output = new FileOutputStream(name);
+					byte[] b = new byte[1024 * 5];
+					int len;
+					while ((len = input.read(b)) != -1) {
+						output.write(b, 0, len);
+					}
+					output.flush();
+					output.close();
+					input.close();
+				}
+
+			}
+			
+			//删除文件
+			delAllFile(sourcefolder);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+	}
 
 	/**
 	 * 读取文件
@@ -246,5 +251,281 @@ public class AKFileUpdate {
 		public String name;
 		public String path;
 	}
+	
+	public static int flag=0;
+	public void linkFileToEmu(){
+		Log.v("linkFileToEmu","linkFileToEmu");
 
+		// 删除采集数据库
+		File aa = new File(
+				"/data/data/com.android.Samkoonhmi/databases/dataCollectSave.db");
+		if (aa.exists()) {
+			aa.delete();
+		}
+
+		File bb = new File(
+				"/data/data/com.android.Samkoonhmi/databases/dataCollectSave.db-journal");
+		if (bb.exists()) {
+			bb.delete();
+		}
+
+		File gg = new File(
+				"/data/data/com.android.Samkoonhmi/shared_prefs/hmiprotct.xml");
+		if (gg.exists()) {
+			gg.delete();
+		}
+		
+		//删除库文件夹，以便软连接
+		runCommand("rmdir /data/data/com.android.Samkoonhmi/lib");			
+
+		// 删除开机动画
+		File ee = new File("/data/data/com.android.Samkoonhmi/usranipro/bootanimation.zip");
+		
+		if (ee.exists()) {
+			ee.delete();
+		}
+		
+		File ll = new File("/data/data/com.android.Samkoonhmi/usranipro");
+		if (!ll.exists()) {
+			ll.mkdir();
+		}
+		
+		String sAkPath = "/data/data/com.android.Samkoonhmi/";
+		String sourcePath="/mnt/shared/esd/Udisk";
+		String desPath="";
+		String fileName="";
+		File emuDir = new File(sourcePath);
+
+		if(emuDir.isDirectory()){
+			String[] fileList = emuDir.list();
+			if(null == fileList){
+				Log.v("AKFileUpdate","linkFileToEmu:fileList is null");
+				return;
+			}
+			for(int i=0;i<fileList.length;i++){
+				fileName=fileList[i];
+				File thisFile = new File(sourcePath+java.io.File.separator+fileName);
+				if(thisFile.isDirectory()){
+					if(fileName.equals("armeabi")||fileName.equals("x86")){
+						desPath=sAkPath + "lib";
+					}else if(fileName.equals("resource")){
+						desPath=sAkPath + "pictures";
+					}
+					runCommand("ln -s "+sourcePath+File.separator+fileName+" "+desPath);
+				}else{
+					if (fileName.equals("sd.dat")) {
+						desPath = sAkPath + "databases/";
+					} else if (fileName.equals("ml.jar")) {
+						desPath = sAkPath + "macro/";
+					} else if (fileName.equals("recipe.dat")) {
+						desPath = sAkPath + "formula/";
+					}else if (fileName.equals("fileMap.bin")) {
+						desPath = sAkPath;
+					}else if(fileName.equals("vXkIp.m")){
+//						File file = new File(sourcePath+java.io.File.separator+fileName);
+//						if(file.exists()){
+//							file.delete();
+//						}
+						continue;
+					}else if(fileName.equals("bootanimation.zip")){
+//						File file = new File(sourcePath+java.io.File.separator+fileName);
+//						if(file.exists()){
+//							file.delete();
+//						}
+						continue;
+					}else {
+						// 字体
+						desPath = sAkPath + "fonts/";
+					}
+					File desfolder = new File(desPath);
+					if(!desfolder.exists()){
+						desfolder.mkdirs();
+					}
+//					else{
+//						File dst = new File(desPath+fileName);
+//						if(dst.exists()){
+//							dst.delete();
+//						}
+//					}
+					runCommand("ln -s "+sourcePath+File.separator+fileName+" "+desPath+fileName);
+				}
+			}
+		}
+		
+		File file = new File("/data/data/com.android.Samkoonhmi/samkoonhmi.akz");
+		if (file.exists()) {
+			file.delete();
+		}
+
+		try{
+			Thread.sleep(200);
+		}catch(Exception e){
+			
+		}
+		// end of func
+
+	}
+	
+//	public void copyFileToEmu(){
+//
+//		try {
+//			// 删除采集数据库
+//			File aa = new File(
+//					"/data/data/com.android.Samkoonhmi/databases/dataCollectSave.db");
+//			if (aa.exists()) {
+//				aa.delete();
+//			}
+//
+//			File bb = new File(
+//					"/data/data/com.android.Samkoonhmi/databases/dataCollectSave.db-journal");
+//			if (bb.exists()) {
+//				bb.delete();
+//			}
+//
+//			File gg = new File(
+//					"/data/data/com.android.Samkoonhmi/shared_prefs/hmiprotct.xml");
+//			if (gg.exists()) {
+//				gg.delete();
+//			}
+//
+//			// 删除图片
+//			File dd = new File("/data/data/com.android.Samkoonhmi/pictures");
+//			if (dd.exists()) {
+//				delAllFile("/data/data/com.android.Samkoonhmi/pictures");
+//			}
+//
+//			// 删除字体
+//			File ff = new File("/data/data/com.android.Samkoonhmi/fonts");
+//			if (ff.exists()) {
+//				delAllFile("/data/data/com.android.Samkoonhmi/fonts");
+//			}
+//
+//			// 删除开机动画
+//			File ee = new File("/data/data/com.android.Samkoonhmi/usranipro/bootanimation.zip");
+//			
+//			if (ee.exists()) {
+//				ee.delete();
+//			}
+//			
+//			File ll = new File("/data/data/com.android.Samkoonhmi/usranipro");
+//			if (!ll.exists()) {
+//				ll.mkdir();
+//			}
+//			
+//			String sAkPath = "/data/data/com.android.Samkoonhmi/";
+//			String sourcePath="/mnt/shared/esd/Udisk";
+//			String desPath="";
+//			String fileName="";
+//			android.util.Log.v("AKFileUpdate", "copyFileToEmu()");
+//			File emuDir = new File(sourcePath);
+//
+//			if(emuDir.isDirectory()){
+//				String[] fileList = emuDir.list();
+//				if(null == fileList){
+//					Log.v("AKFileUpdate","copyFileToEmu:fileList is null");
+//					return;
+//				}
+//				for(int i=0;i<fileList.length;i++){
+//					fileName=fileList[i];
+//					File thisFile = new File(sourcePath+java.io.File.separator+fileName);
+//					if(thisFile.isDirectory()){
+//						if(fileName.equals("armeabi")||fileName.equals("x86")){
+//							desPath=sAkPath + "lib";
+//						}else if(fileName.equals("resource")){
+//							desPath=sAkPath + "pictures";
+//						}
+//						File desfolder = new File(desPath);
+//						if(!desfolder.exists()){
+//							desfolder.mkdirs();
+//						}
+//						if(sourcePath.endsWith(File.separator)){
+//							copyFolder(sourcePath+fileName,desPath);
+//						}else{
+//							copyFolder(sourcePath+File.separator+fileName,desPath);
+//						}
+//					}else{
+//						if (fileName.equals("sd.dat")) {
+//							desPath = sAkPath + "databases/";
+//						} else if (fileName.equals("ml.jar")) {
+//							desPath = sAkPath + "macro/";
+//						} else if (fileName.equals("recipe.dat")) {
+//							desPath = sAkPath + "formula/";
+//						}else if (fileName.equals("fileMap.bin")) {
+//							desPath = sAkPath;
+//						}else if(fileName.equals("vXkIp.m")){
+//							File file = new File(sourcePath+java.io.File.separator+fileName);
+//							if(file.exists()){
+//								file.delete();
+//							}
+//							continue;
+//						}else if(fileName.equals("bootanimation.zip")){
+//							File file = new File(sourcePath+java.io.File.separator+fileName);
+//							if(file.exists()){
+//								file.delete();
+//							}
+//							continue;
+//						}else {
+//							// 字体
+//							desPath = sAkPath + "fonts/";
+//						}
+//						File desfolder = new File(desPath);
+//						if(!desfolder.exists()){
+//							desfolder.mkdirs();
+//						}
+//						fileCopy(sourcePath+java.io.File.separator+fileName,desPath+fileName);
+//						File file = new File(sourcePath+java.io.File.separator+fileName);
+//						if(file.exists()){
+//							file.delete();
+//						}
+//					}
+//				}
+//			}
+//			
+//			File file = new File("/data/data/com.android.Samkoonhmi/samkoonhmi.akz");
+//			if (file.exists()) {
+//				file.delete();
+//			}
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//			Log.e("AKFileUpdate", "ak zip error!!!");
+//			//一般解压错误，是由于往sklauncher写文件没权限造成
+//			File file=new File("/data/data/com.samkoon.sklauncher/vFiHpd/vXkIp.m");
+//			if (file.exists()) {
+//				file.delete();
+//			}
+//			
+//			File dir=new File("/data/data/com.samkoon.sklauncher/vFiHpd/");
+//			if (dir.exists()) {
+//				dir.delete();
+//			}
+//			
+//			File libFile=new File("/data/data/com.android.Samkoonhmi/lib");
+//			if (libFile.exists()) {
+//				libFile.delete();
+//				Log.d("AKFileUpdate", "ak lib error!!!");
+//			}
+//		}
+//		// end of func
+//	}
+	private static String com="";
+	private static boolean runCommand(String command) {
+		
+		com=command;
+		Process process = null;
+		try {
+			process = Runtime.getRuntime().exec("su");
+			process = Runtime.getRuntime().exec(com);
+			process.waitFor();
+			Log.d("AKFileUpdate", "command:"+com);
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e("AKFileUpdate", "run "+com+" error!");
+		}finally{
+			if (process!=null) {
+				process.destroy();
+			}
+		} 
+		
+		return true;
+	}
 }

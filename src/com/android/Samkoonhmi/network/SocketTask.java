@@ -49,6 +49,10 @@ public class SocketTask implements Runnable{
 							CollentFileServer cServer=new CollentFileServer(mClient,dis,out);
 							cServer.startUpLoadFile();
 							break;
+						case NetParam.UP_COLLENT_REC:
+							CollentFileServer recServer=new CollentFileServer(mClient,dis,out);
+							recServer.startUpLoadRecFile();
+							break;
 						default:
 							break;
 						}
@@ -65,6 +69,10 @@ public class SocketTask implements Runnable{
 							//上载历史数据
 							CollentFileServer cServer=new CollentFileServer(mClient,dis,out);
 							cServer.startUpLoadFile();
+							break;
+						case NetParam.UP_COLLENT_REC:
+							CollentFileServer recServer=new CollentFileServer(mClient,dis,out);
+							recServer.startUpLoadRecFile();
 							break;
 						default:
 							break;

@@ -66,6 +66,21 @@ public class DataTransBiz {
 			mTmpAddr = SkGlobalData.getProjectDatabase().getAddrById(nTmpValue);
 			mOneData.setmTargetAddr(mTmpAddr);
 			
+			/*资料传输的长度是否变量*/
+			String bDynLength = dataProp.getString(dataProp.getColumnIndex("bDynLength"));
+			if("true".equals(bDynLength)){
+				mOneData.setbDynLength(true);
+			}else{
+				mOneData.setbDynLength(false);
+			}
+			
+			/*资料传输的长度是变量时的地址*/
+			if(mOneData.getbDynLength()){
+				nTmpValue = dataProp.getInt(dataProp.getColumnIndex("nLengthAddrId"));
+				mTmpAddr = SkGlobalData.getProjectDatabase().getAddrById(nTmpValue);
+				mOneData.setmLengthAddr(mTmpAddr);
+			}
+			
 			DataTransInfo.getInstance().getmDataTransList().add(mOneData);
 		}
 		dataProp.close();

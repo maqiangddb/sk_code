@@ -45,18 +45,33 @@ public class SceneBiz extends DataBase{
 				if (cursor!=null) {
 					info = new ScenceInfo();
 					while (cursor.moveToNext()) {
-						info.setnSceneId(cursor.getInt(cursor.getColumnIndex("nSceneId")));
-						info.setsScreenName(cursor.getString(cursor.getColumnIndex("sScreenName")));
-						info.setnSceneWidth(cursor.getInt(cursor.getColumnIndex("nSceneWidth")));
-						info.setnSceneHeight(cursor.getInt(cursor.getColumnIndex("nSceneHeight")));
-						info.seteBackType(getBackcss(cursor.getInt(cursor.getColumnIndex("eBackType"))));
-						info.setnBackColor(cursor.getInt(cursor.getColumnIndex("nBackColor")));
-						info.setnForeColor(cursor.getInt(cursor.getColumnIndex("nForeColor")));
-						info.seteDrawStyle(IntToEnum.getCssType(cursor.getInt(cursor.getColumnIndex("eDrawStyle"))));
-						info.setsPicturePath(cursor.getString(cursor.getColumnIndex("sPicturePath")));
+						//nSceneId
+						info.setnSceneId(cursor.getInt(1));
+						//sScreenName
+						info.setsScreenName(cursor.getString(2));
+						//bLogout
+						boolean touch=cursor.getString(3).equals("true")?true:false;
+						info.setbLogout(touch);
+						//sNumber
+						info.setnNum(cursor.getInt(4));
+						//nSceneWidth
+						info.setnSceneWidth(cursor.getInt(5));
+						//nSceneHeight
+						info.setnSceneHeight(cursor.getInt(6));
+						//eBackType
+						info.seteBackType(getBackcss(cursor.getInt(7)));
+						//nBackColor
+						info.setnBackColor(cursor.getInt(8));
+						//nForeColor
+						info.setnForeColor(cursor.getInt(9));
+						//eDrawStyle
+						info.seteDrawStyle(IntToEnum.getCssType(cursor.getInt(10)));
+						//sPicturePath
+						info.setsPicturePath(cursor.getString(11));
 						info.seteType(SHOW_TYPE.DEFAULT);
 						info.setbShowTitle(false);
-						boolean slide=cursor.getString(cursor.getColumnIndex("bSlide")).equals("true")?true:false;
+						//bSlide
+						boolean slide=cursor.getString(13).equals("true")?true:false;
 						info.setbSlide(slide);
 						if (slide) {
 							/**
@@ -65,25 +80,29 @@ public class SceneBiz extends DataBase{
 							 *       >0, 表示特定画面
 							 * rightId 同上
 							 */
-							info.setnTowardLeftId(cursor.getInt(cursor.getColumnIndex("nTowardLeftId"))-1);
-							info.setnTowardRIghtId(cursor.getInt(cursor.getColumnIndex("nTowardRIghtId"))-1);
+							//nTowardLeftId
+							info.setnTowardLeftId(cursor.getInt(14)-1);
+							//nTowardRIghtId
+							info.setnTowardRIghtId(cursor.getInt(15)-1);
 						}else {
 							info.setnTowardLeftId(-1);
 							info.setnTowardRIghtId(-1);
 						}
-						boolean touch=cursor.getString(cursor.getColumnIndex("bLogout")).equals("true")?true:false;
-						info.setbLogout(touch);
-						info.setnSlideStyle(cursor.getInt(cursor.getColumnIndex("nSlideStyle")));
-						info.setSceneMacroIDList(selectMacroIDListBySceneID(info.getnSceneId()));					
+						//nSlideStyle
+						info.setnSlideStyle(cursor.getInt(16));
+						info.setSceneMacroIDList(selectMacroIDListBySceneID(info.getnSceneId()));
+						
+						if (info.getnTowardLeftId()>0) {
+							info.setnTowardLeftId(getSceneId(info.getnTowardLeftId()));
+						}
+						if (info.getnTowardRIghtId()>0) {
+							info.setnTowardRIghtId(getSceneId(info.getnTowardRIghtId()));
+						}
 					}
 				}
+				
 				close(cursor);
-				if (info.getnTowardLeftId()>0) {
-					info.setnTowardLeftId(getSceneId(info.getnTowardLeftId()));
-				}
-				if (info.getnTowardRIghtId()>0) {
-					info.setnTowardRIghtId(getSceneId(info.getnTowardRIghtId()));
-				}
+				
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -107,20 +126,33 @@ public class SceneBiz extends DataBase{
 				if (cursor!=null) {
 					while (cursor.moveToNext()) {
 						ScenceInfo info = new ScenceInfo();
-						int sid=cursor.getInt(cursor.getColumnIndex("nSceneId"));
-						int wid=cursor.getInt(cursor.getColumnIndex("sNumber"));
-						info.setnSceneId(cursor.getInt(cursor.getColumnIndex("nSceneId")));
-						info.setsScreenName(cursor.getString(cursor.getColumnIndex("sScreenName")));
-						info.setnSceneWidth(cursor.getInt(cursor.getColumnIndex("nSceneWidth")));
-						info.setnSceneHeight(cursor.getInt(cursor.getColumnIndex("nSceneHeight")));
-						info.seteBackType(getBackcss(cursor.getInt(cursor.getColumnIndex("eBackType"))));
-						info.setnBackColor(cursor.getInt(cursor.getColumnIndex("nBackColor")));
-						info.setnForeColor(cursor.getInt(cursor.getColumnIndex("nForeColor")));
-						info.seteDrawStyle(IntToEnum.getCssType(cursor.getInt(cursor.getColumnIndex("eDrawStyle"))));
-						info.setsPicturePath(cursor.getString(cursor.getColumnIndex("sPicturePath")));
+						//nSceneId
+						info.setnSceneId(cursor.getInt(1));
+						//sScreenName
+						info.setsScreenName(cursor.getString(2));
+						//bLogout
+						boolean touch=cursor.getString(3).equals("true")?true:false;
+						info.setbLogout(touch);
+						//sNumber
+						info.setnNum(cursor.getInt(4));
+						//nSceneWidth
+						info.setnSceneWidth(cursor.getInt(5));
+						//nSceneHeight
+						info.setnSceneHeight(cursor.getInt(6));
+						//eBackType
+						info.seteBackType(getBackcss(cursor.getInt(7)));
+						//nBackColor
+						info.setnBackColor(cursor.getInt(8));
+						//nForeColor
+						info.setnForeColor(cursor.getInt(9));
+						//eDrawStyle
+						info.seteDrawStyle(IntToEnum.getCssType(cursor.getInt(10)));
+						//sPicturePath
+						info.setsPicturePath(cursor.getString(11));
 						info.seteType(SHOW_TYPE.DEFAULT);
 						info.setbShowTitle(false);
-						boolean slide=cursor.getString(cursor.getColumnIndex("bSlide")).equals("true")?true:false;
+						//bSlide
+						boolean slide=cursor.getString(13).equals("true")?true:false;
 						info.setbSlide(slide);
 						if (slide) {
 							/**
@@ -129,16 +161,16 @@ public class SceneBiz extends DataBase{
 							 *       >0, 表示特定画面
 							 * rightId 同上
 							 */
-							info.setnTowardLeftId(cursor.getInt(cursor.getColumnIndex("nTowardLeftId"))-1);
-							info.setnTowardRIghtId(cursor.getInt(cursor.getColumnIndex("nTowardRIghtId"))-1);
+							//nTowardLeftId
+							info.setnTowardLeftId(cursor.getInt(14)-1);
+							//nTowardRIghtId
+							info.setnTowardRIghtId(cursor.getInt(15)-1);
 						}else {
 							info.setnTowardLeftId(-1);
 							info.setnTowardRIghtId(-1);
 						}
-						boolean touch=cursor.getString(cursor.getColumnIndex("bLogout")).equals("true")?true:false;
-						info.setbLogout(touch);
-						info.setnNum(cursor.getInt(cursor.getColumnIndex("sNumber")));
-						info.setnSlideStyle(cursor.getInt(cursor.getColumnIndex("nSlideStyle")));
+						//nSlideStyle
+						info.setnSlideStyle(cursor.getInt(16));
 						info.setSceneMacroIDList(selectMacroIDListBySceneID(info.getnSceneId()));
 						
 						if (info.getnTowardLeftId()>0) {
@@ -151,55 +183,21 @@ public class SceneBiz extends DataBase{
 					}
 				}
 				close(cursor);
-				
 			}
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 			Log.d("SceneBiz", "get scene info error!");
 		}
-		//Log.d("SKScene", "scene time:"+(System.currentTimeMillis()-start));
+		//Log.d("DataBase", " time : "+(System.currentTimeMillis()-start));
 		return list;
 	}
 	
-	/**
-	 * 获取画面所有控件
-	 */
-	public ArrayList<SceneItemInfo> getItemList(int sid){
-		
-		ArrayList<SceneItemInfo> mItemList=null;
-		try {
-			db=SkGlobalData.getProjectDatabase();
-			if (db!=null) {
-				Cursor cursor=null;
-				String sql="select * from sceneAndItem where nSceneId=?";
-				cursor=db.getDatabaseBySql(sql, new String[]{sid+""});
-				if (cursor!=null) {
-					mItemList=new ArrayList<SceneItemInfo>();
-					while (cursor.moveToNext()) {
-						SceneItemInfo info=new SceneItemInfo();
-						info.setnSceneId(cursor.getInt(
-								cursor.getColumnIndex("nSceneId")));
-						info.setnItemId(cursor.getInt(
-								cursor.getColumnIndex("nItemId")));
-						info.setnItemTableType(cursor.getInt(
-								cursor.getColumnIndex("nItemTableType")));
-						mItemList.add(info);
-					}
-				}
-				close(cursor);
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			Log.e("SceneBiz", "get item list error!");
-		}
-		return mItemList;
-	}
 	
 	/**
 	 * 获取画面类型
 	 */
 	public HashMap<Integer, ArrayList<Integer>> getSceneType(){
-		//long start=System.currentTimeMillis();
 		HashMap<Integer, ArrayList<Integer>> list=new HashMap<Integer, ArrayList<Integer>>();
 		try {
 			db=SkGlobalData.getProjectDatabase();
@@ -210,16 +208,19 @@ public class SceneBiz extends DataBase{
 				if (cursor!=null) {
 					int sid=-1;
 					while (cursor.moveToNext()) {
-						if (sid!=cursor.getInt(cursor.getColumnIndex("nSceneId"))) {
-							sid=cursor.getInt(cursor.getColumnIndex("nSceneId"));
+						//nSceneId
+						int id=cursor.getInt(1);
+						if (sid!=id) {
+							sid=id;
 							ArrayList<Integer> mTypeList=new ArrayList<Integer>();
-							int type=cursor.getInt(cursor.getColumnIndex("nItemTableType"));
+						    //nItemTableType
+							int type=cursor.getInt(0);
 							mTypeList.add(type);
 							list.put(sid, mTypeList);
 						}else {
 							ArrayList<Integer> mTypeList=list.get(sid);
-							int type=cursor.getInt(
-									cursor.getColumnIndex("nItemTableType"));
+							//nItemTableType
+							int type=cursor.getInt(0);
 							mTypeList.add(type);
 						}
 						
@@ -232,7 +233,7 @@ public class SceneBiz extends DataBase{
 			Log.e("SceneBiz", "get item list error!");
 		}
 		
-		//Log.d("SKScene", "secene item time:"+(System.currentTimeMillis()-start));
+		
 		return list;
 	}
 	
@@ -249,8 +250,10 @@ public class SceneBiz extends DataBase{
 				if (cursor!=null) {
 					while (cursor.moveToNext()) {
 						SceneMenuInfo info=new SceneMenuInfo();
-						info.setId(cursor.getInt(cursor.getColumnIndex("nSceneId")));
-						info.setName(cursor.getString(cursor.getColumnIndex("sScreenName")));
+						//nSceneId
+						info.setId(cursor.getInt(1));
+						//sScreenName
+						info.setName(cursor.getString(2));
 						list.add(info);
 					}
 				}
@@ -275,7 +278,8 @@ public class SceneBiz extends DataBase{
 			int num=0;
 			if (cursor!=null) {
 				while (cursor.moveToNext()) {
-					num=cursor.getInt(cursor.getColumnIndex("num"));
+					//num
+					num=cursor.getInt(0);
 				}
 			}
 			close(cursor);
@@ -298,7 +302,7 @@ public class SceneBiz extends DataBase{
 				Cursor cursor=db.getDatabaseBySql(sql, null);
 				if (cursor!=null) {
 					while (cursor.moveToNext()) {
-						String num=cursor.getString(cursor.getColumnIndex("num"));
+						String num=cursor.getString(0);
 						if (num!=null) {
 							count=Integer.parseInt(num);
 						}
@@ -326,7 +330,7 @@ public class SceneBiz extends DataBase{
 				Cursor cursor=db.getDatabaseBySql(sql, null);
 				if (cursor!=null) {
 					while (cursor.moveToNext()) {
-						count=cursor.getInt(cursor.getColumnIndex("num"));
+						count=cursor.getInt(0);
 					}
 				}
 				close(cursor);
@@ -353,7 +357,7 @@ public class SceneBiz extends DataBase{
 				if (cursor!=null) {
 					int num=0;
 					while (cursor.moveToNext()) {
-						num=cursor.getInt(cursor.getColumnIndex("num"));
+						num=cursor.getInt(0);
 					}
 					if (num>0) {
 						has=true;
@@ -381,7 +385,8 @@ public class SceneBiz extends DataBase{
 				Cursor cursor = db.getDatabaseBySql(sql, new String[]{numId+""});
 				if (cursor!=null) {
 					while (cursor.moveToNext()) {
-						num=cursor.getInt(cursor.getColumnIndex("nSceneId"));
+						//nSceneId
+						num=cursor.getInt(0);
 					}
 				}
 				close(cursor);
@@ -406,7 +411,8 @@ public class SceneBiz extends DataBase{
 				Cursor cursor = db.getDatabaseBySql(sql, new String[]{numId+""});
 				if (cursor!=null) {
 					while (cursor.moveToNext()) {
-						num=cursor.getInt(cursor.getColumnIndex("id"));
+						//id
+						num=cursor.getInt(0);
 					}
 				}
 				close(cursor);
@@ -423,7 +429,7 @@ public class SceneBiz extends DataBase{
 	/**
 	 * 根据画面id，获取序号id
 	 */
-	HashMap<Integer, Integer> map=null;
+	private static HashMap<Integer, Integer> map=null;
 	public int getWindowId(int id){
 		if (map==null) {
 			map=new HashMap<Integer, Integer>();
@@ -435,8 +441,10 @@ public class SceneBiz extends DataBase{
 					Cursor cursor = db.getDatabaseBySql(sql, null);
 					if (cursor!=null) {
 						while (cursor.moveToNext()) {
-							int num=cursor.getInt(cursor.getColumnIndex("id"));
-							int sid=cursor.getInt(cursor.getColumnIndex("nSceneId"));
+							//id
+							int num=cursor.getInt(0);
+							//nSceneId
+							int sid=cursor.getInt(1);
 							map.put(sid, num);
 						}
 					}
@@ -470,7 +478,8 @@ public class SceneBiz extends DataBase{
 				Cursor cursor = db.getDatabaseBySql(sql, null);
 				if (cursor!=null) {
 					while (cursor.moveToNext()) {
-						num=cursor.getInt(cursor.getColumnIndex("nSceneId"));
+						//nSceneId
+						num=cursor.getInt(0);
 						list.add(num);
 					}
 				}
@@ -495,7 +504,8 @@ public class SceneBiz extends DataBase{
 				Cursor cursor = db.getDatabaseBySql(sql, new String[]{cId+""});
 				if (cursor!=null) {
 					while (cursor.moveToNext()) {
-						num=cursor.getInt(cursor.getColumnIndex("nSceneId"));
+						//nSceneId
+						num=cursor.getInt(0);
 					}
 				}
 				close(cursor);
@@ -523,7 +533,8 @@ public class SceneBiz extends DataBase{
 					int num=0;
 					list=new ArrayList<Integer>();
 					while (c.moveToNext()) {
-						num=c.getInt(c.getColumnIndex("nSceneId"));
+						//nSceneId
+						num=c.getInt(0);
 						list.add(num);
 					}
 					
@@ -547,26 +558,40 @@ public class SceneBiz extends DataBase{
 			db=SkGlobalData.getProjectDatabase();
 			if(db!=null){
 				//画面
-				String sql = "select nSceneId,sNumber from scene ";
+				String sql = "select id,nSceneId,sNumber,sScreenName from scene ";
 				Cursor cursor = db.getDatabaseBySql(sql, null);
 				if (cursor!=null) {
 					while (cursor.moveToNext()) {
 						SceneNumInfo info=new SceneNumInfo();
-						info.setSid(cursor.getInt(cursor.getColumnIndex("nSceneId")));
-						info.setNum(cursor.getInt(cursor.getColumnIndex("sNumber")));
+						//id
+						info.setId(cursor.getInt(0));
+						//nSceneId
+						info.setSid(cursor.getInt(1));
+						//sNumber
+						info.setNum(cursor.getInt(2));
+						//sScreenName
+						info.setName(cursor.getString(3));
+						info.seteType(SHOW_TYPE.DEFAULT);
 						list.add(info);
 					}
 				}
 				close(cursor);
 				
 				//窗口
-				String s = "select nSceneId,sNumber from  windown";
+				String s = "select id,nSceneId,sNumber,sScreenName from  windown";
 				Cursor c = db.getDatabaseBySql(s, null);
 				if (c!=null) {
 					while (c.moveToNext()) {
 						SceneNumInfo info=new SceneNumInfo();
-						info.setSid(c.getInt(c.getColumnIndex("nSceneId")));
-						info.setNum(c.getInt(c.getColumnIndex("sNumber")));
+						//id
+						info.setId(c.getInt(0));
+						//nSceneId
+						info.setSid(c.getInt(1));
+						//sNumber
+						info.setNum(c.getInt(2));
+						//sScreenName
+						info.setName(c.getString(3));
+						info.seteType(SHOW_TYPE.FLOATING);
 						list.add(info);
 					}
 					
@@ -580,6 +605,7 @@ public class SceneBiz extends DataBase{
 		
 		return list;
 	}
+	
 	
 	/**
 	 * 获取sid 类型，场景or窗口
@@ -596,7 +622,8 @@ public class SceneBiz extends DataBase{
 				if (c!=null) {
 					int num=0;
 					while (c.moveToNext()) {
-						num=c.getInt(c.getColumnIndex("nSceneId"));
+						//nSceneId
+						num=c.getInt(0);
 						if (num>0) {
 							type[0]=1;
 							select=false;
@@ -613,7 +640,8 @@ public class SceneBiz extends DataBase{
 					if (cursor!=null) {
 						int num=0;
 						while (cursor.moveToNext()) {
-							num=cursor.getInt(cursor.getColumnIndex("nSceneId"));
+							//nSceneId
+							num=cursor.getInt(0);
 							if (num>0) {
 								type[1]=1;
 							}
@@ -674,7 +702,8 @@ public class SceneBiz extends DataBase{
 		
 		ArrayList<Short> idlist = new ArrayList<Short>();
 		while (tmpCursor.moveToNext()) {
-			idlist.add(tmpCursor.getShort(tmpCursor.getColumnIndex("MacroID")));
+			//MacroID
+			idlist.add(tmpCursor.getShort(1));
 		}
 		close(tmpCursor);
 		return idlist;
@@ -690,7 +719,8 @@ public class SceneBiz extends DataBase{
 		Cursor cursor=db.getDatabaseBySql(sql, new String[]{sid+"",type+""});
 		if (cursor!=null) {
 			if (cursor.moveToNext()) {
-				id=cursor.getInt(cursor.getColumnIndex("nItemId"));
+				//nItemId
+				id=cursor.getInt(0);
 			}
 			cursor.close();
 		}

@@ -2,15 +2,10 @@ package com.android.Samkoonhmi.graphicsdrawframe;
 
 import java.util.ArrayList;
 import java.util.Vector;
-import com.android.Samkoonhmi.R;
-import com.android.Samkoonhmi.model.DragTableInfo;
-import com.android.Samkoonhmi.model.RowCell;
-import com.android.Samkoonhmi.model.SKItems;
-import com.android.Samkoonhmi.model.TableTextInfo;
-import com.android.Samkoonhmi.skenum.Direction.DIRECTION;
-import com.android.Samkoonhmi.skenum.TEXT_PIC_ALIGN;
-import com.android.Samkoonhmi.skwindow.SKSceneManage;
-import com.android.Samkoonhmi.util.ImageFileTool;
+
+import javax.mail.internet.NewsAddress;
+
+import android.R.integer;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -26,6 +21,16 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.MotionEvent;
+
+import com.android.Samkoonhmi.R;
+import com.android.Samkoonhmi.model.DragTableInfo;
+import com.android.Samkoonhmi.model.RowCell;
+import com.android.Samkoonhmi.model.SKItems;
+import com.android.Samkoonhmi.model.TableTextInfo;
+import com.android.Samkoonhmi.skenum.Direction.DIRECTION;
+import com.android.Samkoonhmi.skenum.TEXT_PIC_ALIGN;
+import com.android.Samkoonhmi.skwindow.SKSceneManage;
+import com.android.Samkoonhmi.util.ImageFileTool;
 
 /**
  * 表格
@@ -51,15 +56,15 @@ public class DragTable {
 	// 垂直方向总的长度
 	private int nAllVlen;
 	private SKItems items;
-	private Point mLPPoint;
-	private Point mRBPoint;
-	private Rect mHRectBar; //水平滚动条捕捉事件区域
-	private Rect mVRectBar; //垂直滚动条捕捉事件区域
+	private Point mLPPoint;//第一行,第一列坐标
+	private Point mRBPoint;//右边底部坐标
+	//private Rect mHRectBar; //水平滚动条捕捉事件区域
+	//private Rect mVRectBar; //垂直滚动条捕捉事件区域
 	// 水平滚动条
 	private MoveItem sHItem;
 	// 垂直滚动条
 	private MoveItem sVItem;
-	private static int nBarLen=24;
+	private static int nBarLen=24;//滑动块宽度
 	private IAddListener iAddListener; //添加事件
 	private IPageTurning iPageTurning; //翻页事件
 	public boolean drawLoadItem;      //画上or下页的控件
@@ -70,11 +75,12 @@ public class DragTable {
 	private int nDataRank;//实际数据列数
 	private Vector<RowCell> mRowCells;
 	private IClickListener iClickListener;
-	private Rect mHRect;
+	//private Rect mHRect;
 	private Bitmap mHBGBitmap;
 	private boolean isShowBar;//是否显示滚动条
 	private DisplayMetrics dis;
 	private UIHandler mUIHandler;
+	
 	
 	//syb add
 	private int mTouchColum;
@@ -93,6 +99,7 @@ public class DragTable {
 		}
 		mUIHandler=new UIHandler(mContext.getMainLooper());
 	}
+
 
 	/**
 	 * 初始化表格信息
@@ -151,10 +158,10 @@ public class DragTable {
 			return;
 		}
 		//画横标题的背景
-		if (mHRect==null) {
-			mHRect=new Rect(mFrameRect.left, mFrameRect.top, mFrameRect.right,
-					mFrameRect.top+mHTitleItem.nHeight);
-		}
+//		if (mHRect==null) {
+//			mHRect=new Rect(mFrameRect.left, mFrameRect.top, mFrameRect.right,
+//					mFrameRect.top+mHTitleItem.nHeight);
+//		}
 		
 		if (mHBGBitmap==null) {
 			mHBGBitmap=ImageFileTool.getBitmap(R.drawable.title_row_bg, 
@@ -179,17 +186,17 @@ public class DragTable {
 	/**
 	 * 初始化表格每一小项
 	 */
-	private double height=0;
+	private double nTitleHeight=0;
 	private void initTableItem(ArrayList<ArrayList<TableTextInfo>> list){
 		
 		if (info.getmRowHeight()==null||info.getmRowHeight().size()==0) {
-			height = info.getnHeight() / info.getnRow();
+			nTitleHeight = info.getnHeight() / info.getnRow();
 		}else {
-			height=info.getmRowHeight().get(0);
+			nTitleHeight=info.getmRowHeight().get(0);
 		}
 		
 		//第一行,第一列坐标
-		mLPPoint=new Point(info.getnLeftTopX(),info.getnLeftTopY()+(int)height);
+		mLPPoint=new Point(info.getnLeftTopX(),info.getnLeftTopY()+(int)nTitleHeight);
 		nRank=info.getnRank();
 		nDataRank=info.getnDataRank();
 		
@@ -221,7 +228,7 @@ public class DragTable {
 	private void initTitle(){
 		Rect hRect=new Rect(info.getnLeftTopX(), info.getnLeftTopY(), 
 				info.getnLeftTopX()+info.getnWidth(), 
-				info.getnLeftTopY()+(int)height);
+				info.getnLeftTopY()+(int)nTitleHeight);
 		float nSize=info.getnTitleFontSize();
 		if (null == dis) {
 			dis=new DisplayMetrics();
@@ -232,7 +239,7 @@ public class DragTable {
 			dis.ydpi = (float) 225.77777;
 		}
 		nSize=TypedValue.applyDimension(2, nSize, dis);
-		mHTitleItem=new HTitleItem(info.getnWidth(), (int)height, nRank,nDataRank, hRect);
+		mHTitleItem=new HTitleItem(info.getnWidth(), (int)nTitleHeight, nRank,nDataRank, hRect);
 		mHTitleItem.mRowWidth=info.getmRowWidth();
 		mHTitleItem.mRowHeight=info.getmRowHeight();
 		mHTitleItem.nFontColor=info.getnTitleFontColor();
@@ -305,12 +312,12 @@ public class DragTable {
 		/**
 		 * 水平滚动条捕捉事件的区域
 		 */
-		mHRectBar=new Rect(mLPPoint.x, mRBPoint.y-2*nBarLen, mRBPoint.x-nBarLen, mRBPoint.y);
+		//mHRectBar=new Rect(mLPPoint.x, mRBPoint.y-2*nBarLen, mRBPoint.x-nBarLen, mRBPoint.y);
 		
 		/**
 		 * 垂直滚动条捕捉事件的区域
 		 */
-		mVRectBar=new Rect(mRBPoint.x-2*nBarLen,mLPPoint.y,mRBPoint.x,mRBPoint.y-nBarLen);
+		//mVRectBar=new Rect(mRBPoint.x-2*nBarLen,mLPPoint.y,mRBPoint.x,mRBPoint.y-nBarLen);
 		
 		sHItem=new MoveItem(mContext);
 		sHItem.listener=listener;
@@ -416,7 +423,7 @@ public class DragTable {
 	private float nDifferY;
 	private boolean bLongEvent;
 	//syb add to get the column that touch on
-	private int getTouchColum(float X){
+	public int getTouchColum(float X){
 		try{
 			double x_click = X-info.getnLeftTopX();//距表格最左边位置
 			//表格拖动了多少？
@@ -449,6 +456,89 @@ public class DragTable {
 		}
 	}
 	
+	/**
+	 * 针对 没有水平滚动条的
+	 * 获取指定表头单元格的Rect 
+	 * @param index  指定单元格， 从0开始
+	 * @return
+	 */
+	
+	public Rect getHTitleRect(int index){
+		if (index < 0  ||  index >= info.getnDataRank()) {
+			return null;
+		}
+		
+		double x_start=0;
+		Rect rect = new Rect();
+		x_start = -sHItem.getnMoveLen();
+		for( int i = 0; i < index ; i++){
+			x_start += info.getmRowWidth().get(i);
+		}
+		rect.left = (int) x_start;
+		rect.right = (int)(x_start + info.getmRowWidth().get(index));
+		rect.top =  mHTitleItem.getmShowRect().top;
+		rect.bottom = mHTitleItem.getmShowRect().bottom;
+		
+		return rect;
+	}
+	
+	/**
+	 * 
+	 * @param X---当前点击的X坐标
+	 * @param Y---当前点击的Y坐标
+	 * @param bottom---当前是否在bottom的位置
+	 * @return
+	 */
+	public Rect getContentRect(int X , int Y, boolean bBottom){
+		Rect rect = new Rect(0, 0 ,0 ,0);
+		
+		// 计算Rect的left, right // 
+		double x_click = X - info.getnLeftTopX();//距表格最左边位置
+		double x_start=0;
+		int Max = info.getmRowWidth().size();
+		x_start=-sHItem.getnMoveLen();
+		for(int i = 0;i < info.getnDataRank();i++){
+			double len=0;
+			if( i < Max){
+				len = info.getmRowWidth().get(i);
+			}else{
+				len = mPageItem.nCellWidth;
+			}
+			
+			if(x_start <= x_click && x_click < ( x_start + len )){
+				rect.left = (int)(x_start + info.getnLeftTopX());
+				rect.right = (int)(x_start + len + info.getnLeftTopX());
+				break;
+			}
+			x_start += len;
+		}
+		
+		//计算 Rect的top、bottom
+		double y_start = mHTitleItem.getmShowRect().bottom ;  
+		if (bBottom) {
+			y_start -= 24;
+		}
+		for(int i = 0; i < info.getnRow(); i++){
+			double heigh = info.getmRowHeight().get(i);
+			if (y_start < Y  &&  Y < y_start + heigh ) {
+				rect.top = (int) y_start;
+				rect.bottom = (int) (y_start +heigh);
+				break;
+			}
+			y_start += heigh;
+		}
+
+		// 返回rect
+		if((rect.left == 0 && rect.right == 0) || (rect.top == 0 && rect.bottom == 0)){ //获取rect 失败
+			return null;
+		}
+		else {
+			return rect;
+		}
+		
+	}
+	
+	private Point downPoint = new Point();
 	public boolean onTouchEvent(MotionEvent event) {
 		SKSceneManage.getInstance().time=0;
 		
@@ -464,6 +554,7 @@ public class DragTable {
 				|| Y > info.getnLeftTopY() + info.getnHeight()) {
 			if (isClickDown) {
 				mUIHandler.removeMessages(LONG_PRESS);
+				mUIHandler.removeMessages(HANDLER_CLICK);
 			}
 			isClickDown=false;
 			return false;
@@ -474,6 +565,7 @@ public class DragTable {
 			if(mHTitleItem.getmShowRect().contains((int)X,(int) Y)){
 				if(mHTitleItem.onTouchEvent(event)){
 					mUIHandler.removeMessages(LONG_PRESS);
+					mUIHandler.removeMessages(HANDLER_CLICK);
 					return false;
 				}
 			}
@@ -491,12 +583,16 @@ public class DragTable {
 			isMove=false;
 			isDrag=false;
 			bLongEvent=true;
+			isSingleClick = false;
 			//获得触摸列 
 			mTouchColum = getTouchColum(X);
+			downPoint.set((int)event.getX(), (int)event.getY());
 			
 			isClickDown=onClickDown(X,Y,event);
 			mUIHandler.removeMessages(LONG_PRESS);
 			mUIHandler.sendEmptyMessageDelayed(LONG_PRESS, 1000);
+			mUIHandler.removeMessages(HANDLER_CLICK);
+			mUIHandler.sendEmptyMessageDelayed(HANDLER_CLICK, 400);
 		}
 		
 		if (event.getAction()==MotionEvent.ACTION_CANCEL
@@ -504,7 +600,19 @@ public class DragTable {
 			isClickDown=false;
 			downX=X;
 			downY=Y;
+			
+			//求出在X方向、Y方向移动距离的最大值
+			int distance = (int)Math.max(Math.abs(downX- downPoint.x), Math.abs(downY - downPoint.y));
+			if (isSingleClick && event.getAction() == MotionEvent.ACTION_UP  && distance  < 30 && isDrag) {
+				if (iClickListener != null) {
+					RowCell item = mPageItem.getRowInfo();
+					if (item != null) {
+						iClickListener.onClick(item.nClickIndex, item.gid, item.aid, 0);
+					}
+				}
+			}
 			mUIHandler.removeMessages(LONG_PRESS);
+			mUIHandler.removeMessages(HANDLER_CLICK);
 		}
 		
 		if (isDrag) {
@@ -523,6 +631,7 @@ public class DragTable {
 						return true;
 					}
 					mUIHandler.removeMessages(LONG_PRESS);
+					mUIHandler.removeMessages(HANDLER_CLICK);
 					if (Y-downY>0) {
 						turnPage(0);
 					}else {
@@ -578,6 +687,7 @@ public class DragTable {
 	 */
 	
 	private boolean isHClick;
+	private Point   mClickPoint = new Point();
 	private boolean onClickDown(float X,float Y,MotionEvent event){
 	
 		if(mPageItem==null){
@@ -588,20 +698,20 @@ public class DragTable {
 		boolean valid = false;
 		//画行背景
 		if ((System.currentTimeMillis()-nClickTime)<600) {
-			if ((System.currentTimeMillis()-nClickTime)>30) {
+			if ((System.currentTimeMillis()-nClickTime)>150) {
 				valid=true;
 			}
 		}
 		
 		nClickTime=System.currentTimeMillis();
 		
-		if(Math.abs(X-downX)>20||Math.abs(Y-downY)>20){
+		if(Math.abs(X-downX)> 15||Math.abs(Y-downY)>15){
 			valid = false;
 		}
 		
 		downX=X;
 		downY=Y;
-		
+		mClickPoint.set((int)downX, (int)downY);
 		if(mPageItem.clickRow(X,Y,isShowBar)){
 			//双击某一行
 			if (iClickListener!=null) {
@@ -658,12 +768,17 @@ public class DragTable {
 		return result;
 	}
 	
+	public Point getClickPoint(){
+		return mClickPoint;
+	}
+	
+	
+	private long nStart=0;
 	/**
 	 * 翻页
 	 * @param type=0,前一页，type=1,下一页
 	 */
-	private long nStart=0;
-	private void turnPage(int type){
+	public void turnPage(int type){
 		
 		if (System.currentTimeMillis()-nStart<500) {
 			return;
@@ -680,6 +795,22 @@ public class DragTable {
 				sVItem.turnPage(mPageItem.nHeight, true);
 			}
 		}
+	}
+	
+	/**
+	 * 移动一列
+	 * @param type-0 向左，type-1 向右
+	 */
+	public void moveRank(int type,int len){
+		dragPage(type, len, false);
+	}
+	
+	/**
+	 * 移动一行
+	 * @param type-0 向上，type-1 向下
+	 */
+	public void moveRow(int type,int len){
+		dragPage(type, len, true);
 	}
 	
 	/**
@@ -1095,6 +1226,7 @@ public class DragTable {
 		return isShowBar;
 	}
 
+	private boolean isSingleClick = false;
 	public class UIHandler extends Handler{
 		
 		public UIHandler(Looper looper){
@@ -1124,8 +1256,16 @@ public class DragTable {
 					if (iClickListener!=null) {
 						iClickListener.onLongClick(mPageItem.drowRow, mTouchColum, 0, 0);
 					}
+					isSingleClick = false;
+					nClickCount = 0; 
 				}
 				break;
+			case HANDLER_CLICK:
+			{
+				isSingleClick = true;
+				nClickCount = 0;
+			}
+			break;
 			}
 		}
 		
@@ -1154,5 +1294,159 @@ public class DragTable {
 	
 	public HTitleItem getHTitleItem(){
 		return mHTitleItem;
+	}
+	
+	/**
+	 * 设置背景
+	 * @param color-颜色
+	 */
+	public void resetBackcolor(int color){
+		this.info.setnTableBackcolor(color);
+		mPageItem.nPageBgColor=color;
+	}
+	
+	/**
+	 * 设置边框颜色
+	 * @param color-颜色
+	 */
+	public void resetLinecolor(int color){
+		this.info.setnFrameColor(color);
+	}
+	
+	/**
+	 * 设置控件透明度
+	 * @param alpha-透明度
+	 */
+	public void resetAlpha(int alpha){
+		this.info.setnAlpha(alpha);
+		mPageItem.nAlpha=alpha;
+	}
+	
+	/**
+	 * 设置控件，左边X坐标
+	 */
+	public void resetLeftTopX(int x){
+		this.info.setnLeftTopX((short)x);
+		
+		//标题
+		int tmp=mHTitleItem.getmShowRect().left;
+		mHTitleItem.getmShowRect().left=x;
+		mHTitleItem.getmShowRect().right=mHTitleItem.getmShowRect().right+x-tmp;
+		mHTitleItem.nLeftX=info.getnLeftTopX();
+		
+		
+		//表格内容
+		mPageItem.getShowRect().left=x;
+		mPageItem.getShowRect().right=mPageItem.getShowRect().right+x-tmp;
+		mPageItem.nLeftX=x;
+		
+		//外边框
+		mFrameRect.left=x;
+		mFrameRect.right=mFrameRect.right+x-tmp;
+		
+		//滑动块
+		mLPPoint.x=x;
+		mRBPoint.x=x+info.getnWidth();
+		sHItem.nLeftX=mLPPoint.x+1;
+		sVItem.nLeftX=mRBPoint.x-nBarLen;
+	}
+	
+	/**
+	 * 设置控件，左边Y坐标
+	 */
+	public void resetLeftTopY(int y){
+		this.info.setnLeftTopY((short)y);
+		
+		//标题
+		int tmp=mHTitleItem.getmShowRect().top;
+		mHTitleItem.getmShowRect().top=y;
+		mHTitleItem.getmShowRect().bottom=mHTitleItem.getmShowRect().bottom+y-tmp;
+		mHTitleItem.nLeftY=info.getnLeftTopY();
+		
+		//表格内容
+		mLPPoint.y=mLPPoint.y+y-tmp;
+		mPageItem.getShowRect().top=mLPPoint.y;
+		mPageItem.getShowRect().bottom=mPageItem.getShowRect().bottom+y-tmp;
+		mPageItem.nLeftY=mLPPoint.y;;
+		
+		//外边框
+		mFrameRect.top=y;
+		mFrameRect.bottom=mFrameRect.bottom+y-tmp;
+		
+		//滑动块
+		mLPPoint.y=(int)(info.getnLeftTopY()+nTitleHeight);
+		mRBPoint.y=info.getnLeftTopY()+info.getnHeight();
+		sHItem.nLeftY=mRBPoint.y-nBarLen;
+		sVItem.nLeftY=mLPPoint.y+1;
+
+	}
+	
+	/**
+	 * 设置控件长度
+	 * @param w-宽度
+	 */
+	public void resetWidth(int w){
+		this.info.setnWidth((short)w);
+		
+		//标题
+		mHTitleItem.resetWidth(w);
+		
+		//表格内容
+		mPageItem.resetWidth(w);
+		
+		//外边框
+		int tmp=mFrameRect.width();
+		mFrameRect.right=mFrameRect.right+w-tmp;
+		
+		//滑动块
+		mRBPoint.x=info.getnLeftTopX()+info.getnWidth();
+		sHItem.nWidth=mRBPoint.x-mLPPoint.x-nBarLen+1;
+		sVItem.nWidth=nBarLen;
+		sVItem.nLeftX=mRBPoint.x-nBarLen;
+		
+		sHItem.init();
+		sVItem.init();
+	}
+	
+	/**
+	 * 设置控件高度
+	 * @param h-高度
+	 */
+	public void resetHeigth(int h){
+		this.info.setnHeight((short)h);
+		
+		//外边框
+		double len=(h-mFrameRect.height())/info.getnRow();
+		
+		mFrameRect.bottom=mFrameRect.bottom+(int)(info.getnRow()*len);
+		
+		//标题
+		mHTitleItem.resetHeight(len);
+		
+		nTitleHeight=nTitleHeight+len;
+		
+		//表格内容
+		mPageItem.resetHeight(len);
+		
+		
+		mLPPoint.y=(int)(mLPPoint.y+len);
+		mPageItem.nLeftY=mLPPoint.y;
+		
+		//滑动块
+		mRBPoint.y=info.getnLeftTopY()+info.getnHeight();
+		sHItem.nHeight=nBarLen;
+		sVItem.nHeight=mRBPoint.y-mLPPoint.y-nBarLen+1;
+		sHItem.nLeftY=mRBPoint.y-nBarLen;
+		sVItem.nLeftY=mLPPoint.y+1;
+		sHItem.init();
+		sVItem.init();
+	}
+	
+	/**
+	 * -返回点击列
+	 * @return
+	 */
+	public int getClickRowIndex(){
+		return mTouchColum;
 	}
 }

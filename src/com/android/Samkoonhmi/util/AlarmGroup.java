@@ -1,12 +1,14 @@
 package com.android.Samkoonhmi.util;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Vector;
 
+import android.R.integer;
 import android.app.Service;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -15,13 +17,15 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Vibrator;
-import android.renderscript.Element;
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.SKSaveThread;
 import com.android.Samkoonhmi.SKSaveThread.AlamSaveProp;
+import com.android.Samkoonhmi.adapter.AlarmEmailAdapter.Email_AlarmBean;
+import com.android.Samkoonhmi.databaseinterface.AlarmBiz;
 import com.android.Samkoonhmi.databaseinterface.DBTool;
 import com.android.Samkoonhmi.model.CallbackItem;
 import com.android.Samkoonhmi.model.SystemInfo;
@@ -31,16 +35,20 @@ import com.android.Samkoonhmi.model.alarm.AlarmGroupInfo;
 import com.android.Samkoonhmi.model.alarm.AlarmMessageInfo;
 import com.android.Samkoonhmi.network.PhoneManager;
 import com.android.Samkoonhmi.plccommunicate.PlcRegCmnStcTools;
+import com.android.Samkoonhmi.print.AKPrint;
 import com.android.Samkoonhmi.skenum.ConditionType.CONDITION_TYPE;
 import com.android.Samkoonhmi.skenum.DATA_TYPE;
+import com.android.Samkoonhmi.skenum.DATE_FORMAT;
 import com.android.Samkoonhmi.skenum.GOTO_TYPE;
+import com.android.Samkoonhmi.skenum.PRINT_MODEL;
 import com.android.Samkoonhmi.skenum.READ_WRITE_COM_TYPE;
-import com.android.Samkoonhmi.skwindow.SKProgress;
+import com.android.Samkoonhmi.skenum.TIME_FORMAT;
+import com.android.Samkoonhmi.skwindow.EmailOperDialog;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
 import com.android.Samkoonhmi.skwindow.SKSceneManage.SHOW_TYPE;
 import com.android.Samkoonhmi.skwindow.SKToast;
-import com.android.Samkoonhmi.skwindow.SKWindowManage;
 import com.android.Samkoonhmi.system.SystemVariable;
+import com.android.Samkoonhmi.system.address.SystemAddress;
 
 /**
  * 报警登录
@@ -77,7 +85,6 @@ public class AlarmGroup {
 	// 报警声音
 	private boolean alarmSound;
 	private Context mContext;
-	//private int alarmSoundCount;
 	private Vibrator vibrator;
 	/**
 	 * key=0 表示报警产生or已经确定
@@ -93,7 +100,6 @@ public class AlarmGroup {
 	private int index;
 	private static Vector<AlarmDataInfo> mAlarmData;//存储当前处于报警信息
 	private static Vector<AlarmDataInfo>mCloseAlarmData;//存储当前消除的报警
-	//private Vector<AlarmDataInfo> mCopyData = new Vector<AlarmDataInfo>();
 
 	private static AlarmGroup sInstance = null;
 
@@ -104,7 +110,7 @@ public class AlarmGroup {
 		return sInstance;
 	}
 	
-	public boolean haveAlarmSound(){
+	public boolean haveAlarm(){
 		boolean ret = false;
 		try {
 			if (mAlarmData != null && mAlarmData .size() > 0) {
@@ -128,7 +134,7 @@ public class AlarmGroup {
 			}
 			
 			if (!ret && mTwoList != null&& mTwoList.get(0) != null) {
-				for(int i = 0; i < mTwoList.size(); i++){
+				for(int i = 0; i < mTwoList.get(0).size(); i++){
 					AlarmDataInfo info = mTwoList.get(0).get(i);
 					if (info != null && info.getnClear() == 0) {
 						ret = true;
@@ -151,7 +157,7 @@ public class AlarmGroup {
 		handler = new SKAlarmHandler(mThread.getLooper());
 		handleCallback(CREATE_CALLBACKS, null);
 	}
-
+ 
 	/**
 	 * 开始报警登录监视
 	 */
@@ -166,12 +172,15 @@ public class AlarmGroup {
 	private void init() {
 		bFull=false;
 		//alarmSoundCount = 0;
-		
 		if (mAlarmData==null) {
-			mAlarmData=DBTool.getInstance().getmAlarmBiz().setAlarmData();
-			DBTool.getInstance().getmAlarmBiz().getAlarmMessage(mAlarmData);
-			list = DBTool.getInstance().getmAlarmBiz().selectAlarmGroup(mAlarmData);
-		}
+			Vector<AlarmDataInfo> tempList = DBTool.getInstance().getmAlarmBiz().setAlarmData();
+			list = DBTool.getInstance().getmAlarmBiz().selectAlarmGroup(tempList);
+			tempList.clear();
+			tempList = null;
+
+			mAlarmData = DBTool.getInstance().getmAlarmBiz().setAlarmData();
+			DBTool.getInstance().getmAlarmBiz().updateAlarmDate(mAlarmData);
+		}		
 		if (mCloseAlarmData == null) {
 			mCloseAlarmData = new Vector<AlarmDataInfo>();
 		}
@@ -234,11 +243,11 @@ public class AlarmGroup {
 									|| item.geteCondition() == CONDITION_TYPE.ALARM_OFF) {
 								// 位
 								callback.eDataType=DATA_TYPE.BIT_1;
-								callback.onRegister(item.getmAddress(), true);
+								callback.onRegister(item.getmAddress(), true,0);
 							} else {
 								// 字
 								callback.eDataType=item.getmDataType();
-								callback.onRegister(item.getmAddress(), false);
+								callback.onRegister(item.getmAddress(), false,0);
 							}
 							item.setmCallbackItem(callback);
 						}
@@ -246,32 +255,10 @@ public class AlarmGroup {
 				}
 			}
 		}
-
+		
 		doWatch();
 	}
 	
-//	private void updateAlarmMessage(){
-//		for(int i =0; i < list.size(); i++){
-//			AlarmGroupInfo info = list.get(i);
-//			if (info == null || info.getmConditionMap() == null|| info.getmConditionMap().size() == 0) {
-//				break;
-//			}
-//			HashMap<Integer, AlarmConditionInfo> map = info.getmConditionMap();
-//			Iterator iterator = map.entrySet().iterator();
-//			while (iterator.hasNext()) {
-//				Map.Entry<Integer, AlarmConditionInfo> alamEntry = (Entry<Integer, AlarmConditionInfo>) iterator.next();
-//				AlarmConditionInfo alarm = alamEntry.getValue();
-//				if (alarm.getnClear() == 0) {
-//					for(AlarmDataInfo bean :mAlarmData){
-//						if (bean.getnGroupId() == alarm.getnGroupId() && bean.getnAlarmIndex() == alarm.getnAlarmIndex()) {
-//							bean.setsMessage(alarm.)
-//						}
-//					}
-//				}
-//			}
-//		}
-//		
-//	}
 
 	public boolean isAlarmSound() {
 		return alarmSound;
@@ -314,7 +301,7 @@ public class AlarmGroup {
 					
 					for(int pos = 0 ; pos < map.size(); pos++) {
 
-						// 每一组报警的报警条件
+						// 每一组报警的报警条件 
 						AlarmConditionInfo item = map.get(pos);
 						if (item.getmAddress() != null) {
 							
@@ -343,18 +330,16 @@ public class AlarmGroup {
 											.getsMessage();
 								}
 							}
-
 							switch (item.geteCondition()) {
 							case ALARM_ON: // on报警
 								if (1 == temp && item.getnClear() == -1&&state==0) {
 									item.setnClear(0);
-								//	alarmSoundCount++;
 									if (aList==null) {
 										aList=new ArrayList<AlarmDataInfo>();
 									}
 									sendData(message, info.getnGroupId(), item.getnAlarmIndex(),
 											item.isbOpenScene(), item.getnTargetPage(),
-											item.getnSceneType(),aList, item.getbSendMsg(), item.getPhoneNum(), item.getbAddtoDb());
+											item.getnSceneType(),aList, item.getbSendMsg(), item.getPhoneNum(), item.getbAddtoDb(), item.getPrintState());
 								} else if (0 == temp || state != 0) {
 									// 报警消除
 									if (item.getnClear() > -1) {
@@ -372,17 +357,16 @@ public class AlarmGroup {
 								if (0 == temp && item.getnClear() == -1&&state==0) {
 									if (state==0) {
 										//通信正常
-									//	alarmSoundCount++;
 										item.setnClear(0);
 										if (aList==null) {
 											aList=new ArrayList<AlarmDataInfo>();
 										}
 										sendData(message, info.getnGroupId(), item.getnAlarmIndex(),
 												item.isbOpenScene(), item.getnTargetPage(),
-												item.getnSceneType(),aList, item.getbSendMsg(), item.getPhoneNum(), item.getbAddtoDb());
+												item.getnSceneType(),aList, item.getbSendMsg(), item.getPhoneNum(), item.getbAddtoDb(), item.getPrintState());
 									}
-								} else if (1 == temp || state != 0) {
-									if (item.getnClear() > -1) {
+								} else if (1 == temp || state != 0) {							
+									if (item.getnClear() > -1) {								
 										item.setnClear(-1);
 										if (cList==null) {
 											cList=new ArrayList<AlarmDataInfo>();
@@ -395,14 +379,13 @@ public class AlarmGroup {
 								break;
 							case ALARM_VALUE: // 固定值报警
 								if (temp == item.getnRangLow() && item.getnClear() == -1&&state==0) {
-						//			alarmSoundCount++;
 									item.setnClear(0);
 									if (aList==null) {
 										aList=new ArrayList<AlarmDataInfo>();
 									}
 									sendData(message, info.getnGroupId(), item.getnAlarmIndex(),
 											item.isbOpenScene(), item.getnTargetPage(),
-											item.getnSceneType(),aList, item.getbSendMsg(), item.getPhoneNum(), item.getbAddtoDb());
+											item.getnSceneType(),aList, item.getbSendMsg(), item.getPhoneNum(), item.getbAddtoDb(), item.getPrintState());
 								} else if (temp != item.getnRangLow() || state != 0) {
 									if (item.getnClear() > -1) {
 										item.setnClear(-1);
@@ -418,15 +401,14 @@ public class AlarmGroup {
 							case ALARM_RANGE: // 范围内报警
 								if (temp > item.getnRangLow() && temp < item.getnRangHigh()
 										&& item.getnClear() == -1&&state==0) {
-								//	alarmSoundCount++;
 									item.setnClear(0);
 									if (aList==null) {
 										aList=new ArrayList<AlarmDataInfo>();
 									}
 									sendData(message, info.getnGroupId(), item.getnAlarmIndex(),
 											item.isbOpenScene(), item.getnTargetPage(),
-											item.getnSceneType(),aList, item.getbSendMsg(), item.getPhoneNum(), item.getbAddtoDb());
-								} else if (temp < item.getnRangLow() || temp > item.getnRangHigh()
+											item.getnSceneType(),aList, item.getbSendMsg(), item.getPhoneNum(), item.getbAddtoDb(), item.getPrintState());
+								} else if (temp <= item.getnRangLow() || temp >= item.getnRangHigh()
 										|| state != 0) {
 									if (item.getnClear() > -1) {
 										item.setnClear(-1);
@@ -442,16 +424,15 @@ public class AlarmGroup {
 							case ALARM_RANGE_OUT: // 范围外报警
 								if (temp < item.getnRangLow() || temp > item.getnRangHigh()) {
 									if (item.getnClear() == -1&&state==0) {
-							//			alarmSoundCount++;
 										item.setnClear(0);
 										if (aList==null) {
 											aList=new ArrayList<AlarmDataInfo>();
 										}
 										sendData(message, info.getnGroupId(),
 												item.getnAlarmIndex(), item.isbOpenScene(),
-												item.getnTargetPage(), item.getnSceneType(),aList, item.getbSendMsg(), item.getPhoneNum(), item.getbAddtoDb());
+												item.getnTargetPage(), item.getnSceneType(),aList, item.getbSendMsg(), item.getPhoneNum(), item.getbAddtoDb(), item.getPrintState());
 									}
-								} else if ((temp > item.getnRangLow() && temp < item.getnRangHigh())
+								} else if ((temp >= item.getnRangLow() && temp <= item.getnRangHigh())
 										|| state != 0) {
 									if (item.getnClear() > -1) {
 										item.setnClear(-1);
@@ -526,7 +507,7 @@ public class AlarmGroup {
 	 */
 	private void sound() {
 		if (flag && alarmSound) {
-			if (haveAlarmSound()) {
+			if (haveAlarm()) {
 				vibrator.vibrate(150);
 			}
 			handler.sendEmptyMessageDelayed(HANDLER_SOUND, 500);
@@ -544,9 +525,10 @@ public class AlarmGroup {
 	 * @param type-类型 0-画面 1-窗口
 	 * @param bSendMsg-是否发送短信
 	 * @param phoneNum 进行发送短信的号码
+	 * @param printState 0
 	 */
 	private void sendData(String msg, int gId, int aId, boolean open, int sid,
-			int type,ArrayList<AlarmDataInfo> list, boolean bSendMsg, String phoneNum, boolean saveDatabase) {
+			int type,ArrayList<AlarmDataInfo> list, boolean bSendMsg, ArrayList<String> phoneNum, boolean saveDatabase, int printState) {
 		hasAlarm=true;
 		AlarmDataInfo data = new AlarmDataInfo();
 		data.setnGroupId(gId);
@@ -574,19 +556,6 @@ public class AlarmGroup {
 			}
 		}
 		
-		
-		/**
-		 * 掉电保存
-		 */
-//		AlamSaveProp aProp=SKSaveThread.getInstance().new AlamSaveProp();
-//		aProp.nGroupId=(short)gId;
-//		aProp.nIndex=(short)aId;
-//		aProp.nStatus=(short)0;
-//		aProp.nAlamTime=data.getnDateTime();
-//		aProp.nRemoveAlamTime=0;
-//		SKSaveThread.getInstance().saveAlamSaveProp(aProp);
-		saveAlamSaveProp((short)gId, (short)aId, (short)0, data.getnDateTime(), 0);
-		
 		//报警打开窗口
 		if (open) {
 			AlarmWindowInfo info = new AlarmWindowInfo();
@@ -598,23 +567,56 @@ public class AlarmGroup {
 			UIHandler.obtainMessage(OPEN_WINDOW, info).sendToTarget();
 		}
 		
+		/**
+		 * 掉电保存
+		 */
+		if (saveDatabase) {
+			saveAlamSaveProp((short)gId, (short)aId, (short)0, data.getnDateTime(), 0);
+		}
+		
 		//报警发送信息
 		if(bSendMsg){
-			boolean isFirst = true;
-			PhoneManager.getInstance().sendMSM(phoneNum, msg, isFirst);
+			PhoneManager.getInstance().sendMSMs(phoneNum, msg);
 		}
 		
 		if (!bFull) {
 			ALL_HIS_COUNT++;// 所有历史报警数量
+			SystemVariable.getInstance().write32WordAddr(ALL_HIS_COUNT, 
+					SystemAddress.getInstance().Sys_AlarmCount());
 		}
 		
-
+		// 进行打印报警消息 
+		if ((printState & 1) > 0) {
+			printDate.setTime(System.currentTimeMillis());
+			String printMessage = "";
+			if ((printState & 2) > 0) { //日期
+				printMessage += (DateStringUtil.convertDate(DATE_FORMAT.YYYYMMDD_ACROSS, printDate) + "    ");
+			}
+			if ((printState & 4) > 0) { //时间
+				printMessage += (DateStringUtil.converTime(TIME_FORMAT.HHMM_COLON, printDate) + "    ");
+			}
+			printMessage += msg; //消息
+			
+			printVector.clear();
+			printVector.add(printMessage);
+			if (SystemInfo.getmPrintModel()==null) {
+				if (SystemInfo.getmPrintModel()==PRINT_MODEL.WHE19) {
+					AKPrint.getInstance().printTexts(printVector,1);
+				}else if (SystemInfo.getmPrintModel()==PRINT_MODEL.WHA5) {
+					AKPrint.getInstance().printTexts(printVector,2);
+				}
+			}
+		}
 	}
+	Date printDate = new Date();
+
+	Vector<String> printVector = new Vector<String>();
+	
 
 	/**
 	 * 报警数据保存
 	 * 
-	 * @param type=0 正常信息保存，type=1 确定所有报警，type=2 删除所有报警，type=3 删除历史报警
+	 * @param type=0 正常信息保存，type=1 确定所有报警，type=2 删除所有报警，type=3 删除历史报警, type=4进行删除单个报警
 	 */
 	public boolean saveAlarmData(int type,int call,IAlarmCallback callback,int taskId, ArrayList<Integer>dataGroup) {
 
@@ -642,6 +644,7 @@ public class AlarmGroup {
 		
 		updateAlarmData(type, dataGroup);
 		HashMap<Integer, Vector<AlarmDataInfo>> map = new HashMap<Integer, Vector<AlarmDataInfo>>();
+
 		if (mAlarmData != null) {
 			Vector<AlarmDataInfo> dataInfos = new Vector<AlarmDataInfo>();
 			dataInfos.addAll(mAlarmData);
@@ -655,7 +658,7 @@ public class AlarmGroup {
 			}
 			map.put(0, dataInfos);
 		}
-		
+	
 		{
 			if (mCloseAlarmData == null) {
 				mCloseAlarmData = new Vector<AlarmDataInfo>();
@@ -672,8 +675,6 @@ public class AlarmGroup {
 			map.put(1, mCloseAlarmData);
 			aData.data=map;
 		}
-		
-		
 		handler.obtainMessage(HANDLER_WRITE,aData).sendToTarget();
 		return true;
 	}
@@ -691,7 +692,7 @@ public class AlarmGroup {
 		if (clear==2) {
 			/**
 			 * 报警消除
-			 */
+			 */			
 			Vector<AlarmDataInfo> temp=null;
 			if (data.containsKey(0)) {
 				temp=data.get(0);
@@ -719,15 +720,9 @@ public class AlarmGroup {
 						/**
 						 * 掉电保存
 						 */
-//						AlamSaveProp aProp=SKSaveThread.getInstance().new AlamSaveProp();
-//						aProp.nGroupId=(short)gid;
-//						aProp.nIndex=(short)aid;
-//						aProp.nStatus=(short)2;
-//						aProp.nAlamTime=info.getnDateTime();
-//						aProp.nRemoveAlamTime=info.getnClearDT();
-//						SKSaveThread.getInstance().saveAlamSaveProp(aProp);
-						saveAlamSaveProp((short)gid, (short)aid, (short)2, info.getnDateTime(), info.getnClearDT());
-						
+						if (info.getbAddtoDb()) {
+							saveAlamSaveProp((short)gid, (short)aid, (short)2, info.getnDateTime(), info.getnClearDT());
+						}
 						//有报警消除
 						if (list!=null) {
 							list.add(info);
@@ -764,15 +759,9 @@ public class AlarmGroup {
 						/**
 						 * 掉电保存
 						 */
-//						AlamSaveProp aProp=SKSaveThread.getInstance().new AlamSaveProp();
-//						aProp.nGroupId=(short)gid;
-//						aProp.nIndex=(short)aid;
-//						aProp.nStatus=(short)1;
-//						aProp.nAlamTime=info.getnDateTime();
-//						aProp.nRemoveAlamTime=0;
-//						SKSaveThread.getInstance().saveAlamSaveProp(aProp);
-						
-						saveAlamSaveProp((short)gid, (short)aid, (short)1, info.getnDateTime(), 0);
+						if (info.getbAddtoDb()) {
+							saveAlamSaveProp((short)gid, (short)aid, (short)1, info.getnDateTime(), 0);
+						}
 						break;
 					}
 				}
@@ -803,15 +792,9 @@ public class AlarmGroup {
 						/**
 						 * 掉电保存
 						 */
-//						AlamSaveProp aProp=SKSaveThread.getInstance().new AlamSaveProp();
-//						aProp.nGroupId=(short)gid;
-//						aProp.nIndex=(short)aid;
-//						aProp.nStatus=(short)2;
-//						aProp.nAlamTime=info.getnDateTime();
-//						aProp.nRemoveAlamTime=info.getnClearDT();
-//						SKSaveThread.getInstance().saveAlamSaveProp(aProp);
-						
-						saveAlamSaveProp((short)gid, (short)aid, (short)2, info.getnDateTime(), info.getnClearDT());
+						if (info.getbAddtoDb()) {
+							saveAlamSaveProp((short)gid, (short)aid, (short)2, info.getnDateTime(), info.getnClearDT());
+						}
 						break;
 					}else if (clear==1) {
 						info.setnClearDT(0);
@@ -828,14 +811,9 @@ public class AlarmGroup {
 						/**
 						 * 掉电保存
 						 */
-//						AlamSaveProp aProp=SKSaveThread.getInstance().new AlamSaveProp();
-//						aProp.nGroupId=(short)gid;
-//						aProp.nIndex=(short)aid;
-//						aProp.nStatus=(short)1;
-//						aProp.nAlamTime=info.getnDateTime();
-//						aProp.nRemoveAlamTime=0;
-//						SKSaveThread.getInstance().saveAlamSaveProp(aProp);
-						saveAlamSaveProp((short)gid, (short)aid, (short)1, info.getnDateTime(), 0);
+						if (info.getbAddtoDb()) {
+							saveAlamSaveProp((short)gid, (short)aid, (short)1, info.getnDateTime(), 0);
+						}
 						break;
 					}
 					
@@ -926,18 +904,21 @@ public class AlarmGroup {
 
 					HashMap<Integer, Vector<AlarmDataInfo>> temp = getList(2);
 					if (temp != null) {
-						if (!temp.containsKey(0)) {
+						Vector<AlarmDataInfo> list1 = temp.get(0);
+						if (list1 == null) {
 							Vector<AlarmDataInfo> list=new Vector<AlarmDataInfo>();
+			
 							temp.put(0, list);
 						}
-						if (!temp.containsKey(1)) {
+						Vector<AlarmDataInfo> list2 = temp.get(1);
+						if (list2 == null) {
 							Vector<AlarmDataInfo> list=new Vector<AlarmDataInfo>();
 							temp.put(1, list);
 						}
 						
-						if (temp.get(0).size() == 0 && temp.get(1).size() == 0) {
-							return;
-						}
+//						if (temp.get(0).size() == 0 && temp.get(1).size() == 0) {
+//							return;
+//						}
 
 						AlarmData data = new AlarmData();
 						data.type = 0;
@@ -948,6 +929,8 @@ public class AlarmGroup {
 						map.put(0, temp.get(0));
 						map.put(1, temp.get(1));
 						data.data = map;
+						mAlarmData.addAll(temp.get(0));
+						mCloseAlarmData.addAll(temp.get(1));
 						temp.clear();
 						
 						handler.obtainMessage(HANDLER_WRITE, data).sendToTarget();
@@ -963,7 +946,6 @@ public class AlarmGroup {
 				if (data==null) {
 					return;
 				}
-				
 				AlarmSaveThread
 				.getInstance()
 				.getBinder()
@@ -1050,7 +1032,7 @@ public class AlarmGroup {
 			
 			if (winfo.type == 0) {
 				// 画面
-				SKSceneManage.getInstance().gotoWindow(0, winfo.sid, true, 6,GOTO_TYPE.ALARM);
+				SKSceneManage.getInstance().gotoWindow(0, winfo.sid, true, 1,GOTO_TYPE.ALARM);
 			} else if (winfo.type == 1) {
 				// 窗口
 				//Log.d(TAG, "open.....");
@@ -1063,21 +1045,7 @@ public class AlarmGroup {
 				}
 				
 				// 所有报警跳转窗口已经全部消除,跳转到之前报警画面
-				SKSceneManage.getInstance().gotoWindow(4, winfo.sid, true, 6,GOTO_TYPE.ALARM);
-				
-				AlarmWindowInfo info1 = mWindow.get(0);
-				if (info1.type == 0) {
-					if (info1.bGoto) {
-						//弹出的画面
-						SKSceneManage.getInstance().gotoWindow(0, winfo.sid, true, 6,GOTO_TYPE.ALARM);
-					}
-				} else {
-					SKProgress.hide();// 隐藏等待框
-					int id=DBTool.getInstance().getmSceneBiz().getWindowId(info1.sid);
-					if (id>-1) {
-						SKSceneManage.getInstance().gotoWindow(1, id, false,0,GOTO_TYPE.ALARM);
-					}
-				}
+				SKSceneManage.getInstance().gotoWindow(4, winfo.sid, true, 1,GOTO_TYPE.ALARM);
 				mWindow.clear();
 			} else {
 				for (int i = 0; i < mWindow.size(); i++) {
@@ -1092,7 +1060,7 @@ public class AlarmGroup {
 							UIHandler.obtainMessage(OPEN_WINDOW, temp)
 									.sendToTarget();
 						} else {
-							mWindow.remove(i);
+							mWindow.remove(i); 
 							--i;
 						}
 					}
@@ -1143,8 +1111,13 @@ public class AlarmGroup {
 				}
 			}
 		}
-		//saveAlarmData(1,0,null,0)
-	    //saveAlarmData(1, 1, alarmCall, nTaskId, confirmList);
+		 
+		ArrayList<Integer> ilist=new ArrayList<Integer>();
+		for (int i = 0; i < list.size(); i++) {
+			ilist.add(list.get(i).getnGroupId());
+		}
+		saveAlarmData(1, 0, null, 0, ilist);
+		updateData(ilist);
 
 	}
 	
@@ -1155,7 +1128,6 @@ public class AlarmGroup {
 		if (ilist == null || ilist.size() <=0) {
 			return;
 		}
-		
 		
 		boolean update = false;
 		for(AlarmGroupInfo info : list){
@@ -1240,7 +1212,6 @@ public class AlarmGroup {
 	 */
 	private void alarmClear(int gid, int aid, boolean open, int sid, int type,ArrayList<AlarmDataInfo> list) {
 
-
 		/**
 		 * 打开窗口
 		 */
@@ -1277,6 +1248,9 @@ public class AlarmGroup {
 			}
 		}
 	}
+	
+
+	
 
 	/**
 	 * 当前总共有多少条报警
@@ -1297,8 +1271,6 @@ public class AlarmGroup {
 	 * 清除历史报警数据 清除对象 nClear=1 or nClear = 2
 	 */
 	public void clearHisData(ArrayList<Integer> clist){	
-//		if (mAlarmData == null)
-//			return ;
 		
 		if (clist == null) {
 			clist = new ArrayList<Integer>();
@@ -1307,6 +1279,17 @@ public class AlarmGroup {
 				clist.add(info.getnGroupId());
 			}
 		}
+		
+		Context context=SKSceneManage.getInstance().mContext;
+		if (context!=null) {
+			long time=System.currentTimeMillis();
+			SharedPreferences.Editor editor = context.getSharedPreferences("information", 0).edit();
+			for (int i = 0; i < clist.size(); i++) {
+				editor.putLong("alram"+i, time);
+			}
+			editor.commit();
+		}
+		
 		saveAlarmData(3, 0, null, 0,clist);
 		ArrayList<IAlarmCallback>callbacks = handleCallback(GET_CALLBACK, null);
 		for(IAlarmCallback callback: callbacks){
@@ -1319,16 +1302,31 @@ public class AlarmGroup {
 	/**
 	 * 掉电恢复
 	 */
-	public void restore(Vector<AlamSaveProp> list){
+	public void restore(Vector<AlamSaveProp> list){	
 		if(handler!=null){
 			handler.obtainMessage(RESTORE_DATA, list).sendToTarget();
-		}
+		}	
 	}
 	
 	private void restoreData(Vector<AlamSaveProp> list){
 		HashMap<Long, AlamSaveProp> data=new HashMap<Long, AlamSaveProp>();
+	    Context context=SKSceneManage.getInstance().mContext;
+	    SharedPreferences shared=null;
+	    if (context!=null) {
+	    	shared = context.getSharedPreferences("information", 0);
+		}
+		
 		for (int i = 0; i < list.size(); i++) {
 			AlamSaveProp prop=list.get(i);
+			if (shared!=null) {
+				long time=shared.getLong("alram"+prop.nGroupId, 0);
+				if (prop.nRemoveAlamTime<=time) {
+					//不恢复，已经被清除
+					Log.d(TAG, "alarm clrea time="+prop.nRemoveAlamTime+",time="+time+",gid="+prop.nGroupId);
+					continue;
+				}
+			}
+			
 			if (data.containsKey(prop.nAlamTime)) {
 				AlamSaveProp temp=data.get(prop.nAlamTime);
 				if (temp.nStatus<prop.nStatus) {
@@ -1386,6 +1384,27 @@ public class AlarmGroup {
 		sPath = path;
 		AlarmSaveThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_EXPORT, sTaskName, 0);
 	}
+	private ArrayList<Email_AlarmBean> emailList;
+	public void emailFiles(ArrayList<Email_AlarmBean> list){
+		emailList = list;
+		if (emailList.size() > 0) {
+			AlarmSaveThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_EXPORT, sTaskName, 0);
+		}
+	}
+
+	public static boolean isScript = false;
+	public static int scriptPeroid = 0;
+	public void emailScript(ArrayList<Email_AlarmBean> list ,int peroid){
+		emailList = list;
+		isScript = true;
+		scriptPeroid = peroid;
+		if (emailList.size() > 0) {
+			AlarmSaveThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_EXPORT, sTaskName, 0);
+		}
+	}
+
+	
+	
 	private final int REGISTER_CALLBACK = 0; //注册callback
 	private final int REMOVE_CALLBACK = 1; //销毁callback
 	private final int GET_CALLBACK = 2;     //获取callback
@@ -1401,7 +1420,7 @@ public class AlarmGroup {
 					break;
 				}
 			}
-			
+	
 			mCallbacks.add(callback);
 		}
 		else if (handle == REMOVE_CALLBACK) {
@@ -1568,8 +1587,8 @@ public class AlarmGroup {
 	private synchronized void alarmData(AlarmData data){
 
 		ArrayList<IAlarmCallback>callbacks = handleCallback(GET_CALLBACK, null);
-		if (data.data==null) {
-			if (data.call==1) {
+		if (data.data==null || data.data.get(0) == null ||data.data.get(1) == null) {
+			if (data.call==1 &&  data.type != 4) {
 				if (data.callback!=null) {
 					if (callbacks.contains(data.callback)) {
 						data.callback.update(data.nTaskId);
@@ -1578,8 +1597,8 @@ public class AlarmGroup {
 				}
 			}
 		}else {
-			if (data.data.get(0).size()==0&&data.data.get(1).size()==0 ) {
-				if (data.call==1) {
+			if ( data.data.get(0).size()==0&&data.data.get(1).size()==0) {
+				if (data.call==1 &&  data.type != 4 ) {
 					if (data.callback!=null) {
 						if (callbacks.contains(data.callback)) {
 							data.callback.update(data.nTaskId);
@@ -1590,76 +1609,59 @@ public class AlarmGroup {
 			}
 		}
 
-//		if(data.data!=null){
-//			if (data.data.get(0)!=null) {
-//				if (data.data.get(0).size()>0) {
-//					Vector<AlarmDataInfo> temp=data.data.get(0);
-//					mAlarmData.addAll(temp);
-//
-//				}
-//				Vector<AlarmDataInfo> tempData=data.data.get(0);
-//				tempData.clear();
-//				tempData.addAll(mAlarmData);					
-//			}
-//		}
-//		if (data.type == 1) {
-//			
-//		}
-		
 		int changeCount = DBTool.getInstance().getmAlarmBiz().saveAlarmData(data.data, data.clear,data.type, data.group);
-		if (data.type == 2 || data.type == 3) {
+		if (data.type > 1) {
 			ALL_HIS_COUNT -= changeCount;
+			SystemVariable.getInstance().write32WordAddr(ALL_HIS_COUNT, 
+					SystemAddress.getInstance().Sys_AlarmCount());
 		}
-//		if (data.type == 2 && data.group != null)// 清除报警 同步缓存 去掉nClear =0 的数据   
-//		{
-//			for(int i = 0; i < mAlarmData.size(); i++){
-//				AlarmDataInfo info = mAlarmData.get(i);
-//				if (info != null) {
-//					if (data.group.contains(info.getnGroupId()) && info.getnClear() == 0) {
-//						mAlarmData.remove(i);
-//						--i;
-//					}
-//				}
-//			}
-//
-//			ALL_HIS_COUNT -= changeCount;
-//		}
-//		else if (data.type == 1 && data.group != null) {//报警确定  将nClear = 0 变为 nClear = 1
-//			for(int i = 0; i < mAlarmData.size(); i++){
-//				AlarmDataInfo info = mAlarmData.get(i);
-//				if (info != null && data.group.contains(info.getnGroupId()) && info.getnClear() == 0) {
-//					info.setnClear((short)1);
-//				}
-//			}
-//		}
-//		else if( data.type == 3 && data.group != null ){ //清除历史数据， 清除nclear = 1 ,2 
-//			for(int i = 0 ; i < mAlarmData.size(); i++){
-//				AlarmDataInfo info = mAlarmData.get(i);
-//				if (info != null && data.group.contains(info.getnGroupId()) && info.getnClear() > 0) {
-//					mAlarmData.remove(i);
-//					--i;
-//				}
-//			}
-//			ALL_HIS_COUNT -= changeCount;
-//		}
 		
 		if (data.call==1) {
 			if (data.callback!=null) {
 				data.callback.update(data.nTaskId);
 			}
 		}else if (data.call==2) {
-			boolean result = DBTool.getInstance().getmAlarmBiz()
-					.exportData(sPath);
-			if (result) {
-				SKToast.makeText(mContext.getString(R.string.export_success), Toast.LENGTH_SHORT).show();
-			} else {
-				SKToast.makeText(mContext.getString(R.string.export_failed), Toast.LENGTH_SHORT).show();
+			if (!TextUtils.isEmpty(sPath)) {
+				//导出报警数据
+				boolean result = DBTool.getInstance().getmAlarmBiz().exportData(sPath);
+				if (result) {
+					SKToast.makeText(mContext.getString(R.string.export_success), Toast.LENGTH_SHORT).show();
+				} else {
+					SKToast.makeText(mContext.getString(R.string.export_failed), Toast.LENGTH_SHORT).show();
+				}
+				sPath = "";
 			}
+			else if(isScript){
+				isScript = false;
+				//email 通过脚本发送报警数据
+				int  peroid = scriptPeroid;
+				scriptPeroid = 0;
+				for(Email_AlarmBean bean : emailList){
+					if (bean != null) {
+						DBTool.getInstance().getmAlarmBiz().writeAlarmToFiles(bean.nGroupId, bean.nGroupName, peroid);
+					}
+				}
+				EmailOperDialog.CompleteCount += 1;
+				//
+				emailList.clear();
+				emailList = null;
+			}
+			else {
+				//email 发送报警数据
+				for(Email_AlarmBean bean : emailList){
+					if (bean != null) {
+						DBTool.getInstance().getmAlarmBiz().writeAlarmToFiles(bean.nGroupId, bean.nGroupName, bean.nStartTime, bean.nEndTime);
+					}
+				}
+				EmailOperDialog.CompleteCount += 1;
+				//
+				emailList.clear();
+				emailList = null;
+			}
+			
 		}
 		
 	}
-	
-
 	
 	/**
 	 * 
@@ -1690,15 +1692,10 @@ public class AlarmGroup {
 				if (info != null && info.getnClear() == 0 && group.contains(info.getnGroupId())) {
 					info.setnClear((short)1);
 					
-//					//同时进行掉电保存
-//					AlamSaveProp aProp=SKSaveThread.getInstance().new AlamSaveProp();
-//					aProp.nGroupId=(short)info.getnGroupId();
-//					aProp.nIndex=(short)info.getnAlarmIndex();
-//					aProp.nStatus=(short)1;
-//					aProp.nAlamTime=info.getnDateTime();
-//					aProp.nRemoveAlamTime=0;
-//					SKSaveThread.getInstance().saveAlamSaveProp(aProp);
-					saveAlamSaveProp((short)info.getnGroupId(), (short)info.getnAlarmIndex(), (short)1, info.getnDateTime(), 0);
+					//同时进行掉电保存
+					if (info.getbAddtoDb()) {
+						saveAlamSaveProp((short)info.getnGroupId(), (short)info.getnAlarmIndex(), (short)1, info.getnDateTime(), 0);
+					}
 				}
 			}
 		}
@@ -1711,12 +1708,23 @@ public class AlarmGroup {
 				}
 			}
 		}
-		else if (type == 3 && group != null) {
+		else if (type == 3 && group != null) {//清除报警历史
 			for(int i = 0 ; i < mAlarmData.size(); i++){
 				AlarmDataInfo info = mAlarmData.get(i);
 				if (info != null && info.getnClear() > 0 && group.contains(info.getnGroupId())) {
 					mAlarmData.remove(i);
 					i--;
+				}
+			}
+		}
+		else if (type == 4 && group != null ) {//进行删除单个报警
+			int gid = group.get(0);
+			int aid = group.get(1);
+			for(int i = 0; i < mAlarmData.size(); i++){
+				AlarmDataInfo info = mAlarmData.get(i);
+				if (info != null && info.getnClear() > 0 && info.getnGroupId() == gid && info.getId() == aid) {
+					mAlarmData.remove(i);
+					break;
 				}
 			}
 		}
@@ -1773,6 +1781,7 @@ public class AlarmGroup {
 		}
 		ArrayList<AlarmDataInfo> infoList = new ArrayList<AlarmDataInfo>();
 		infoList.addAll(mAlarmingList);
+		infoList =  DBTool.getInstance().getmAlarmBiz().modifyLanguage(infoList);
 		return infoList;
 	}
 	
@@ -1781,9 +1790,13 @@ public class AlarmGroup {
 	{
 		if (list == null)
 		{
-			mAlarmData=DBTool.getInstance().getmAlarmBiz().setAlarmData();
-			DBTool.getInstance().getmAlarmBiz().getAlarmMessage(mAlarmData);
-			list = DBTool.getInstance().getmAlarmBiz().selectAlarmGroup(mAlarmData);
+			Vector<AlarmDataInfo> tempList = DBTool.getInstance().getmAlarmBiz().setAlarmData();
+			list = DBTool.getInstance().getmAlarmBiz().selectAlarmGroup(tempList);
+			tempList.clear();
+			tempList = null;
+
+			mAlarmData = DBTool.getInstance().getmAlarmBiz().setAlarmData();
+			DBTool.getInstance().getmAlarmBiz().updateAlarmDate(mAlarmData);
 		}
 		
 		return list;

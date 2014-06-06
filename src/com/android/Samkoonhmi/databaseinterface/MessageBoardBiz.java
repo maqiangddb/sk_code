@@ -390,4 +390,61 @@ public class MessageBoardBiz extends DataBase {
 		}
 		return result;
 	}
+	/**
+	 * 是否有留言信息
+	 * @return
+	 */
+	public boolean hasMessage()
+	{
+		int result=0;
+		Cursor cursor = null;
+		if (null == db) {
+			db = SkGlobalData.getProjectDatabase();
+		}
+		
+		// 查找留言信息多语言
+		String sql="select count(*) from messageInfo ";
+		cursor = db.getDatabaseBySql(sql,null);
+		if (cursor != null) {
+			while (cursor.moveToNext()) {
+				result=cursor.getInt(0);
+			}
+			close(cursor);
+		}
+		if(result>0)
+		{
+			return true;
+		}else{
+			return false;
+		}
+	}
+	/**
+	 * 查找所有的留言板信息
+	 * @return
+	 */
+	public List<MessageDetailInfo> getAllMessageContent()
+	{
+		List<MessageDetailInfo> list = new ArrayList<MessageDetailInfo>();
+		MessageDetailInfo detail = null;
+		Cursor cursor = null;
+		if (null == db) {
+			db = SkGlobalData.getProjectDatabase();
+		}
+		// 查找留言信息多语言
+		String sql="select * from messageInfo order by nTime desc";
+		cursor = db.getDatabaseBySql(sql,null);
+		if (cursor != null) {
+			while (cursor.moveToNext()) {
+				detail = new MessageDetailInfo();
+				detail.setnId(cursor.getInt(cursor.getColumnIndex("id")));
+				detail.setnItemId(cursor.getInt(cursor
+						.getColumnIndex("nItemId")));
+				detail.setnTime(cursor.getLong(cursor.getColumnIndex("nTime")));
+				detail.setsMessage(cursor.getString(cursor
+						.getColumnIndex("sMessage")));
+				list.add(detail);
+			}
+		}
+		return list;
+	}
 }

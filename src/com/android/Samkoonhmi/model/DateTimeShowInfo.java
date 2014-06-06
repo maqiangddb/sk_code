@@ -31,8 +31,15 @@ public class DateTimeShowInfo {
 	private int nZvalue ;
 	private int nCollidindId ;
 	private int nTransparent;//控件透明度
+	private ShowInfo showInfo;
 	
 	
+	public ShowInfo getShowInfo() {
+		return showInfo;
+	}
+	public void setShowInfo(ShowInfo showInfo) {
+		this.showInfo = showInfo;
+	}
 	public int getnTransparent() {
 		return nTransparent;
 	}

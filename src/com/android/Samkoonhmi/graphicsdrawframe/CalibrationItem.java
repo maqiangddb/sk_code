@@ -83,8 +83,9 @@ public class CalibrationItem{
 	private void calculate() {
 		// 如果刻度的方向是向上
 		if (CALIBRATION_DIRECTION.DIRECTION_UP == slideInfo.getDirection()) {
-			leftTopPoint=new Point(mStartX, slideInfo.getmHeight()/2);
-			mainLineLength=slideInfo.getmHeight()/4;//主刻度长
+			int len=slideInfo.getmHeight()-slideInfo.getnSlideHeight();
+			leftTopPoint=new Point(mStartX, len);
+			mainLineLength=len/2;//主刻度长
 			nextLineLength=this.mainLineLength/2;//次刻度的长度=主刻度的长度/2
 			mainStopX=this.leftTopPoint.x;//主支线线的结束点x=左上角x
 			nextStopX=this.leftTopPoint.x;//次支线线的结束点x=左上角x
@@ -99,8 +100,9 @@ public class CalibrationItem{
 		// 向下
 		else if (CALIBRATION_DIRECTION.DIRECTION_DOWN == slideInfo.getDirection()) {
 			leftTopPoint=new Point(mStartX, 1);
-			this.mainLineLength=slideInfo.getmHeight()/4;//主刻度长
-			this.nextLineLength=this.mainLineLength/2;//次刻度的长度=主刻度的长度/2
+			int len=slideInfo.getmHeight()-slideInfo.getnSlideHeight();
+			this.mainLineLength=len/2;//主刻度长
+			this.nextLineLength=mainLineLength/2;//次刻度的长度=主刻度的长度/2
 			this.mainStopX=this.leftTopPoint.x;
 			this.nextStopX=this.leftTopPoint.x;
 			this.mainStopY=this.leftTopPoint.y+this.mainLineLength-4;
@@ -375,98 +377,98 @@ public class CalibrationItem{
 			b=new BigDecimal(tempNumber);
 			tempNumber= b.setScale(1, BigDecimal.ROUND_HALF_DOWN).doubleValue();
 			format=new DecimalFormat("#.0");
-			if(tempNumber==0.1){
-				tempNumber=0.0;
-			}
+//			if(tempNumber==0.1){
+//				tempNumber=0.0;
+//			}
 			text=format.format(tempNumber);
 		}else if (2 == slideInfo.getnDecimalCount()) {
 			tempNumber = (0.01 * number);
 			b=new BigDecimal(tempNumber);
 			tempNumber= b.setScale(2, BigDecimal.ROUND_HALF_DOWN).doubleValue();
 			format=new DecimalFormat("#.00");
-			if(tempNumber==0.01){
-				tempNumber=0.00;
-			}
+//			if(tempNumber==0.01){
+//				tempNumber=0.00;
+//			}
 			text=format.format(tempNumber);
 		}else if (3 == slideInfo.getnDecimalCount()) {
 			tempNumber = (0.001 * number);
 			b=new BigDecimal(tempNumber);
 			tempNumber= b.setScale(3, BigDecimal.ROUND_HALF_DOWN).doubleValue();
 			format=new DecimalFormat("#.000");
-			if(tempNumber==0.001){
-				tempNumber=0.000;
-			}
+//			if(tempNumber==0.001){
+//				tempNumber=0.000;
+//			}
 			text=format.format(tempNumber);
 		}else if (4 == slideInfo.getnDecimalCount()) {
 			tempNumber = (0.0001 * number);
 			b=new BigDecimal(tempNumber);
 			tempNumber= b.setScale(4, BigDecimal.ROUND_HALF_DOWN).doubleValue();
 			format=new DecimalFormat("#.0000");
-			if(tempNumber==0.0001){
-				tempNumber=0.0000;
-			}
+//			if(tempNumber==0.0001){
+//				tempNumber=0.0000;
+//			}
 			text=format.format(tempNumber);
 		}else if (5 == slideInfo.getnDecimalCount()) {
 			tempNumber = (0.00001 * number);
 			b=new BigDecimal(tempNumber);
 			tempNumber= b.setScale(5, BigDecimal.ROUND_HALF_DOWN).doubleValue();
 			format=new DecimalFormat("#.00000");
-			if(tempNumber==0.00001){
-				tempNumber=0.00000;
-			}
+//			if(tempNumber==0.00001){
+//				tempNumber=0.00000;
+//			}
 			text=format.format(tempNumber);
 		}else if (6 == slideInfo.getnDecimalCount()) {
 			tempNumber = (0.000001 * number);
 			b=new BigDecimal(tempNumber);
 			tempNumber= b.setScale(6, BigDecimal.ROUND_HALF_DOWN).doubleValue();
 			format=new DecimalFormat("#.000000");
-			if(tempNumber==0.000001){
-				tempNumber=0.000000;
-			}
+//			if(tempNumber==0.000001){
+//				tempNumber=0.000000;
+//			}
 			text=format.format(tempNumber);
 		}else if (7 == slideInfo.getnDecimalCount()) {
 			tempNumber = (0.0000001 * number);
 			b=new BigDecimal(tempNumber);
 			tempNumber= b.setScale(7, BigDecimal.ROUND_HALF_DOWN).doubleValue();
 			format=new DecimalFormat("#.0000000");
-			if(tempNumber==0.0000001){
-				tempNumber=0.000000;
-			}
+//			if(tempNumber==0.0000001){
+//				tempNumber=0.000000;
+//			}
 			text=format.format(tempNumber);
 		}else if (8 == slideInfo.getnDecimalCount()) {
 			tempNumber = (0.00000001 * number);
 			b=new BigDecimal(tempNumber);
 			tempNumber= b.setScale(8, BigDecimal.ROUND_HALF_DOWN).doubleValue();
 			format=new DecimalFormat("#.00000000");
-			if(tempNumber==0.00000001){
-				tempNumber=0.00000000;
-			}
+//			if(tempNumber==0.00000001){
+//				tempNumber=0.00000000;
+//			}
 			text=format.format(tempNumber);
 		}else if (9 == slideInfo.getnDecimalCount()) {
 			tempNumber = (0.000000001 * number);
 			b=new BigDecimal(tempNumber);
 			tempNumber= b.setScale(9, BigDecimal.ROUND_HALF_DOWN).doubleValue();
 			format=new DecimalFormat("#.000000000");
-			if(tempNumber==0.000000001){
-				tempNumber=0.000000000;
-			}
+//			if(tempNumber==0.000000001){
+//				tempNumber=0.000000000;
+//			}
 			text=format.format(tempNumber);
 		}else if (10 == slideInfo.getnDecimalCount()) {
 			tempNumber = (0.0000000001 * number);
 			b=new BigDecimal(tempNumber);
 			tempNumber= b.setScale(10, BigDecimal.ROUND_HALF_DOWN).doubleValue();
 			format=new DecimalFormat("#.0000000000");
-			if(tempNumber==0.0000000001){
-				tempNumber=0.0000000000;
-			}
+//			if(tempNumber==0.0000000001){
+//				tempNumber=0.0000000000;
+//			}
 			text=format.format(tempNumber);
 		}else{
 			tempNumber =  (1 * number);
 			b=new BigDecimal(tempNumber);
 			format=new DecimalFormat("#");
-			if(tempNumber==1){
-				tempNumber=0;
-			}
+//			if(tempNumber==1){
+//				tempNumber=0;
+//			}
 			text=format.format(tempNumber);
 		}
 		b=new BigDecimal(text);

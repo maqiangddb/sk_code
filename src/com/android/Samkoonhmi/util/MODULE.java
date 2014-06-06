@@ -86,6 +86,12 @@ public class MODULE {
 
 	/* 导出配方到文件去 */
 	public static final int WRITE_RECIPE_TO_FILE = 43;
+	
+	/*导出配方组到文件去*/
+	public static final int WRITE_RECIPES_TO_FILE = 431;
+	
+	/*导出所有配方到文件*/
+	public static final int WRITE_ALL_RECIPES_TO_FILE = 432;
 
 	/* 从文件中导入配方 */
 	public static final int READ_RECIPE_FROM_FILE = 44;
@@ -104,6 +110,8 @@ public class MODULE {
 	public static final int DATA_COLLECT_CLEAR = 48;
 	
 	public static final int CANCEL_CALL_BACK = 49;
+	
+	public static final int DATA_COLLECT_CLEAR_PART = 471;
 
 	/******************** 以下是数据采集线程 SKCommThread 的消息 *******************************/
 	/* 通信类型 */
@@ -181,8 +189,22 @@ public class MODULE {
 	// GIF动画显示
 	public static final int SKGIFVIEWER = 82;
 	
-	//
-	
-	//
+	/***脚本操作配方***/
+	//配方导入
+	public static final int RECIPE_INFO=83;
+	//配方导出
+	public static final int RECIPE_EXPORT=84;
+	//配方组保存 
+	public static final int RECIPE_GROUP_SAVE=85;
+	//配方保存 
+	public static final int RECIPE_SAVE=86;
+	//配方组拷贝
+	public static final int RECIPE_GROUP_COPY=87;
+	//配方拷贝
+	public static final int RECIPE_COPY=88;
+	//配方删除
+	public static final int RECIPE_DELETE=89;
+	//配方清除
+	public static final int RECIPE_CLEAR=90;
 
 }

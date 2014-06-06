@@ -10,7 +10,7 @@ public class StakeoutInfo {
 	//状态Id
 	private short nStatusId;
 	//状态Id 关联的值
-	private short nCmpFactor;
+	private double nCmpFactor;
 	//图片路径
 	private String sPath;
 	//闪烁
@@ -23,7 +23,15 @@ public class StakeoutInfo {
 	private int nColor;
 	//闪烁
 	private boolean bFlick;
+	//闪烁频率
+	private int nFlickTime=5;
 	
+	public int getnFlickTime() {
+		return nFlickTime;
+	}
+	public void setnFlickTime(int nFlickTime) {
+		this.nFlickTime = nFlickTime;
+	}
 	public boolean isbFlick() {
 		return bFlick;
 	}
@@ -60,10 +68,10 @@ public class StakeoutInfo {
 	public void setnStatusId(short nStatusId) {
 		this.nStatusId = nStatusId;
 	}
-	public short getnCmpFactor() {
+	public double getnCmpFactor() {
 		return nCmpFactor;
 	}
-	public void setnCmpFactor(short nCmpFactor) {
+	public void setnCmpFactor(double nCmpFactor) {
 		this.nCmpFactor = nCmpFactor;
 	}
 	public String getsPath() {

@@ -16,9 +16,10 @@ public enum DATA_TYPE {
 	BCD_32,          // = 0x07,        // 32位BCD码
 	FLOAT_32 ,       // = 0x08,        // 32位浮点数
 	ASCII_STRING ,   //= 0x09,         // ASCII码
-	HEX_16,                           //16位16进制
-	HEX_32,                          //32位16进制
-	OTC_16,                         //16位八进制
-	OTC_32 ,                        //32位八进制
-	OTHER_DATA_TYPE  // =0x0a     
+	HEX_16,          // =0x0a              //16位16进制
+	HEX_32,          // =0x0B                //32位16进制
+	OTC_16,          // =0x0C               //16位八进制
+	OTC_32 ,         // =0x0D               //32位八进制
+	OTHER_DATA_TYPE,  // =0x0E
+	UNICODE_STRING		//// =0x0F			//UNICODE
 }

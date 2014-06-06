@@ -3,16 +3,16 @@ package com.android.Samkoonhmi.skgraphics.plc.show;
 import java.util.Vector;
 
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.Log;
 
 import com.android.Samkoonhmi.SKThread;
 import com.android.Samkoonhmi.SKTimer;
-import com.android.Samkoonhmi.databaseinterface.AddrPropBiz;
-import com.android.Samkoonhmi.databaseinterface.DynamicCircleBiz;
 import com.android.Samkoonhmi.graphicsdrawframe.EllipseItem;
 import com.android.Samkoonhmi.model.DynamicCircleInfo;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.plccommunicate.PlcRegCmnStcTools;
 import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
@@ -22,7 +22,6 @@ import com.android.Samkoonhmi.skenum.DATA_TYPE;
 import com.android.Samkoonhmi.skenum.READ_WRITE_COM_TYPE;
 import com.android.Samkoonhmi.skgraphics.plc.show.base.SKGraphCmnShow;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
-import com.android.Samkoonhmi.util.AddrProp;
 import com.android.Samkoonhmi.util.MODULE;
 import com.android.Samkoonhmi.util.SEND_DATA_STRUCT;
 import com.android.Samkoonhmi.util.TASK;
@@ -32,7 +31,7 @@ import com.android.Samkoonhmi.util.TASK;
  * @author 魏 科
  * @date   2012-06-14
  * */
-public class SKDynamicCircle extends SKGraphCmnShow{
+public class SKDynamicCircle extends SKGraphCmnShow implements IItem{
 
 	private int         mItemID;        //控件ID
 	private int         mSceneID;       //画面ID
@@ -60,7 +59,6 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 	private short mRData = 0;   //当前圆心半径
 	
 	private boolean  canRefreshFlag = true;  //当前是否可以刷新
-	private boolean  isInitStateOK  = true;  //图形初始化正常
 	
 	private boolean mIsNewXData;   //是否有新的X数据
 	private boolean mIsNewYData;   //是否有新的Y数据
@@ -72,22 +70,77 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 //	private AddrProp showAddr;    //显现地址
 //	private AddrPropBiz aBiz;     //地址值查询类
 
-	//以下是模拟数据，需要删除 
-	private int xdata = 100; //圆心x坐标移动数据
-	private int ydata = 100; //圆心y坐标移动数据
-	private int rdata = 50;  //半径大小
-
 	public SKDynamicCircle(int itemid, int sceneid,DynamicCircleInfo info){
 
 		mItemID  = itemid;
 		mSceneID = sceneid; 
-		isInitStateOK = true;
 
 		mPaintRef  = new Paint();
 		mPaintRef.setDither(true);
 		mPaintRef.setAntiAlias(true);
 		this.mDCInfo=info;
+		
+		mTheItem = new SKItems();
+		mTheItem.nZvalue = mDCInfo.getZValue(); 
+		mTheItem.itemId  = mItemID;
+		mTheItem.sceneId = mSceneID;
+		mTheItem.nCollidindId = mDCInfo.getCollidindId();
+		mTheItem.mGraphics=this;
+		
+		//新建背景矩形实例
+		if(null == mCurItemRect){
+			mCurItemRect  = createInitRect();
+		}
 
+		if(null == mPrevItemRect){
+			mPrevItemRect = new Rect(mCurItemRect);
+		}
+
+		if (mDCInfo.getmShowInfo() != null) {
+
+			if (mDCInfo.getmShowInfo().isbShowByAddr()) {
+				if (mDCInfo.getmShowInfo().getnAddrId() > 0) {
+					// 受地址控制
+					showByAddr = true;
+				}
+			}
+			if (mDCInfo.getmShowInfo().isbShowByUser()) {
+				// 受用户权限控制
+				showByUser = true;
+			}
+		}		
+		
+		mTheItem.rect      = new Rect(mPrevItemRect);
+		mTheItem.mMoveRect = new Rect(mCurItemRect); 
+		
+		initDynamicCircle();
+		
+		// 注册显现地址
+		if (showByAddr) {
+			ADDRTYPE addrType = mDCInfo.getmShowInfo().geteAddrType();
+			if (addrType == ADDRTYPE.BITADDR) {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						mDCInfo.getmShowInfo().getShowAddrProp(), showCall,
+						true,sceneid);
+			} else {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						mDCInfo.getmShowInfo().getShowAddrProp(), showCall,
+						false,sceneid);
+			}
+		}
+
+		if (1 == mDCInfo.getUsePosCtrl()) {// 若位置受到地址控制
+			SKPlcNoticThread.getInstance().addNoticProp(
+					mDCInfo.getCpXDataAddr(), notifyCxAddrDataCallback, false,sceneid); // 绑定X地址数据回调
+			SKPlcNoticThread.getInstance().addNoticProp(
+					mDCInfo.getCpYDataAddr(), notifyCyAddrDataCallback, false,sceneid); // 绑定Y地址数据回调
+		}
+
+		if (1 == mDCInfo.getUseSizeCtrl()) {// 若大小受到地址控制
+			SKPlcNoticThread.getInstance()
+					.addNoticProp(mDCInfo.getRadiusDataAddr(),
+							notifyRAddrDataCallback, false,sceneid); // 绑定半径地址数据回调
+		}
 	}
 
 	/**
@@ -104,67 +157,17 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 		
 	}
 
-	/**
-	 * 初始化描述符
-	 * */
-	public void initItem(){
-		if(null == mTheItem){
-			mTheItem = new SKItems();
-			if(null == mDCInfo){
-				Log.e("SKDynamicCircle","initItem: mDCInfo is null");
-				return;
-			}
-			mTheItem.nZvalue = mDCInfo.getZValue(); 
-			mTheItem.itemId  = mItemID;
-			mTheItem.sceneId = mSceneID;
-			mTheItem.nCollidindId = mDCInfo.getCollidindId();
-			mTheItem.mGraphics=this;
-		}
-	}
-
-//	/**
-//	 * 初始化限定区域,保留内容，不可删除
-//	 * */
-//	public void initArea(){
-//		if(null == mAreaRect){
-//			if(null == mDCInfo){
-//				Log.e("SKDynamicCircle","mDCInfo is null");
-//				return;
-//			}
-//			mAreaRect   = new Rect(mDCInfo.getAreaLp(),mDCInfo.getAreaTp(),mDCInfo.getAreaLp()+mDCInfo.getAreaWidth(),mDCInfo.getAreaTp()+mDCInfo.getAreaHeight());
-//		}
-//	}
-
-	/**
-	 * 初始化控件矩形
-	 * */
-	public void initItemRect(){
-
-		if(null == mDCInfo){
-			Log.e("SKDynamicCircle","initItemRect: mDCInfo is null");
-			return;
-		}
-		
-		//新建背景矩形实例
-		if(null == mCurItemRect){
-			mCurItemRect  = createInitRect();
-		}
-
-		if(null == mPrevItemRect){
-			mPrevItemRect = new Rect(mCurItemRect);
-		}
-	}
 
 	/**
 	 * 根据圆形数据构造圆形的矩形区域
 	 * */
 	public Rect createInitRect(){
 
-		short xp  = mDCInfo.getCpXpos();
-		short yp  = mDCInfo.getCpYpos();
-		short r   = mDCInfo.getRadius();
-
-		Rect tmpRect = new Rect(xp-r,yp-r,xp+r,yp+r);
+		short xp  = mDCInfo.getnAreaLp();
+		short yp  = mDCInfo.getnAreaTp();
+		short width   = mDCInfo.getnAreaWidth();
+		short height = mDCInfo.getnAreaHeight();
+		Rect tmpRect = new Rect(xp,yp,xp+width,yp+height);
 
 		return tmpRect;
 	}
@@ -222,9 +225,6 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 	 * 处理线程回调
 	 * */
 	public void handleTaskCallback(){	
-		
-		//模拟代码
-		//changeAddrData();
 
 		if( mIsNewXData || mIsNewYData || mIsNewRData){
 
@@ -286,35 +286,37 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 		
 		short cx = 0;
 		short cy = 0;
-		short r = 0;
+		short rWidth = 0;
+		short rHeight = 0;
 		//计算新的圆形数据
-		short orig_r = (short)(mCurItemRect.width()/2);
 		if( mIsNewXData){
 			cx = (short) (mDCInfo.getCpXpos() + mXData);
 		}else{
-			cx = (short) (mCurItemRect.right - orig_r);
+			cx = (short) (mCurItemRect.centerX());
 		}
 		
 		if(mIsNewYData){
 			cy = (short) (mDCInfo.getCpYpos() + mYData);
 		}else{
-			cy = (short) (mCurItemRect.bottom - orig_r);
+			cy = (short) (mCurItemRect.centerY());
 		}
-	    
 		if(mIsNewRData){
-			r  = (short) (mDCInfo.getRadius() + mRData);
-			if(0 > r){
-				r = 0;
+			rWidth  = (short)  mRData;
+			rHeight = (short)   mRData;
+			if(0 > rWidth || 0> rHeight){
+				rHeight = 0;
+				rWidth = 0 ;
 			}
 		}else{
-			r =  (short) orig_r;
+			rWidth  = (short) (mCurItemRect.width()/2);
+			rHeight = (short) (mCurItemRect.height()/2);
 		}
 			
 		//计算矩形信息
-		short left  =  (short)(cx - r); 
-		short right =  (short)(cx + r);
-		short top   =  (short)(cy - r);
-		short bottom=  (short)(cy + r);
+		short left  =  (short)(cx - rWidth); 
+		short right =  (short)(cx + rWidth);
+		short top   =  (short)(cy - rHeight);
+		short bottom=  (short)(cy + rHeight);
 
 		if(null == mPrevItemRect){
 			mPrevItemRect = new Rect(mCurItemRect);
@@ -384,19 +386,6 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 		SKTimer.getInstance().getBinder().onDestroy(TimerCallback);
 		SKThread.getInstance().getBinder().onDestroy(TaskCallback, mChangeTaskID);
 		
-		if (showByAddr) {
-			SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		}
-		
-		if(null != mDCInfo && 1 == mDCInfo.getUsePosCtrl()){//若位置受到地址控制
-			SKPlcNoticThread.getInstance().destoryCallback(notifyCxAddrDataCallback);
-			SKPlcNoticThread.getInstance().destoryCallback(notifyCyAddrDataCallback);
-		}
-		
-		if(null != mDCInfo && 1 == mDCInfo.getUseSizeCtrl()){//若大小受到地址控制
-			SKPlcNoticThread.getInstance().destoryCallback(notifyRAddrDataCallback);
-		}
-		
 		mChangeTaskID = null;
 		
 		if(1 == mPaintState){//若当前至少绘制过一次
@@ -410,30 +399,7 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 
 	@Override
 	public void getDataFromDatabase() {
-	}
 	
-	public void getDataFromDatabaseDummy() {
-//		if(0 > mItemID){//无效的控件ID
-//			Log.e("SKDynamicCircle","getDataFromDatabase: invalid mItemID: " + mItemID);
-//			return;
-//		}
-//
-//		if(null != mDCInfo){
-//			Log.i("SKDynamicCircle","getDataFromDatabase: mDCInfo is not null");
-//			return;
-//		}
-//
-//		DynamicCircleBiz tmpDCBiz = new DynamicCircleBiz();
-//
-//		mDCInfo = tmpDCBiz.select(mItemID); //从数据获取实例
-//		if(null == mDCInfo){
-//			Log.e("SKDynamicCircle","getDataFromDatabase: mDCInfo create failed!");
-//			return;
-//		}
-//		
-//		if(false == isInitStateOK) {//初始化异常
-//			initGraphics(); //主动调用控件初始化函数
-//		}
 	}
 
 	/**
@@ -450,7 +416,8 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 
 	/**
 	 * 处理x地址数据通知回调
-	 * */
+	 * 
+	 **/
 	private Vector<Short> mCxAddrNoticeData = null; //存放通知数据
 	public void handleCxAddrDataCallback(Vector<Byte> nStatusValue){
 
@@ -464,7 +431,7 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 			mCxAddrNoticeData.clear();
 		}
 		
-		boolean result = PlcRegCmnStcTools.bytesToShorts(nStatusValue,mCxAddrNoticeData);
+		PlcRegCmnStcTools.bytesToShorts(nStatusValue,mCxAddrNoticeData);
 		if(!mCxAddrNoticeData.isEmpty()){
 			mXData       = mCxAddrNoticeData.get(0); //取第一个数据
 			mIsNewXData  = true;  
@@ -490,7 +457,6 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 	 * 处理X地址数据通知回调
 	 * */
 	private Vector<Short> mCyAddrNoticeData = null; //存放通知数据
-	private boolean dummyYData = true;
 	public void handleCyAddrDataCallback(Vector<Byte> nStatusValue){
 		
 		if(nStatusValue.isEmpty()){
@@ -503,7 +469,7 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 			mCyAddrNoticeData.clear();
 		}
 		
-		boolean result = PlcRegCmnStcTools.bytesToShorts(nStatusValue,mCyAddrNoticeData);
+		PlcRegCmnStcTools.bytesToShorts(nStatusValue,mCyAddrNoticeData);
 		if(!mCyAddrNoticeData.isEmpty()){
 			mYData       = mCyAddrNoticeData.get(0); //取第一个数据
 			mIsNewYData  = true;  
@@ -539,12 +505,12 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 			mCrAddrNoticeData.clear();
 		}
 		
-		boolean result = PlcRegCmnStcTools.bytesToShorts(nStatusValue,mCrAddrNoticeData);//将字节转换成短整型
+		PlcRegCmnStcTools.bytesToShorts(nStatusValue,mCrAddrNoticeData);//将字节转换成短整型
 		if(!mCrAddrNoticeData.isEmpty()){
 			mRData       = mCrAddrNoticeData.get(0); //取第一个数据
 			mIsNewRData  = true;  
 		}
-		return;
+		return; 
 	} 
 
 	@Override
@@ -554,10 +520,8 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 			if (null == mChangeTaskID) {
 				getDataFromDatabase();
 			}
-			isInitStateOK = false;
 			return;//不做初始操作
 		}
-		isInitStateOK  = true;
 		if( 0 != mPaintState && 2 != mPaintState){//若不是初始态，也不是重绘态
 			return;//不做初始操作
 		}
@@ -566,15 +530,7 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 			
 			//初始化背景矩形
 			initDynamicCircle();
-
-			//初始化矩形控件
-			initItemRect();
-
-			//初始化控件层信息
-			initItem();
-			
-			//初始化区域，保留内容，不可删除
-			//initArea();  
+  
 		}		
 		
 		mTheItem.rect      = new Rect(mPrevItemRect);
@@ -583,46 +539,9 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 		updateDynamicCircle();  //更新动态圆图像内容		
 		
 		
-//		if (aBiz==null) {
-//			aBiz=new AddrPropBiz();
-//		}
-		if (mDCInfo.getmShowInfo() != null) {
-
-			if (mDCInfo.getmShowInfo().isbShowByAddr()) {
-				if (mDCInfo.getmShowInfo().getnAddrId() > 0) {
-					// 受地址控制
-					showByAddr = true;
-//					showAddr=aBiz.selectById(mDCInfo.getmShowInfo().getnAddrId());
-				}
-			}
-			if (mDCInfo.getmShowInfo().isbShowByUser()) {
-				// 受用户权限控制
-				showByUser = true;
-			}
-			itemIsShow();
-		}		
-		
 		SKSceneManage.getInstance().onRefresh(mTheItem);
 		
-		//注册显现地址
-		if (showByAddr) {
-			ADDRTYPE addrType = mDCInfo.getmShowInfo().geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(mDCInfo.getmShowInfo().getShowAddrProp(),showCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(mDCInfo.getmShowInfo().getShowAddrProp(),showCall, false);
-			}
-		}
-		
-		if(1 == mDCInfo.getUsePosCtrl()){//若位置受到地址控制
-			SKPlcNoticThread.getInstance().addNoticProp(mDCInfo.getCpXDataAddr(), notifyCxAddrDataCallback, false);   //绑定X地址数据回调
-			SKPlcNoticThread.getInstance().addNoticProp(mDCInfo.getCpYDataAddr(), notifyCyAddrDataCallback, false);   //绑定Y地址数据回调
-		}
-		
-		if(1 == mDCInfo.getUseSizeCtrl()){//若大小受到地址控制
-			SKPlcNoticThread.getInstance().addNoticProp(mDCInfo.getRadiusDataAddr(), notifyRAddrDataCallback, false); //绑定半径地址数据回调
-		}
-		
+		itemIsShow();
 		
 		if( 0 == mPaintState || 2 == mPaintState){//若是初始态或重绘态
 			
@@ -648,69 +567,333 @@ public class SKDynamicCircle extends SKGraphCmnShow{
 			return false;
 		}
 	}
+
+	/**
+	 * 获取控件属性接口
+	 */
+	public IItem getIItem(){
+		return this;
+	}
 	
-//	/**
-//	 * 模拟下位地址变化,模拟代码，发布时请保留
-//	 * */
-	public void changeAddrData(){
-
-		//以下是模拟代码
-		if(100 == xdata){
-			xdata = 200;
-		}else if(200 == xdata){
-			xdata = 300;
-		}else if(300 == xdata){
-			xdata = 400;
-		}else if(400 == xdata){	
-			xdata = 100;
+	@Override
+	public int getItemLeft(int id) {
+		// TODO Auto-generated method stub
+		if(mDCInfo!=null){
+			return mDCInfo.getnAreaLp();
 		}
+		return -1;
+	}
 
-		if(100 == ydata){
-			ydata = 200;
-		}else if(200 == ydata){
-			ydata = 300;
-		}else if(300 == ydata){
-			ydata = 400;
-		}else if(400 == ydata){		
-			ydata = 100;
+	@Override
+	public int getItemTop(int id) {
+		// TODO Auto-generated method stub
+		if(mDCInfo!=null){
+			return mDCInfo.getnAreaTp();
 		}
+		return -1;
+	}
 
-		if(rdata == 50){
-			rdata = 100;
-		}else if(rdata == 100){
-			rdata = 150;
-		}else if(rdata == 150){
-			rdata = 50;
+	@Override
+	public int getItemWidth(int id) {
+		// TODO Auto-generated method stub
+		if(mDCInfo!=null){
+			return mDCInfo.getnAreaWidth();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO Auto-generated method stub
+		if(mDCInfo!=null){
+			return mDCInfo.getnAreaHeight();
+		}
+		return -1;
+	}
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO Auto-generated method stub
+		if(mDCInfo!=null){
+			return getColor(mDCInfo.getFillColor());
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO Auto-generated method stub
+		if(mDCInfo!=null){
+			return getColor(mDCInfo.getRimColor());
+		}
+		return null;
+	}
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO Auto-generated method stub
+		return show;
+	}
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO Auto-generated method stub
+		if (mDCInfo != null) {
+			if (x == mDCInfo.getnAreaLp()) {
+				return true;
+			}
+			if (x < 0|| x > SKSceneManage.getInstance().getSceneInfo().getnSceneWidth()) {
+				return false;
+			}
+			int l=mDCInfo.getnAreaLp();
+			mDCInfo.setnAreaLp((short)x);
+			mDCInfo.setCpXpos((short)(mDCInfo.getCpXpos()+x-l));
+			mCurItemRect.left=x;
+			mCurItemRect.right=mCurItemRect.right+x-l;
+			
+			updateItemRect();
+			mTheItem.rect      = new Rect(mPrevItemRect);
+			mTheItem.mMoveRect = new Rect(mCurItemRect); 
+			updateDynamicCircle();  //更新动态圆图像内容
+			
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO Auto-generated method stub
+		if(mDCInfo!=null){
+			if(y==mDCInfo.getnAreaTp()){
+				return true;
+			}
+			if (y < 0
+					|| y > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			int t = mDCInfo.getnAreaTp();
+			mDCInfo.setnAreaTp((short)y);
+			mDCInfo.setCpYpos((short)(mDCInfo.getCpYpos()+y-t));
+			mCurItemRect.top=y;
+			mCurItemRect.bottom=mCurItemRect.bottom+y-t;
+			
+			updateItemRect();
+			mTheItem.rect      = new Rect(mPrevItemRect);
+			mTheItem.mMoveRect = new Rect(mCurItemRect); 
+			updateDynamicCircle();  //更新动态圆图像内容
+			
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO Auto-generated method stub
+		if (mDCInfo != null) {
+			if (w == mDCInfo.getnAreaWidth()) {
+				return true;
+			}
+			if (w < 0
+					|| w > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			int len=w-mDCInfo.getnAreaWidth();
+			mDCInfo.setnAreaWidth((short)w);
+			mDCInfo.setCpXpos((short)(mDCInfo.getCpXpos()+len));
+			mCurItemRect.right=mCurItemRect.right+len;
+			
+			updateItemRect();
+			mTheItem.rect      = new Rect(mPrevItemRect);
+			mTheItem.mMoveRect = new Rect(mCurItemRect); 
+			updateDynamicCircle();  //更新动态圆图像内容
+			
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO Auto-generated method stub
+		if (mDCInfo != null) {
+			if (h == mDCInfo.getnAreaHeight()) {
+				return true;
+			}
+			if (h < 0
+					|| h > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			int len=h-mDCInfo.getnAreaHeight();
+			mDCInfo.setnAreaHeight((short)h);
+			mDCInfo.setCpYpos((short)(mDCInfo.getCpYpos()+len));
+			mCurItemRect.bottom=mCurItemRect.bottom+len;
+			
+			updateItemRect();
+			mTheItem.rect      = new Rect(mPrevItemRect);
+			mTheItem.mMoveRect = new Rect(mCurItemRect); 
+			updateDynamicCircle();  //更新动态圆图像内容
+			
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemForecolor(int id,short r,short g,short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemBackcolor(int id,short r,short g,short b) {
+		// TODO Auto-generated method stub
+		if (mDCInfo==null) {
+			return false;
 		}
 		
-		Vector<Integer>  dataList  = null;
-		SEND_DATA_STRUCT mSendData = null;
-
-		if(1 == mDCInfo.getUsePosCtrl()){//若位置受到地址控制
-			dataList = new Vector<Integer>();
-			dataList.add(xdata); //保存新的数据
-			mSendData  = new SEND_DATA_STRUCT();
-			mSendData.eDataType         = DATA_TYPE.INT_16;                   //数据类型
-			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;  //本次为写操作
-			PlcRegCmnStcTools.setRegIntData(mDCInfo.getCpXDataAddr(), dataList, mSendData); //写x坐标
-
-			dataList = new Vector<Integer>();
-			dataList.add(ydata); //保存新的数据
-			mSendData  = new SEND_DATA_STRUCT();
-			mSendData.eDataType         = DATA_TYPE.INT_16;                   //数据类型
-			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;  //本次为写操作
-			PlcRegCmnStcTools.setRegIntData(mDCInfo.getCpYDataAddr(), dataList, mSendData); //写Y坐标
+		int color=Color.rgb(r, g, b);
+		
+		if (color==mDCInfo.getFillColor()) {
+			return true;
 		}
+		mDCInfo.setFillColor(color);
+		mDynamicCircle.setBackColor(color);
+		SKSceneManage.getInstance().onRefresh(mTheItem);
+		return false;
+	}
 
-		if(1 == mDCInfo.getUseSizeCtrl()){//若大小受到地址控制
-			dataList = new Vector<Integer>();
-			dataList.add(rdata); //保存新的数据
-			mSendData  = new SEND_DATA_STRUCT();
-			mSendData.eDataType         = DATA_TYPE.INT_16;                   //数据类型
-			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;  //本次为写操作
-			PlcRegCmnStcTools.setRegIntData(mDCInfo.getRadiusDataAddr(), dataList, mSendData); //写半径
+	@Override
+	public boolean setItemLineColor(int id,short r,short g,short b) {
+		// TODO Auto-generated method stub
+		if(mDCInfo==null){
+			return false;
 		}
-	}//End of change
+		
+		int color=Color.rgb(r, g, b);
+		
+		if (color==mDCInfo.getRimColor()) {
+			return true;
+		}
+		mDCInfo.setRimColor(color);
+		mDynamicCircle.setLineColor(color);
+		SKSceneManage.getInstance().onRefresh(mTheItem);
+		return false;
+	}
 
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if(v==show){
+			return true;
+		}
+		show=v;
+		SKSceneManage.getInstance().onRefresh(mTheItem);
+		return true;
+	}
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemText(int id, int lid,String text) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO Auto-generated method stub
+		if (mDCInfo!=null) {
+			if (mDCInfo.getAlpha()==alpha) {
+				return true;
+			}
+			mDCInfo.setAlpha((short)alpha);
+			mDynamicCircle.setAlpha(alpha);
+			SKSceneManage.getInstance().onRefresh(mTheItem);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	/**
+	 * 获取RGB颜色
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
+	}
 }//End of class
 

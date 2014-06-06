@@ -3,6 +3,7 @@ package com.android.Samkoonhmi.skglobalcmn;
 import java.util.Vector;
 
 import com.android.Samkoonhmi.databaseinterface.DataTransBiz;
+import com.android.Samkoonhmi.macro.ParamHelper;
 import com.android.Samkoonhmi.model.PlcConnectionInfo;
 import com.android.Samkoonhmi.model.SystemInfo;
 import com.android.Samkoonhmi.model.skglobalcmn.DataTransInfo;
@@ -287,7 +288,29 @@ public class DataTransfers {
 		if(nGroupIndex < 0 || nGroupIndex >= nSize) return ;
 		
 		short nAddrType = DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getnAddrType();
-		short nTransLen = DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getnTransLen();
+		short nTransLen = 0;
+		if(DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getbDynLength()){
+			SEND_DATA_STRUCT QuestInfo = new SEND_DATA_STRUCT();
+			QuestInfo.eDataType = DATA_TYPE.INT_16; // 设置数据类型
+			QuestInfo.eByteHLPos = BYTE_H_L_POS.L_BYTE_FIRST; // 设置数据的排列模式
+			QuestInfo.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_ONCE_R;// 设置请求访问类型
+
+			Vector<Integer> dataList = new Vector<Integer>();
+			
+			AddrProp addr = DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getmLengthAddr();
+			
+			PlcRegCmnStcTools.getRegIntData(addr, dataList, QuestInfo);
+			if(dataList.size()!=0){
+				nTransLen = dataList.get(0).shortValue();
+				if(nTransLen<0){
+					nTransLen=0;
+				}else if(nTransLen>128){
+					nTransLen=128;
+				}
+			}
+		}else{
+			nTransLen = DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getnTransLen();
+		}
 		
 		/*如果源地址和目标地址有一个不存在，则返回*/
 		AddrProp mSourceAddr = DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getmSourceAddr();
@@ -410,7 +433,30 @@ public class DataTransfers {
 		if(nGroupIndex < 0 || nGroupIndex >= nSize) return ;
 		
 		short nAddrType = DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getnAddrType();
-		short nTransLen = DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getnTransLen();
+		short nTransLen = 0;
+		if(DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getbDynLength()){
+			
+			SEND_DATA_STRUCT QuestInfo = new SEND_DATA_STRUCT();
+			QuestInfo.eDataType = DATA_TYPE.INT_16; // 设置数据类型
+			QuestInfo.eByteHLPos = BYTE_H_L_POS.L_BYTE_FIRST; // 设置数据的排列模式
+			QuestInfo.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_ONCE_R;// 设置请求访问类型
+
+			Vector<Integer> dataList = new Vector<Integer>();
+			
+			AddrProp addr = DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getmLengthAddr();
+			
+			PlcRegCmnStcTools.getRegIntData(addr, dataList, QuestInfo);
+			if(dataList.size()!=0){
+				nTransLen = dataList.get(0).shortValue();
+				if(nTransLen<0){
+					nTransLen=0;
+				}else if(nTransLen>128){
+					nTransLen=128;
+				}
+			}
+		}else{
+			nTransLen = DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getnTransLen();
+		}
 		
 		/*如果源地址和目标地址有一个不存在，则返回*/
 		AddrProp mSourceAddr = DataTransInfo.getInstance().getmDataTransList().get(nGroupIndex).getmSourceAddr();
@@ -457,6 +503,52 @@ public class DataTransfers {
 		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_ONCE_R;
 		PlcRegCmnStcTools.getRegBytesData(mSourceAddr, nTmpByteList, mSendData);
 		
+		
+		if(1 == nAddrType)//传输的是位地址，分开传输
+		{
+			AddrProp mAddr = new AddrProp();
+			mAddr.eConnectType = mTargetAddr.eConnectType;
+			mAddr.nUserPlcId = mTargetAddr.nUserPlcId;
+			mAddr.nRegIndex = mTargetAddr.nRegIndex;
+			mAddr.nPlcStationIndex = mTargetAddr.nPlcStationIndex;
+			mAddr.nAddrValue = mTargetAddr.nAddrValue;
+			mAddr.eAddrRWprop = mTargetAddr.eAddrRWprop;
+			mAddr.sPlcProtocol = mTargetAddr.sPlcProtocol;
+			mAddr.nAddrId = mTargetAddr.nAddrId;
+			mAddr.nAddrLen = 1;
+			Vector<Byte > nByteList = new Vector<Byte >();
+			mSendData.eDataType = DATA_TYPE.BIT_1;
+			for(int i  = 0; i < nTransLen && i < nTmpByteList.size(); i++)
+			{
+				nByteList.clear();
+				mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_ONCE_R;
+				if(PlcRegCmnStcTools.getRegBytesData(mAddr, nByteList, mSendData))
+				{
+					if(nByteList.size() > 0)
+					{
+						if(nByteList.get(0) == nTmpByteList.get(i)){
+							mAddr.nAddrValue = mAddr.nAddrValue + 1;
+							continue;
+						}
+					}
+				}
+				
+				mSendData.eDataType = DATA_TYPE.BIT_1;
+				mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_ONCE_W;
+				byte data[] = new byte[1];
+				data[0] = nTmpByteList.get(i);
+				PlcRegCmnStcTools.setRegBytesData(mAddr, data, mSendData);
+				mAddr.nAddrValue = mAddr.nAddrValue + 1;
+			}
+			
+			try {
+				Thread.sleep(500); 
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			
+			return;
+		}
 		
 		/*取得连接类型*/
 		SKCommThread mThreadObj = SKCommThread.getComnThreadObj(mTargetAddr.eConnectType);

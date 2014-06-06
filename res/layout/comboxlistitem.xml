@@ -14,7 +14,9 @@
         android:gravity="center"
         android:singleLine="true"
          android:layout_centerVertical="true"
-        android:textColor="@color/book_name_color" />
+           android:paddingLeft="5dp"
+            android:textColor="@color/book_name_color"
+         />
 
     <ImageView
         android:id="@+id/radio"

@@ -3,6 +3,7 @@ package com.android.Samkoonhmi.skwindow;
 import com.android.Samkoonhmi.R;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -55,6 +56,11 @@ public class DeleteDialog {
 	 * 显示pop
 	 */
 	public void showPopWindow(int rid,int id){
+		if (!SKSceneManage.getInstance().isbWindowFocus()) {
+			//窗口未获取焦点
+			Log.e("AKPopupWindow", "no window forcus ...");
+			return ;
+		}
 		if(showFlag==true)
 		{
 			return ;

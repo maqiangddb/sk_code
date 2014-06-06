@@ -24,6 +24,10 @@ public class UserAdapter extends ArrayAdapter<UserInfo>{
 	private LayoutInflater inflater;
 	//是否显示选择框
 	private boolean show;
+	//是否权限Adapter
+	private boolean master=false;
+	//能否点击
+	private boolean masterShow=false;
 	
 	public UserAdapter(Context context, ArrayList<UserInfo> list,boolean showCheckBox) {
 		super(context,R.layout.eidt_user_item, list);
@@ -32,6 +36,24 @@ public class UserAdapter extends ArrayAdapter<UserInfo>{
 		inflater=LayoutInflater.from(context);
 	}
 	
+	public UserAdapter(Context context, ArrayList<UserInfo> list,boolean showCheckBox,boolean master) {
+		super(context,R.layout.eidt_user_item, list);
+		this.list=list;
+		this.show=showCheckBox;
+		this.master = master;
+		inflater=LayoutInflater.from(context);
+	}
+	
+	public UserAdapter(Context context, ArrayList<UserInfo> list,
+			boolean showCheckBox, boolean master, boolean onlyshow) {
+		super(context,R.layout.eidt_user_item, list);
+		this.list=list;
+		this.show=showCheckBox;
+		this.master = master;
+		this.masterShow = onlyshow;
+		inflater=LayoutInflater.from(context);
+	}
+
 	@Override
 	public int getCount() {
 		if (list==null) {
@@ -61,18 +83,42 @@ public class UserAdapter extends ArrayAdapter<UserInfo>{
 		
 		holerView.id=list.get(position).getId();
 		holerView.list=list.get(position).getGroupId();
-		holerView.txtName.setText(list.get(position).getName());
-		holerView.txtDes.setText(list.get(position).getDescript());
+		holerView.set=list.get(position).getGroupSet();
+		holerView.master=list.get(position).getGroupMaster();
+		if(master){
+			if(masterShow){
+				holerView.txtName.setText("");
+			}else{
+				holerView.txtName.setText(R.string.set_master);
+			}
+			holerView.txtDes.setText("");
+		}else{
+			holerView.txtName.setText(list.get(position).getName());
+			holerView.txtDes.setText(list.get(position).getDescript());
+		}
+		
 		if(show){
 			holerView.checkBox.setVisibility(View.VISIBLE);
-			if (list.get(position).isCheck()) {
-				holerView.checkBox.setBackgroundResource(R.drawable.btn_check_on);
-			}else {
-				holerView.checkBox.setBackgroundResource(R.drawable.btn_check_off);
+			if(master){
+				if(list.get(position).isCheck()){
+					if(list.get(position).getMaster()){
+						holerView.checkBox.setBackgroundResource(R.drawable.btn_check_on);
+					}else{
+						holerView.checkBox.setBackgroundResource(R.drawable.btn_check_off);
+					}
+				}else{
+					holerView.checkBox.setBackgroundResource(R.drawable.btn_check_off);
+					list.get(position).setMaster(false);
+				}
+			}else{
+				if (list.get(position).isCheck()) {
+					holerView.checkBox.setBackgroundResource(R.drawable.btn_check_on);
+				}else {
+					holerView.checkBox.setBackgroundResource(R.drawable.btn_check_off);
+				}
 			}
 		}else {
-			holerView.checkBox.setVisibility(View.INVISIBLE);
-			
+			holerView.checkBox.setVisibility(View.INVISIBLE);	
 		}
 		
 		return convertView;
@@ -81,6 +127,8 @@ public class UserAdapter extends ArrayAdapter<UserInfo>{
 	public final class HolerView{
 		public int id;             //id
 		public List<Integer> list; //用户拥有的组
+		public List<Boolean> set;	//用户组权限设置
+		public List<Boolean> master;//用户权限
 		public TextView txtName;   //名称
 		public TextView txtDes;    //描述
 		public ImageView checkBox; //是否选中

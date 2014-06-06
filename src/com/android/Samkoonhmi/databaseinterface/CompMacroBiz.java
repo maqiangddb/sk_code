@@ -22,6 +22,7 @@ public class CompMacroBiz extends DataBase {
 	}
 	
 	public CompMacroInfo selectCompMacro(short macroid){
+		
 		mDB = SkGlobalData.getProjectDatabase();
 		if (null == mDB) {// 获得数据库失败
 			Log.e("CompMacroBiz", "selectCompMacro: Get database failed!");
@@ -29,27 +30,31 @@ public class CompMacroBiz extends DataBase {
 		}
 		
 		Cursor tmpCursor = null;
-	
-		tmpCursor = mDB.getDatabaseBySql(mMacroQueryStr,new String[] { Integer.toString(macroid),Integer.toString(MACRO_TYPE.COMP)});
-		if (null == tmpCursor) {// 获取游标失败
-			Log.e("CompMacroBiz", "selectCompMacro: Get cursor failed!");
-			return null;
-		}
-		
 		CompMacroInfo dstInfo = null;
-		
-		while (tmpCursor.moveToNext()) {
-			dstInfo = new CompMacroInfo();
-			dstInfo.setMacroID(tmpCursor.getShort(tmpCursor.getColumnIndex("MacroID")));
-			dstInfo.setMacroLibName(tmpCursor.getString(tmpCursor.getColumnIndex("MacroLibName")));
-			dstInfo.setMacroName(tmpCursor.getString(tmpCursor.getColumnIndex("MacroName")));
-			dstInfo.setCompID(tmpCursor.getInt(tmpCursor.getColumnIndex("nCompID")));
-			dstInfo.setnSid(tmpCursor.getInt(tmpCursor.getColumnIndex("SceneID")));
+		try {
+			tmpCursor = mDB.getDatabaseBySql(mMacroQueryStr,new String[] { Integer.toString(macroid),Integer.toString(MACRO_TYPE.COMP)});
+			if (null == tmpCursor) {// 获取游标失败
+				Log.e("CompMacroBiz", "selectCompMacro: Get cursor failed!");
+				return null;
+			}
+			
+			while (tmpCursor.moveToNext()) {
+				dstInfo = new CompMacroInfo();
+				dstInfo.setMacroID(tmpCursor.getShort(tmpCursor.getColumnIndex("MacroID")));
+				dstInfo.setMacroLibName(tmpCursor.getString(tmpCursor.getColumnIndex("MacroLibName")));
+				dstInfo.setMacroName(tmpCursor.getString(tmpCursor.getColumnIndex("MacroName")));
+				dstInfo.setCompID(tmpCursor.getInt(tmpCursor.getColumnIndex("nCompID")));
+				dstInfo.setnSid(tmpCursor.getInt(tmpCursor.getColumnIndex("SceneID")));
+			}
+			close(tmpCursor);
+			if(null == dstInfo){
+				Log.e("CompMacroBiz", "selectCompMacro: dstInfo create failed, macro id : " + macroid);
+			}	
+			
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
-		close(tmpCursor);
-		if(null == dstInfo){
-			Log.e("CompMacroBiz", "selectCompMacro: dstInfo create failed, macro id : " + macroid);
-		}	
+		
 		return dstInfo;
 	}
 	}

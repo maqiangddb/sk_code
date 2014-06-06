@@ -41,6 +41,16 @@ public class CalibrationModel {
 
 	private int nZvalue;
 	private int nCollidindId;
+	private ShowInfo showInfo;
+	
+
+	public ShowInfo getShowInfo() {
+		return showInfo;
+	}
+
+	public void setShowInfo(ShowInfo showInfo) {
+		this.showInfo = showInfo;
+	}
 
 	public CalibrationModel() {
 		super();

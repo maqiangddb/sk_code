@@ -35,7 +35,7 @@ public class HistoryShowBiz extends DataBase{
 				info.setnItemId(cursor.getInt(cursor.getColumnIndex("nItemId")));
 				info.setnAlpha(cursor.getShort(cursor.getColumnIndex("nAlpha")));
 				sGroupName=cursor.getString(cursor.getColumnIndex("sGroupName"));
-				info.setnForecolor(cursor.getInt(cursor.getColumnIndex("nForecolor")));
+				info.setnBackcolor(cursor.getInt(cursor.getColumnIndex("nForecolor")));
 				info.setnFrameColor(cursor.getInt(cursor.getColumnIndex("nFrameColor")));
 				info.setnTextFontSize(cursor.getShort(cursor.getColumnIndex("nTextFontSize")));
 				info.setnTitleBackColor(cursor.getInt(cursor.getColumnIndex("nTitleBackColor")));

@@ -7,30 +7,30 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Timer;
-
-import com.android.Samkoonhmi.databaseinterface.DBTool;
 import com.android.Samkoonhmi.databaseinterface.MacroManagerBiz;
-import com.android.Samkoonhmi.macro.corba.PHolder;
-import com.android.Samkoonhmi.model.StateBmpCache;
+import com.android.Samkoonhmi.model.ScenceInfo;
+import com.android.Samkoonhmi.skwindow.SKSceneManage;
+import com.android.Samkoonhmi.util.ContextUtl;
 import com.android.Samkoonhmi.util.MACRO_TYPE;
 import com.android.Samkoonhmi.util.MMSTATE;
 import com.android.Samkoonhmi.util.MSERV;
-
 import dalvik.system.DexClassLoader;
-
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
-import android.view.ViewGroup.MarginLayoutParams;
 
 /**
  * 宏指令管理器
  * */
-public class MacroManager extends HandlerThread{
+public class MacroManager{
 
+	private static final String TAG="MacroManager";
 	private ArrayList<Short> mInitMacroIDList   = null;   //初始宏指令ID列表
 	private ArrayList<Short> mGlobalMacroIDList = null;   //全局宏指令ID列表
 	private ArrayList<Short> mCompMacroIDList   = null;   //控件宏指令ID列表
@@ -41,12 +41,14 @@ public class MacroManager extends HandlerThread{
 	private HashMap<Short, Timer>  mGMITimerHMap  = null;   //全局宏定时器哈希表
 	
 	private HashMap<Integer, ArrayList<Short>> mSceneIdMap=null;//画面宏指令id集合
+	private HashMap<Short, ArrayList<SceneMacroItem>> mSceneMacroItemMap=
+			new HashMap<Short, ArrayList<SceneMacroItem>>();//画面宏实体集合
 	
 	private short mState = MMSTATE.INIT;    //表征宏指令管理器的状态
 
 	private MacroManagerHandler mHandler;   //消息处理句柄
 
-	private Context mContent; //保存上下文环境
+	//private Context mContent; //保存上下文环境
 
 	public static final String JMLPName = new String("jml"); // JML包名称前缀
 	public static final String MLPath = new String("/data/data/com.android.Samkoonhmi/macro/ml.jar");// ML包名绝对路径
@@ -54,25 +56,44 @@ public class MacroManager extends HandlerThread{
 	private DexClassLoader      MLJarHolder = null;   //ML装载器
 
 	private static MacroManager mSelfInstance = null; //自持单例
+	private static BroadcastReceiver timeSetBroadcastReceiver;
+	private HandlerThread mThread=null;
+	private static long nCurrentTime;
 
 	public MacroManager(Context content, String Name) {
 
-		super(Name);
 
-		mContent = content;
+		//mContent = content;
 		
 		MacroManagerBiz biz=new MacroManagerBiz();
 		mSceneIdMap=biz.getSceneIdMap();
-
-		this.start(); //开始执行线程循环
-
-		mHandler = new MacroManagerHandler(this.getLooper());//绑定消息分发逻辑
+		mThread=new HandlerThread("MacroManagerThread");
+		mThread.start();
+		mHandler = new MacroManagerHandler(mThread.getLooper());//绑定消息分发逻辑
 
 		Request(MSERV.INIT); //请求初始化
 		Request(MSERV.CALLIM); //请求执行初始宏指令
 		Request(MSERV.CALLGM); //请求执行全局宏指令
+		nCurrentTime=System.currentTimeMillis();
+		
 		Log.d("MacroManager", "init macro......");
-
+		timeSetBroadcastReceiver = new BroadcastReceiver(){
+			@Override
+			public void onReceive(Context context, Intent intent) {
+				if(intent.getAction().equals("com.samkoon.settime")){
+					if(nCurrentTime>System.currentTimeMillis()){
+						nCurrentTime=System.currentTimeMillis();
+						stopGlobalMacros();
+						runGlobalMacros();
+						//Log.d(TAG, "onReceive ....... ");
+						reRunSceneMacro((short) SKSceneManage.getInstance().nSceneId);
+					}
+				}
+			}
+		};
+		IntentFilter mFilter = new IntentFilter();
+		mFilter.addAction("com.samkoon.settime");
+		ContextUtl.getInstance().registerReceiver(timeSetBroadcastReceiver, mFilter);
 	}
 
 
@@ -93,6 +114,7 @@ public class MacroManager extends HandlerThread{
 				return null;	
 			}
 		}
+		
 		return mSelfInstance;
 	}
 
@@ -105,6 +127,8 @@ public class MacroManager extends HandlerThread{
 
 		// 获得宏指令ID列表
 		mInitMacroIDList = tmpMMBiz.selectInitMacroIDList();
+		Log.d(TAG, "scanInitMacroID mInitMacroIDList ="+mInitMacroIDList);
+		
 		if (null == mInitMacroIDList) {
 			Log.e("MacroManager", "AK Macro scanInitMacroID: Create id list failed!");
 			return false;
@@ -130,7 +154,7 @@ public class MacroManager extends HandlerThread{
 
 	/**
 	 * 扫描场景宏指令ID
-	 * */
+	 **/
 	private boolean scanSceneMacroID() {
 		MacroManagerBiz tmpMMBiz = new MacroManagerBiz();
 
@@ -184,7 +208,8 @@ public class MacroManager extends HandlerThread{
 			Log.e("MacroManager","runGlobalMacros: mGlobalMacroIDList is null!");
 			return;
 		} 
-
+		
+		//Log.d(TAG, "runGlobalMacros  ... ");
 		GlobalMacroItem tmpGMI = null;
 		for(short i = 0; i < mGlobalMacroIDList.size(); i++){//遍历宏指令表
 			tmpGMI = new GlobalMacroItem(mGlobalMacroIDList.get(i));
@@ -209,6 +234,44 @@ public class MacroManager extends HandlerThread{
 	}
 
 	/**
+	 * 重新执行场景宏
+	 * @param SceneName  场景名称
+	 */
+	private void reRunSceneMacro(short mid){
+		if(mSceneMacroItemMap == null){
+			Log.e("MacroManager","reRunSceneMacro: mSceneMacroItemMap is null!");
+			return;
+		}
+		ScenceInfo curSceneInfo = SKSceneManage.getInstance().getScenceInfo(mid);
+		if (curSceneInfo==null) {
+			return;
+		}
+		ArrayList<Short> tmpMIDList = curSceneInfo.getSceneMacroIDList();
+
+		if (null == tmpMIDList || 0 == tmpMIDList.size()) {
+			// 不做任何提示
+			return;
+		}
+		
+		for(int j=0;j<tmpMIDList.size();j++){
+			ArrayList<SceneMacroItem> list = mSceneMacroItemMap.get(tmpMIDList.get(j));
+			if(list == null || list.size() == 0){
+				Log.e("MacroManager","reRunSceneMacro: no Macro in the scene!");
+				return;
+			}
+			
+			for(int i=0;i<list.size();i++){
+				list.get(i).cancle(list.get(i).getTimer());
+				list.get(i).cancel();
+				mSMITimerHMap.remove(list.get(i).getMID());
+				Timer timer = new Timer();
+				if((0 == list.get(i).reExecute(timer))&& (mSMITimerHMap != null)){
+					mSMITimerHMap.put(list.get(i).getMID(),timer);
+				}
+			}
+		}
+	}
+	/**
 	 * 执行场景宏指令
 	 * @param SceneName  场景名称
 	 * */
@@ -218,12 +281,29 @@ public class MacroManager extends HandlerThread{
 			Log.e("MacroManager","runSceneMacros: mSceneMacroIDList is null!");
 			return;
 		}
-
+		
+		//加载画面宏列表
+		if(!mSceneMacroItemMap.containsKey(mid)){
+			ArrayList<SceneMacroItem> list = new ArrayList<SceneMacroItem>();
+			mSceneMacroItemMap.put(mid, list);
+		}else{
+			ArrayList<SceneMacroItem> list =mSceneMacroItemMap.get(mid);
+			for (int i = 0; i < list.size(); i++) {
+				SceneMacroItem tmpSMI=list.get(i);
+				tmpSMI.reset();
+				runMacroFunc(tmpSMI, tmpSMI.getType()); //执行宏指令
+			}
+			//从新执行宏指令
+			//reRunSceneMacro(mid);
+			return ;
+		}
+		
 		boolean isMacroFined = false; //标定是否找到宏指令
 
 		for(short i = 0; i < mSceneMacroIDList.size(); i++){//遍历宏指令表
 			if(mid == mSceneMacroIDList.get(i)){        //从场景宏指令ID表中找到指定的控件宏指令
 				SceneMacroItem tmpSMI = new SceneMacroItem(mid);
+				mSceneMacroItemMap.get(mid).add(tmpSMI);//记录宏指令
 				runMacroFunc(tmpSMI, tmpSMI.getType()); //执行宏指令
 				isMacroFined  = true;                   //标定已经找到宏指令
 				break;                                  //不再继续查找
@@ -312,7 +392,7 @@ public class MacroManager extends HandlerThread{
 			Log.e("MacroManager", "runMacroFunc: Macro Item is null");
 			return -1;
 		}
-		if(false == mitem.obtainJMLClass(mContent, MLJarHolder)){ //获得JML类
+		if(false == mitem.obtainJMLClass(ContextUtl.getInstance(), MLJarHolder)){ //获得JML类
 			return -2;
 		}
 		if(false == mitem.obtainJMLInstance()){ // 获得JML类的一个实例
@@ -359,10 +439,11 @@ public class MacroManager extends HandlerThread{
 	 * */
 	private boolean loadMLJar() {
 
+		Log.d(TAG, "Macro loadMLJar start...");
 		File tmpMLFile = null; // 依赖库的文件句柄
 
 		// 需要使用content参数
-		if (null == mContent) {
+		if (null == ContextUtl.getInstance()) {
 			Log.e("MacroManager", "loadMLJar: mContent is null");
 			return false;
 		}
@@ -375,12 +456,13 @@ public class MacroManager extends HandlerThread{
 		}
 
 		// 装载ml.jar文件
-		MLJarHolder = new DexClassLoader(MLPath, mContent.getFilesDir()
-				.getAbsolutePath(), null, mContent.getClassLoader());
+		MLJarHolder = new DexClassLoader(MLPath, ContextUtl.getInstance().getFilesDir()
+				.getAbsolutePath(), null, ContextUtl.getInstance().getClassLoader());
 		if (null == MLJarHolder) {
 			Log.e("MacroManager", "loadMLJar: ML Load Failed!");
 			return false;
 		}
+		Log.d(TAG, "Macro loadMLJar end...");
 		return true;
 	}
 
@@ -397,9 +479,11 @@ public class MacroManager extends HandlerThread{
 		public void handleMessage(Message msg) {
 			super.handleMessage(msg);
 			MServMsg mservmsg = (MServMsg) msg.obj;
+			
 			switch (mservmsg.stype) {
 			case MSERV.INIT:  //初始化请求
-				if(false == loadMLJar()){  //装载ML包
+				boolean reulst=loadMLJar();
+				if(false == reulst){  //装载ML包
 					return;
 				}
 							
@@ -444,6 +528,7 @@ public class MacroManager extends HandlerThread{
 				if(MMSTATE.READY == mState){
 					stopGlobalMacros();
 				}	
+				break;
 			}
 		}//End of: handleMessage(Message msg)
 	};
@@ -466,7 +551,7 @@ public class MacroManager extends HandlerThread{
 	 * 请求宏指令服务
 	 * @param stype 服务类型
 	 * */
-	public boolean Request(short stype){		
+	public boolean Request(short stype){	
 		//将请求数据打包成消息
 		MServMsg msg = new MServMsg();
 		msg.stype  = stype;
@@ -483,6 +568,21 @@ public class MacroManager extends HandlerThread{
 	}
 
 	public void Destroy(){
-
+		try {
+			if(timeSetBroadcastReceiver!=null){
+				ContextUtl.getInstance().unregisterReceiver(timeSetBroadcastReceiver);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e(TAG, "MacroManager destroy error !!!");
+		}
+	}
+	
+	public Context getContext(){
+		return ContextUtl.getInstance();
+	}
+	
+	public HashMap<Short, Timer> getmSMITimerHMap(){
+		return mSMITimerHMap;
 	}
 }

@@ -18,7 +18,7 @@ public class HistoryShowInfo {
 	//控件id
 	private int nItemId;
 	//前景色
-	private int nForecolor;
+	private int nBackcolor;
 	// 边框颜色
 	private int nFrameColor;
 	// 标题栏,字体大小 默认10
@@ -135,11 +135,11 @@ public class HistoryShowInfo {
 	public void setnItemId(int nItemId) {
 		this.nItemId = nItemId;
 	}
-	public int getnForecolor() {
-		return nForecolor;
+	public int getnBackcolor() {
+		return nBackcolor;
 	}
-	public void setnForecolor(int nForecolor) {
-		this.nForecolor = nForecolor;
+	public void setnBackcolor(int nBackcolor) {
+		this.nBackcolor = nBackcolor;
 	}
 	public int getnFrameColor() {
 		return nFrameColor;

@@ -1,6 +1,8 @@
 package com.android.Samkoonhmi.databaseinterface;
 
 import java.util.ArrayList;
+import java.util.List;
+
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.util.Log;
@@ -38,9 +40,11 @@ public class UserInfoBiz extends DataBase {
 						new String[] { userName});
 		}
 		
-		if (null != cursor) {
+		if (null != cursor && cursor.getCount()>0) {
 			info = new UserInfo();
 			ArrayList<Integer> groupList = new ArrayList<Integer>();
+			ArrayList<Boolean> groupSet = new ArrayList<Boolean>();
+			ArrayList<Boolean> groupMaster = new ArrayList<Boolean>();
 			while (cursor.moveToNext()) {
 
 				info.setId(cursor.getInt(cursor.getColumnIndex("sUserId")));
@@ -48,11 +52,27 @@ public class UserInfoBiz extends DataBase {
 						.getColumnIndex("sUserName")));
 				info.setPassword(cursor.getString(cursor
 						.getColumnIndex("sPassword")));
+				//获得用户所在组
 				int gId = cursor.getInt(cursor.getColumnIndex("nGroupId"));
 				groupList.add(gId);
-
+				//获得用户所在组是否设置权限
+				String set = cursor.getString(cursor.getColumnIndex("sMasterSet"));
+				boolean bSet = false;
+				if(set != null){
+					bSet = set.equals("true");
+				}
+				groupSet.add(bSet);
+				//获得用户是否所在组权限
+				String master = cursor.getString(cursor.getColumnIndex("sMaster"));
+				boolean bMaster = false;
+				if(master != null){
+					bMaster = master.equals("true");
+				}
+				groupMaster.add(bMaster);
 			}
 			info.setGroupId(groupList);
+			info.setGroupSet(groupSet);
+			info.setGroupMaster(groupMaster);
 		}
 		close(cursor);
 		return info;
@@ -78,6 +98,20 @@ public class UserInfoBiz extends DataBase {
 					info.setDescript(cursor.getString(cursor
 							.getColumnIndex("sGroupDescript")));
 					info.setCheck(check);
+					//是否使用权限设置
+					String set = cursor.getString(cursor.getColumnIndex("sMasterSet"));
+					boolean bSet = false;
+					if(set != null){
+						bSet = set.equals("true");
+					}
+					info.setMasterSet(bSet);
+					//是否管理员
+					String master = cursor.getString(cursor.getColumnIndex("sMaster"));
+					boolean bMaster = false;
+					if(master != null){
+						bMaster = master.equals("true");
+					}
+					info.setMaster(bMaster);
 					list.add(info);
 				}
 			}
@@ -121,6 +155,8 @@ public class UserInfoBiz extends DataBase {
 		if (null != cursor) {
 			info = new UserInfo();
 			ArrayList<Integer> groupList = new ArrayList<Integer>();
+			ArrayList<Boolean> groupSet = new ArrayList<Boolean>();
+			ArrayList<Boolean> groupMaster = new ArrayList<Boolean>();
 			while (cursor.moveToNext()) {
 
 				info.setId(cursor.getInt(cursor.getColumnIndex("sUserId")));
@@ -128,11 +164,27 @@ public class UserInfoBiz extends DataBase {
 						.getColumnIndex("sUserName")));
 				info.setPassword(cursor.getString(cursor
 						.getColumnIndex("sPassword")));
+				//获得用户所在组
 				int gId = cursor.getInt(cursor.getColumnIndex("nGroupId"));
 				groupList.add(gId);
-
+				//获得用户所在组是否设置权限
+				String set = cursor.getString(cursor.getColumnIndex("sMasterSet"));
+				boolean bSet = false;
+				if(set != null){
+					bSet = set.equals("true");
+				}
+				groupSet.add(bSet);
+				//获得用户是否所在组权限
+				String master = cursor.getString(cursor.getColumnIndex("sMaster"));
+				boolean bMaster = false;
+				if(master != null){
+					bMaster = master.equals("true");
+				}
+				groupMaster.add(bMaster);
 			}
 			info.setGroupId(groupList);
+			info.setGroupSet(groupSet);
+			info.setGroupMaster(groupMaster);
 		}
 		close(cursor);
 		return info;
@@ -168,6 +220,8 @@ public class UserInfoBiz extends DataBase {
 		if (null != cursor) {
 			info = new UserInfo();
 			ArrayList<Integer> groupList = new ArrayList<Integer>();
+			ArrayList<Boolean> groupSet = new ArrayList<Boolean>();
+			ArrayList<Boolean> groupMaster = new ArrayList<Boolean>();
 			while (cursor.moveToNext()) {
 				info.setId(cursor.getInt(cursor.getColumnIndex("sUserId")));
 				info.setName(cursor.getString(cursor
@@ -175,10 +229,27 @@ public class UserInfoBiz extends DataBase {
 				info.setPassword(cursor.getString(cursor
 						.getColumnIndex("sPassword"))+"");
 				info.setDescript(cursor.getString(cursor.getColumnIndex("sUserDescript"))+"");
+				//获得用户所在组
 				int gId = cursor.getInt(cursor.getColumnIndex("nGroupId"));
 				groupList.add(gId);
+				//获得用户所在组是否设置权限
+				String set = cursor.getString(cursor.getColumnIndex("sMasterSet"));
+				boolean bSet = false;
+				if(set != null){
+					bSet = set.equals("true");
+				}
+				groupSet.add(bSet);
+				//获得用户是否所在组权限
+				String master = cursor.getString(cursor.getColumnIndex("sMaster"));
+				boolean bMaster = false;
+				if(master != null){
+					bMaster = master.equals("true");
+				}
+				groupMaster.add(bMaster);
 			}
 			info.setGroupId(groupList);
+			info.setGroupSet(groupSet);
+			info.setGroupMaster(groupMaster);
 		}
 		close(cursor);
 		return info;
@@ -219,6 +290,77 @@ public class UserInfoBiz extends DataBase {
 		}
 		return list;
 	}
+	
+	/**
+	 * 获得用户所在组的所以用户
+	 * @return
+	 */
+	public ArrayList<UserInfo> getUserListInGroup(UserInfo inputInfo){
+		ArrayList<UserInfo> list = new ArrayList<UserInfo>();
+		//用户id集合
+		ArrayList<Integer> mUserIdList=new ArrayList<Integer>();
+		if (db != null) {
+			List<Integer> groupId = inputInfo.getGroupId();
+			List<Boolean> groupSet = inputInfo.getGroupSet();
+			List<Boolean> groupMaster = inputInfo.getGroupMaster();
+			ArrayList<Integer> grouplist = new ArrayList<Integer>();
+			int size = groupId.size();
+			if(size>groupSet.size()){
+				size = groupSet.size();
+			}
+			if(size>groupMaster.size()){
+				size = groupMaster.size();
+			}
+			
+			for(int i=0;i<size;i++){
+				if(groupSet.get(i)){
+					if(groupMaster.get(i)){
+						grouplist.add(groupId.get(i));
+					}
+				}else{
+					grouplist.add(groupId.get(i));
+				}
+			}
+			
+			String area="(";
+			for(int i=0;i<grouplist.size();i++){
+				if(i!=grouplist.size()-1){
+					area+=grouplist.get(i)+",";
+				}else{
+					area+=grouplist.get(i);
+				}
+			}
+			area+=")";
+			String sql = "select distinct sUserId  from  userList where nGroupId in "+area;
+//			System.out.println("^^^^"+sql);
+			
+			Cursor cursor = db.getDatabaseBySql(sql,null);
+			if (cursor != null) {
+				while (cursor.moveToNext()) {
+					int id=cursor.getInt(0);
+					if(id>=0){
+						mUserIdList.add(id);
+					}
+				}
+			}
+			close(cursor);
+			
+		}
+		if (mUserIdList==null||mUserIdList.size()==0) {
+			Log.e("UserInfoBiz", "get all user, user=null!");
+			return list;
+		}
+		
+		//根据用户id，获取用户信息
+		for (int i = 0; i < mUserIdList.size(); i++) {
+			UserInfo info=getUserInfoById(mUserIdList.get(i));
+			if (info!=null) {
+				list.add(info);
+			}
+		}
+		return list;
+	}
+	
 	public ArrayList<String> getUserNameList()
 	{
 		ArrayList<UserInfo> userInfoList = getUserList();
@@ -274,11 +416,13 @@ public class UserInfoBiz extends DataBase {
 				ContentValues values = new ContentValues();
 				values.put("nGroupId",list.get(i).getId());
 				values.put("sGroupName",list.get(i).getName());
-				values.put("sGroupDescript",list.get(i).getDescript()+"");
+				values.put("sGroupDescript",list.get(i).getDescript()==null?"":list.get(i).getDescript());
 				values.put("sUserId",id);
 				values.put("sUserName", info.getName());
-				values.put("sUserDescript",info.getDescript()+"");
+				values.put("sUserDescript",info.getDescript()==null?"":info.getDescript());
 				values.put("sPassword",info.getPassword()+"");
+				values.put("sMasterSet", list.get(i).isMasterSet()+"");
+				values.put("sMaster", list.get(i).getMaster()+"");
 				db.insertData("userList", values);
 			}
 			b=true;
@@ -318,6 +462,41 @@ public class UserInfoBiz extends DataBase {
 		}
 		String sql="update userList set sPassword='"+info.getPassword()
 				+"' , sUserDescript='"+info.getDescript()+"'  where sUserName='"+info.getName()+"'";
+		db.execSql(sql);
+	}
+	
+	/**
+	 * 查询用户名是否存在
+	 */
+	public boolean isPwdExist(String name,String pwd){
+		boolean b=false;
+		Cursor cursor = db.getDatabaseBySql(
+				"select sPassword from userList where sUserName=?", new String[]{name});
+		if (null != cursor) {
+			while (cursor.moveToNext()) {
+				String temp=cursor.getString(cursor.getColumnIndex("sPassword"));
+				if (temp==null) {
+					b=false;
+				}else {
+					if (temp.equals(pwd)) {
+						b=true;
+					}
+				}
+			}
+		}
+		close(cursor);
+		return b;
+	}
+	
+	/**
+	 * 修改用户密码
+	 */
+	public void updateUserPwd(UserInfo info){
+		if (db==null||info==null) {
+			return;
+		}
+		String sql="update userList set sPassword='"+info.getPassword()
+				+"'  where sUserName='"+info.getName()+"'";
 		db.execSql(sql);
 	}
 	

@@ -13,6 +13,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.renderscript.Element.DataType;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -61,6 +62,7 @@ public class SKKeyBoard extends View {
 	private String min = "0";// 最小值
 	private String max = "0";// 最大值
 	private boolean checks;// 检查输入
+	private boolean inputType;//输入类型，数字或字符串
 	private boolean isPass;// 密码
 	private String lastText;
 	private int nSceneId;
@@ -192,9 +194,27 @@ public class SKKeyBoard extends View {
 
 		String minText = "";
 		if (dataType == DATA_TYPE.HEX_16) {
-			minText = Integer.toHexString(Integer.valueOf(getMin()));
+			try{
+				minText = Integer.toHexString(Integer.valueOf(getMin()));
+			}catch(Exception e){
+				String minTemp = getMin();
+				if(minTemp.indexOf(".")!= -1){
+					int inttmp = Integer.valueOf(minTemp.substring(0,minTemp.indexOf(".")));
+					minText =Integer.toHexString(inttmp);
+				}
+			}
+		
 		} else if (dataType == DATA_TYPE.HEX_32) {
-			minText = Long.toHexString(Long.valueOf(getMin()));
+			try{
+				minText = Long.toHexString(Long.valueOf(getMin()));
+			}catch(Exception e){
+				String minTemp = getMin();
+				if(minTemp.indexOf(".")!= -1){
+					Long inttmp = Long.valueOf(minTemp.substring(0,minTemp.indexOf(".")));
+					minText =Long.toHexString(inttmp);
+				}
+			}
+			
 		} else {
 			minText = getMin();
 		}
@@ -208,9 +228,27 @@ public class SKKeyBoard extends View {
 
 		String maxText = "";
 		if (dataType == DATA_TYPE.HEX_16) {
-			maxText = Integer.toHexString(Integer.valueOf(getMax()));
+			try{
+				maxText = Integer.toHexString(Integer.valueOf(getMax()));
+			}catch(Exception e){
+				String maxTemp = getMax();
+				if(maxTemp.indexOf(".")!= -1){
+					maxTemp = maxTemp.substring(0,maxTemp.indexOf("."));
+				}
+				maxText = Integer.toHexString(Integer.valueOf(maxTemp));
+			}
+			
 		} else if (dataType == DATA_TYPE.HEX_32) {
-			maxText = Long.toHexString(Long.valueOf(getMax()));
+			try{
+				maxText = Long.toHexString(Long.valueOf(getMax()));
+			}catch(Exception e){
+				String maxTemp = getMax();
+				if(maxTemp.indexOf(".")!= -1){
+					maxTemp = maxTemp.substring(0,maxTemp.indexOf("."));
+				}
+				maxText = Long.toHexString(Long.valueOf(maxTemp));
+			}
+			
 		} else {
 			maxText = getMax();
 		}
@@ -340,12 +378,22 @@ public class SKKeyBoard extends View {
 		textItemInput.initRectPaint();
 	}
 
+	private long nDownTime=0;
 	/**
 	 * 点击按钮
 	 */
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 		SKSceneManage.getInstance().time=0;
+		
+		if (event.getAction()==MotionEvent.ACTION_DOWN) {
+			//防抖动
+			if ((System.currentTimeMillis()-nDownTime)<50) {
+				return true;
+			}
+			nDownTime=System.currentTimeMillis();
+		}
+		
 		// 如果键盘实体类为空，则返回false
 		if (keyInfo == null) {
 			return false;
@@ -410,6 +458,7 @@ public class SKKeyBoard extends View {
 	 * @param inputText
 	 * @param keyOperation
 	 */
+	private boolean isCaps = false;//大小写 true为大写，false 为小写
 	public void keyOperations(String inputText, KEYBOARD_OPERATION keyOperation,boolean down) {
 		
 		StringBuffer sb = new StringBuffer();// 创建StringBuffer
@@ -428,11 +477,16 @@ public class SKKeyBoard extends View {
 			int textLength = inputStr.length();// 总长度
 			if (textLength != 0 && !inputStr.equals("0")) {// 如果长度不为0
 				sb.append(inputStr);// 叠加字符串
+				String lastChar = sb.substring(textLength - 1);
+				if (lastChar.equals(".")) {
+					// 删除掉了小数点，则将输入小数点的标识置位true
+					decimals = true;// 小数点
+				}
 				sb.delete(textLength - 1, textLength);// 单个删除操作
+
 				inputStr = sb.toString();
-				if(inputStr.equals(""))
-				{
-					inputStr ="0";
+				if (inputStr.equals("")) {
+					inputStr = "0";
 				}
 			} else {
 				decimals = true;
@@ -444,9 +498,16 @@ public class SKKeyBoard extends View {
 			rigthWhite();// 变白色
 			decimals = true;
 			minus = true;// 标记负号
+		} else if (keyOperation == KEYBOARD_OPERATION.CAPS) { // 大小写键
+			if (isCaps) {
+				isCaps = false;
+			} else {
+				isCaps = true;
+			}
+
 		} else if (keyOperation == KEYBOARD_OPERATION.ENTER) {// 确定按钮
 			// checks判断当前键盘是否为数值型键盘，checks为true是数值型键盘
-			if (checks) {
+			if (checks && inputType) {
 				// 确定字符
 				if (inputStr.equals("-")) {
 					inputStr = "0";
@@ -458,8 +519,8 @@ public class SKKeyBoard extends View {
 					minus = true;// 标记负号
 					if (dataType == DATA_TYPE.HEX_16)// 16位16进制
 					{
-						if (inputStr==null||inputStr.equals("")) {
-							inputStr="0";
+						if (inputStr == null || inputStr.equals("")) {
+							inputStr = "0";
 						}
 						int inputTextHex = Integer.valueOf(inputStr, 16); // 将输入的字符转成10进制数进行大小比较
 						if (inputTextHex > Double.valueOf(getMax())
@@ -476,8 +537,8 @@ public class SKKeyBoard extends View {
 
 					} else if (dataType == DATA_TYPE.HEX_32)// 32位16进制
 					{
-						if (inputStr==null||inputStr.equals("")) {
-							inputStr="0";
+						if (inputStr == null || inputStr.equals("")) {
+							inputStr = "0";
 						}
 						long inputTextHex = Long.valueOf(inputStr, 16);// 将输入的字符转成10进制数进行大小比较
 						if (inputTextHex > Double.valueOf(getMax())
@@ -496,19 +557,18 @@ public class SKKeyBoard extends View {
 					}
 
 				} else {
-					if (inputStr==null||inputStr.equals("")) {
-						inputStr="0";
+					if (inputStr == null || inputStr.equals("")) {
+						inputStr = "0";
 					}
 					double numText = 0L;
-					
-                    if(dataType == DATA_TYPE.HEX_16){
-                    	numText =Integer.valueOf(inputStr, 16);
-                    }else if(dataType == DATA_TYPE.HEX_32)
-                    {
-                    	numText= Long.valueOf(inputStr, 16);
-                    }else{
-                    	numText = Double.parseDouble(inputStr);
-                    }
+
+					if (dataType == DATA_TYPE.HEX_16) {
+						numText = Integer.valueOf(inputStr, 16);
+					} else if (dataType == DATA_TYPE.HEX_32) {
+						numText = Long.valueOf(inputStr, 16);
+					} else {
+						numText = Double.parseDouble(inputStr);
+					}
 					if (numText > Double.valueOf(getMax())
 							|| numText < Double.valueOf(getMin())) {
 						errorRed();// 文本框变红色
@@ -536,10 +596,11 @@ public class SKKeyBoard extends View {
 					}
 					// inputStr = "0";
 					escText = inputStr;
+
 				}
 			}
 		} else if (keyOperation == KEYBOARD_OPERATION.TEXT) {// 字符按钮
-			if(down){
+			if (down) {
 				if (inputText.equals(".")) {// 小数点按钮
 					if (decimals) {
 						if (inputStr.equals("")) {
@@ -549,37 +610,68 @@ public class SKKeyBoard extends View {
 							inputStr = "-0.";
 						} else {
 							sb.append(inputStr);
-							sb.append(inputText);
+							if (dataType == DATA_TYPE.HEX_32
+									|| dataType == DATA_TYPE.HEX_16
+									|| dataType == DATA_TYPE.OTC_16
+									|| dataType == DATA_TYPE.OTC_32) {
+								// 16进制 8进制 不让输入小数点
+							} else {
+								sb.append(inputText);
+							}
+
 							inputStr = sb.toString();
 						}
 						decimals = false;
 					}
 					rigthWhite();// 变白色
 				} else if (inputText.equals("-")) {// 负号按钮
-					if (minus) {// 标记负号
-						if (inputStr.equals("0")) {
-							inputStr = "";
-						}
-						sb.append(inputText);
-						sb.append(inputStr);
-						inputStr = sb.toString();
-						minus = false;// 标记负号
+
+					if (inputStr.equals("0")) {
+						inputStr = "";
 					}
+					if (checks) // 数字键盘
+					{
+						if (inputStr.indexOf("-") == -1)// 如果没有负号，则往前面追加负号
+						{
+							sb.append(inputText);
+							sb.append(inputStr);
+						} else {// 如果有负号，则将负号去掉
+							inputStr = inputStr.replaceFirst("-", "");
+							sb.append(inputStr);
+						}
+
+					} else { // 非数字键盘
+						sb.append(inputStr);
+						sb.append(inputText);
+					}
+					inputStr = sb.toString();
 					rigthWhite();// 变白色
 				} else {
 					// 叠加字符
-					if (inputStr.equals("0")||inputStr==null||bFirstClick) {
-						bFirstClick=false;
-						inputStr = "";
+					if (bFirstClick || inputStr == null) {
+						bFirstClick = false;
+						if (!inputStr.equals("-")) {
+							inputStr = "";
+						}
 					}
-					sb.append(inputStr+"");
+					if (inputStr.equals("0")) {
+						if (inputType) {
+							inputStr = "";
+						}
+					}
+
+					if (isCaps) {
+						inputText = inputText.toLowerCase();
+					}
+					sb.append(inputStr + "");
 					sb.append(inputText);
 					inputStr = sb.toString();
+
 					rigthWhite();// 变白色
 				}
 			}
 		}
-		
+
 		invalidate();
 	}
 
@@ -722,6 +814,14 @@ public class SKKeyBoard extends View {
 	
 	public void setbFirstClick(boolean bFirstClick) {
 		this.bFirstClick = bFirstClick;
+	}
+
+	public boolean isInputType() {
+		return inputType;
+	}
+
+	public void setInputType(boolean inputType) {
+		this.inputType = inputType;
 	}
 
 }

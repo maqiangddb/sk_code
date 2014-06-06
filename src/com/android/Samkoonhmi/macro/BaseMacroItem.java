@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Timer;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.Log;
 
@@ -17,7 +18,7 @@ import dalvik.system.DexClassLoader;
 /**
  * 基本宏指令项，用于描述单条宏指令的信息
  * */
-public abstract class BaseMacroItem extends java.util.TimerTask { //implements Runnable{
+public abstract class BaseMacroItem extends java.util.TimerTask {
 
 	protected boolean mKeepThreadLoop = true; //保持线程循环
 	
@@ -25,7 +26,7 @@ public abstract class BaseMacroItem extends java.util.TimerTask { //implements R
 
 	protected ArrayList<MParamInfo>  mParamList; //参数列表
 
-	protected Thread  mInnerThread;           //自持有线程
+	//protected Thread  mInnerThread;           //自持有线程
 
 	protected Method  mMacroMethod;           //函数句柄；
 
@@ -105,6 +106,7 @@ public abstract class BaseMacroItem extends java.util.TimerTask { //implements R
 	/**
 	 * 获得JML类
 	 * */
+	@SuppressLint("NewApi")
 	public boolean obtainJMLClass(Context content, DexClassLoader JarHolder){
 		if(null == mJMLClass){
 

@@ -6,6 +6,7 @@ import java.util.List;
 import android.database.Cursor;
 
 import com.android.Samkoonhmi.model.DateTimeShowInfo;
+import com.android.Samkoonhmi.model.ShowInfo;
 import com.android.Samkoonhmi.skenum.DATE_FORMAT;
 import com.android.Samkoonhmi.skenum.IntToEnum;
 import com.android.Samkoonhmi.skenum.TIME_FORMAT;
@@ -119,7 +120,8 @@ public class TimeShowBiz extends DataBase {
 						.getColumnIndex("nFontColor")));
 				info.setnBackground(cursor.getInt(cursor
 						.getColumnIndex("nBackground")));
-
+				ShowInfo showInfo = TouchShowInfoBiz.getShowInfoById(info.getId());
+                info.setShowInfo(showInfo);
 			}
 		}
 		close(cursor);

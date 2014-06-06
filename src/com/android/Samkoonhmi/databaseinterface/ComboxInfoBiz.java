@@ -4,19 +4,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.apache.http.auth.NTCredentials;
-
-import android.R.string;
 import android.database.Cursor;
-import android.util.Log;
-
 import com.android.Samkoonhmi.model.ComboBoxInfo;
 import com.android.Samkoonhmi.model.ComboxItemInfo;
 import com.android.Samkoonhmi.model.FunInfo;
 import com.android.Samkoonhmi.model.skbutton.BitButtonInfo;
-import com.android.Samkoonhmi.model.skbutton.FunSwitchInfo;
-import com.android.Samkoonhmi.model.skbutton.PeculiarButtonInfo;
 import com.android.Samkoonhmi.model.skbutton.SceneButtonInfo;
 import com.android.Samkoonhmi.model.skbutton.WordButtonInfo;
 import com.android.Samkoonhmi.skenum.BUTTON;
@@ -29,7 +21,6 @@ import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKButton;
  * 下拉框信息转换类
  * 
  * @author 瞿丽平
- * 
  */
 public class ComboxInfoBiz extends DataBase {
 	SKDataBaseInterface base = null;
@@ -46,19 +37,18 @@ public class ComboxInfoBiz extends DataBase {
 	 * @return
 	 */
 	public ArrayList<ComboBoxInfo> select(int sid) {
-		
-		//long start=System.currentTimeMillis();
-		boolean init=true;
-		String sId="";
-		String sFunId="";
+
+		// long start=System.currentTimeMillis();
+		boolean init = true;
+		StringBuffer sId = new StringBuffer();
+		StringBuffer sFunId = new StringBuffer();
 		Cursor cursor = null;
 		if (null == base) {
 			base = SkGlobalData.getProjectDatabase();
 		}
 		// 查找下拉框的属性
 		cursor = base.getDatabaseBySql(
-				"select * from combobox where nSceneId =?", new String[] { sid
-						+ "" });
+				"select * from combobox where nSceneId =?", new String[] { sid+ "" });
 		ArrayList<ComboBoxInfo> list = new ArrayList<ComboBoxInfo>();
 		if (cursor != null) {
 			while (cursor.moveToNext()) {
@@ -105,50 +95,59 @@ public class ComboxInfoBiz extends DataBase {
 						.getId()));
 				info.setShowInfo(TouchShowInfoBiz.getShowInfoById(info.getId()));
 				info.setnAlpha(cursor.getInt(cursor.getColumnIndex("nAlpha")));
-				info.setbIsUsePic(cursor.getString(cursor.getColumnIndex("bUsePic")).equals("true")?true:false);
-				
-				//getFunList(info, functionList);
+				info.setbIsUsePic(cursor.getString(
+						cursor.getColumnIndex("bUsePic")).equals("true") ? true
+						: false);
+
+				// getFunList(info, functionList);
 				if (init) {
-					sId+=" nItemId= "+info.getId();
-					sFunId+=info.getId();
-					init=false;
-				}else {
-					sFunId+=" ,"+ info.getId();
-					sId+=" or nItemId= "+info.getId();
+					sId.append(" nItemId in("+info.getId());
+					sFunId.append(info.getId());
+					init = false;
+				} else {
+					sId.append(","+info.getId());
+					sFunId.append(","+info.getId());
 				}
 				info.setFunctionList(functionList);
 				list.add(info);
 			}
-			getFunList(sId, list,sFunId);
 			close(cursor);
-		
+			
+			sId.append(")");
+			String temp=sId.toString();
+			getFunList(temp, list, sFunId.toString(), sid);
+			
+
 		}
-		//Log.d("SKScene", "......time:"+(System.currentTimeMillis()-start));
-		
+		// Log.d("SKScene", "......time:"+(System.currentTimeMillis()-start));
+
 		return list;
 	}
 
-	private HashMap<BUTTON_TYPE, ArrayList<FunInfo>> mFunList=null;
-	private void getFunList(String id,ArrayList<ComboBoxInfo> list,String fid) {
+	private HashMap<BUTTON_TYPE, ArrayList<FunInfo>> mFunList = null;
+
+	private void getFunList(String id, ArrayList<ComboBoxInfo> list,
+			String fid, int sid) {
 		// 查找下拉框的功能
 		Cursor cursor = null;
-		cursor = base.getDatabaseBySql("select * from comboboxFun where "+id,null);
-		ComboBoxInfo info=null;
-		int nItemId=-1;
+		cursor = base.getDatabaseBySql("select * from comboboxFun where " + id,
+				null);
+		ComboBoxInfo info = null;
+		int nItemId = -1;
 		if (null != cursor) {
-			
-			if (mFunList==null) {
-				mFunList=new HashMap<BUTTON_TYPE, ArrayList<FunInfo>>();
-			}else {
+
+			if (mFunList == null) {
+				mFunList = new HashMap<BUTTON_TYPE, ArrayList<FunInfo>>();
+			} else {
 				mFunList.clear();
 			}
-			
+
 			while (cursor.moveToNext()) {
-				if (nItemId!=cursor.getInt(cursor.getColumnIndex("nItemId"))) {
-					nItemId=cursor.getInt(cursor.getColumnIndex("nItemId"));
+				if (nItemId != cursor.getInt(cursor.getColumnIndex("nItemId"))) {
+					nItemId = cursor.getInt(cursor.getColumnIndex("nItemId"));
 					for (int i = 0; i < list.size(); i++) {
-						if (nItemId==list.get(i).getId()) {
-							info=list.get(i);
+						if (nItemId == list.get(i).getId()) {
+							info = list.get(i);
 							break;
 						}
 					}
@@ -168,103 +167,115 @@ public class ComboxInfoBiz extends DataBase {
 				itemInfo.setFunctionNames(functionNames);
 				itemInfo.setId(cursor.getInt(cursor.getColumnIndex("id")));
 				itemInfo.setChecked(false);
-				int funId=cursor.getInt(cursor
-						.getColumnIndex("nFunctionId"));
-				SKButton button = new SKButton(funId, buttonType);
+				int funId = cursor.getInt(cursor.getColumnIndex("nFunctionId"));
+				SKButton button = new SKButton(sid, funId, buttonType);
 				itemInfo.setButton(button);
-				String picPath=cursor.getString(cursor.getColumnIndex("sPath"));
+				String picPath = cursor.getString(cursor
+						.getColumnIndex("sPath"));
 				itemInfo.setPicPath(picPath);
-				if(info!=null){
+				if (null != cursor.getString(cursor
+						.getColumnIndex("bSaveIndex"))) {
+					itemInfo.setbSaveIndex(cursor.getString(
+							cursor.getColumnIndex("bSaveIndex")).equals("true") ? true
+							: false);
+				}
+				if (info != null) {
 					info.getFunctionList().add(itemInfo);
-					 if (mFunList.containsKey(buttonType)) {
-					    	ArrayList<FunInfo> flist=mFunList.get(buttonType);
-					    	FunInfo fInfo=new FunInfo();
-					    	fInfo.nFunId=funId;
-					    	fInfo.nItemId=nItemId;
-					    	flist.add(fInfo);
-						}else {
-							ArrayList<FunInfo> flist=new ArrayList<FunInfo>();
-							FunInfo fInfo=new FunInfo();
-					    	fInfo.nFunId=funId;
-					    	fInfo.nItemId=nItemId;
-					    	flist.add(fInfo);
-					    	mFunList.put(buttonType, flist);
-						}
+					if (mFunList.containsKey(buttonType)) {
+						ArrayList<FunInfo> flist = mFunList.get(buttonType);
+						FunInfo fInfo = new FunInfo();
+						fInfo.nFunId = funId;
+						fInfo.nItemId = nItemId;
+						flist.add(fInfo);
+					} else {
+						ArrayList<FunInfo> flist = new ArrayList<FunInfo>();
+						FunInfo fInfo = new FunInfo();
+						fInfo.nFunId = funId;
+						fInfo.nItemId = nItemId;
+						flist.add(fInfo);
+						mFunList.put(buttonType, flist);
+					}
 				}
 			}
-			selectFunById(list,fid);
+			selectFunById(list, fid);
 			close(cursor);
 		}
 	}
-	
-	private void selectFunById(ArrayList<ComboBoxInfo> list,String fid){
-		if (mFunList.size()==0) {
+
+	private void selectFunById(ArrayList<ComboBoxInfo> list, String fid) {
+		if (mFunList.size() == 0) {
 			return;
 		}
 		if (mFunList.containsKey(BUTTON_TYPE.BIT)) {
-			//查询所有位开关
-			bitButtonSelects(list,fid);
+			// 查询所有位开关
+			bitButtonSelects(list, fid);
 		}
-		
+
 		if (mFunList.containsKey(BUTTON_TYPE.WORD)) {
-			//查询所有字开关
+			// 查询所有字开关
 			wordButtonSelects(list, fid);
 		}
-		
+
 		if (mFunList.containsKey(BUTTON_TYPE.SCENE)) {
-			//查询所有画面开关
+			// 查询所有画面开关
 			sceneButtonSelects(list, fid);
 		}
 	}
-	
+
 	/**
 	 * 开关,位功能查询
 	 */
 	private void bitButtonSelects(ArrayList<ComboBoxInfo> list, String itemId) {
 		Cursor cursor = null;
 		String sql = " select a.nItemId as fid,a.nFunctionId,b.* from  comboboxfun a  "
-                   + " left join bitswitch b " 
-                   + " where a.nFunctionId=b.nItemId  "
-                   + " and a.nItemId in("+itemId+")";
-		
+				+ " left join bitswitch b "
+				+ " where a.nFunctionId=b.nItemId  "
+				+ " and a.nItemId in("
+				+ itemId + ")";
+
 		cursor = base.getDatabaseBySql(sql, null);
-		BitButtonInfo info=null;
-		int nItemId=-1;
-		ComboBoxInfo fInfo=null;
+		BitButtonInfo info = null;
+		int nItemId = -1;
+		ComboBoxInfo fInfo = null;
 		if (cursor != null) {
 			while (cursor.moveToNext()) {
-				if (nItemId!=cursor.getInt(cursor.getColumnIndex("fid"))) {
-					nItemId=cursor.getInt(cursor.getColumnIndex("fid"));
+				if (nItemId != cursor.getInt(cursor.getColumnIndex("fid"))) {
+					nItemId = cursor.getInt(cursor.getColumnIndex("fid"));
 					for (int i = 0; i < list.size(); i++) {
-						if (list.get(i).getId()==nItemId) {
-							fInfo=list.get(i);
+						if (list.get(i).getId() == nItemId) {
+							fInfo = list.get(i);
 							break;
 						}
 					}
 				}
-				if (fInfo!=null) {
+				if (fInfo != null) {
 					for (int i = 0; i < fInfo.getFunctionList().size(); i++) {
-						if (fInfo.getFunctionList().get(i).getButton().getInfo().getnFunId()==
-								cursor.getInt(cursor.getColumnIndex("nFunctionId"))) {
-							info= (BitButtonInfo)fInfo.getFunctionList().get(i).getButton().getInfo();
+						if (fInfo.getFunctionList().get(i).getButton()
+								.getInfo().getnFunId() == cursor.getInt(cursor
+								.getColumnIndex("nFunctionId"))) {
+							info = (BitButtonInfo) fInfo.getFunctionList()
+									.get(i).getButton().getInfo();
 							break;
 						}
 					}
 				}
-				if (info!=null) {
-					info.seteOperType(BUTTON.getBitOperType(cursor.getShort(cursor
-							.getColumnIndex("eOperType"))));
-					boolean b = cursor.getString(cursor.getColumnIndex("bDownZero")).equals("true") ? true
+				if (info != null) {
+					info.seteOperType(BUTTON.getBitOperType(cursor
+							.getShort(cursor.getColumnIndex("eOperType"))));
+					boolean b = cursor.getString(
+							cursor.getColumnIndex("bDownZero")).equals("true") ? true
 							: false;
 					info.setbDownZero(b);
-					info.setmBitAddress(AddrPropBiz.selectById(cursor.getInt(cursor
-							.getColumnIndex("nBitAddress"))));
-					info.setnTimeOut(cursor.getInt(cursor.getColumnIndex("nTimeout")));
-					
-					boolean bb=false;
-					String confirm=cursor.getString(cursor.getColumnIndex("bConfirm"));
-					if (confirm!=null) {
-						bb=confirm.equals("true") ? true: false;
+					info.setmBitAddress(AddrPropBiz.selectById(cursor
+							.getInt(cursor.getColumnIndex("nBitAddress"))));
+					info.setnTimeOut(cursor.getInt(cursor
+							.getColumnIndex("nTimeout")));
+
+					boolean bb = false;
+					String confirm = cursor.getString(cursor
+							.getColumnIndex("bConfirm"));
+					if (confirm != null) {
+						bb = confirm.equals("true") ? true : false;
 					}
 					info.setbConfirm(bb);
 				}
@@ -279,65 +290,71 @@ public class ComboxInfoBiz extends DataBase {
 	private void wordButtonSelects(ArrayList<ComboBoxInfo> list, String itemId) {
 		Cursor cursor = null;
 		String sql = " select a.nItemId as fid,a.nFunctionId,b.* from  comboboxfun a  "
-                + " left join wordSwitch b " 
-                + " where a.nFunctionId=b.nItemId  "
-                + " and a.nItemId in("+itemId+")";
-		cursor = base.getDatabaseBySql(sql,null);
-		
-		WordButtonInfo info=null;
-		int nItemId=-1;
-		ComboBoxInfo fInfo=null;
-		
+				+ " left join wordSwitch b "
+				+ " where a.nFunctionId=b.nItemId  "
+				+ " and a.nItemId in("
+				+ itemId + ")";
+		cursor = base.getDatabaseBySql(sql, null);
+
+		WordButtonInfo info = null;
+		int nItemId = -1;
+		ComboBoxInfo fInfo = null;
+
 		if (cursor != null) {
 			while (cursor.moveToNext()) {
-				
-				if (nItemId!=cursor.getInt(cursor.getColumnIndex("fid"))) {
-					nItemId=cursor.getInt(cursor.getColumnIndex("fid"));
+
+				if (nItemId != cursor.getInt(cursor.getColumnIndex("fid"))) {
+					nItemId = cursor.getInt(cursor.getColumnIndex("fid"));
 					for (int i = 0; i < list.size(); i++) {
-						if (list.get(i).getId()==nItemId) {
-							fInfo=list.get(i);
+						if (list.get(i).getId() == nItemId) {
+							fInfo = list.get(i);
 							break;
 						}
 					}
 				}
-				if (fInfo!=null) {
+				if (fInfo != null) {
 					for (int i = 0; i < fInfo.getFunctionList().size(); i++) {
-						if (fInfo.getFunctionList().get(i).getButton().getInfo().getnFunId()==
-								cursor.getInt(cursor.getColumnIndex("nFunctionId"))) {
-							info= (WordButtonInfo)fInfo.getFunctionList().get(i).getButton().getInfo();
+						if (fInfo.getFunctionList().get(i).getButton()
+								.getInfo().getnFunId() == cursor.getInt(cursor
+								.getColumnIndex("nFunctionId"))) {
+							info = (WordButtonInfo) fInfo.getFunctionList()
+									.get(i).getButton().getInfo();
 							break;
 						}
 					}
 				}
-				
-				if (info!=null) {
-					info.seteOperType(BUTTON.getWordOperType(cursor.getShort(cursor
-							.getColumnIndex("eOperType"))));
-					info.setmAddrProp(AddrPropBiz.selectById( cursor.getInt(cursor
-							.getColumnIndex("nAddress"))));
-					info.seteDataType(IntToEnum.getDataType(cursor.getInt(cursor
-							.getColumnIndex("nDataType"))));
-					
-					boolean b =false;
-					String cycle=cursor.getString(cursor.getColumnIndex("bCycle"));
-					if (cycle!=null) {
-						b=cycle.equals("true") ? true: false;
+
+				if (info != null) {
+					info.seteOperType(BUTTON.getWordOperType(cursor
+							.getShort(cursor.getColumnIndex("eOperType"))));
+					info.setmAddrProp(AddrPropBiz.selectById(cursor
+							.getInt(cursor.getColumnIndex("nAddress"))));
+					info.seteDataType(IntToEnum.getDataType(cursor
+							.getInt(cursor.getColumnIndex("nDataType"))));
+
+					boolean b = false;
+					String cycle = cursor.getString(cursor
+							.getColumnIndex("bCycle"));
+					if (cycle != null) {
+						b = cycle.equals("true") ? true : false;
 					}
 					info.setbCycle(b);
 					info.setnMax(cursor.getDouble(cursor.getColumnIndex("nMax")));
 					info.setnMin(cursor.getDouble(cursor.getColumnIndex("nMin")));
 					info.setnFinalValue(cursor.getDouble(cursor
 							.getColumnIndex("nFinalValue")));
-//					b = false;
-//					String bDynamic = cursor.getString(cursor.getColumnIndex("bDynamicControl"));
-//					if (bDynamic != null) {
-//						b = bDynamic.equals("true")?true:false;
-//					}
-//					info.setbDynamicControl(b);
-//					info.setmDynamicAddrProp(AddrPropBiz.selectById( cursor.getInt(cursor
-//							.getColumnIndex("nAddressConst"))));
+					// b = false;
+					// String bDynamic =
+					// cursor.getString(cursor.getColumnIndex("bDynamicControl"));
+					// if (bDynamic != null) {
+					// b = bDynamic.equals("true")?true:false;
+					// }
+					// info.setbDynamicControl(b);
+					// info.setmDynamicAddrProp(AddrPropBiz.selectById(
+					// cursor.getInt(cursor
+					// .getColumnIndex("nAddressConst"))));
 				}
-				
+
 			}
 		}
 		close(cursor);
@@ -352,53 +369,57 @@ public class ComboxInfoBiz extends DataBase {
 	private void sceneButtonSelects(ArrayList<ComboBoxInfo> list, String itemId) {
 		Cursor cursor = null;
 		String sql = " select a.nItemId as fid,a.nFunctionId,b.* from  comboboxfun a  "
-                + " left join screenSwitch b " 
-                + " where a.nFunctionId=b.nItemId  "
-                + " and a.nItemId in("+itemId+")";
+				+ " left join screenSwitch b "
+				+ " where a.nFunctionId=b.nItemId  "
+				+ " and a.nItemId in("
+				+ itemId + ")";
 		cursor = base.getDatabaseBySql(sql, null);
 		if (cursor != null) {
-			
-			SceneButtonInfo info=null;
-			int nItemId=-1;
-			ComboBoxInfo fInfo=null;
-			
+
+			SceneButtonInfo info = null;
+			int nItemId = -1;
+			ComboBoxInfo fInfo = null;
+
 			while (cursor.moveToNext()) {
-				
-				if (nItemId!=cursor.getInt(cursor.getColumnIndex("fid"))) {
-					nItemId=cursor.getInt(cursor.getColumnIndex("fid"));
+
+				if (nItemId != cursor.getInt(cursor.getColumnIndex("fid"))) {
+					nItemId = cursor.getInt(cursor.getColumnIndex("fid"));
 					for (int i = 0; i < list.size(); i++) {
-						if (list.get(i).getId()==nItemId) {
-							fInfo=list.get(i);
+						if (list.get(i).getId() == nItemId) {
+							fInfo = list.get(i);
 							break;
 						}
 					}
 				}
-				if (fInfo!=null) {
+				if (fInfo != null) {
 					for (int i = 0; i < fInfo.getFunctionList().size(); i++) {
-						if (fInfo.getFunctionList().get(i).getButton().getInfo().getnFunId()==
-								cursor.getInt(cursor.getColumnIndex("nFunctionId"))) {
-							info= (SceneButtonInfo)fInfo.getFunctionList().get(i).getButton().getInfo();
+						if (fInfo.getFunctionList().get(i).getButton()
+								.getInfo().getnFunId() == cursor.getInt(cursor
+								.getColumnIndex("nFunctionId"))) {
+							info = (SceneButtonInfo) fInfo.getFunctionList()
+									.get(i).getButton().getInfo();
 							break;
 						}
 					}
 				}
-				
-				if (info!=null) {
-					info.seteOperScene(BUTTON.getOPerScene(cursor.getShort(cursor
-							.getColumnIndex("eOperScene"))));
+
+				if (info != null) {
+					info.seteOperScene(BUTTON.getOPerScene(cursor
+							.getShort(cursor.getColumnIndex("eOperScene"))));
 					info.setnTargetPage(cursor.getInt(cursor
 							.getColumnIndex("nTargetPage")));
-					boolean b = cursor.getString(cursor.getColumnIndex("bLogout")).equals("true") ? true
+					boolean b = cursor.getString(
+							cursor.getColumnIndex("bLogout")).equals("true") ? true
 							: false;
-					info.setnSceneType(cursor.getShort(cursor.getColumnIndex("nSceneType")));
+					info.setnSceneType(cursor.getShort(cursor
+							.getColumnIndex("nSceneType")));
 					info.setbLogout(b);
 				}
-				
+
 			}
 		}
 		close(cursor);
 	}
-	
 
 	private Map<Integer, String> getManyLanguage(int itemId) {
 		Map<Integer, String> map = null;
@@ -423,5 +444,21 @@ public class ComboxInfoBiz extends DataBase {
 		}
 		return map;
 	}
-
+	/**
+	 * 修改功能状态
+	 * @param info
+	 * @return
+	 */
+  public boolean updateSate(ComboxItemInfo info)
+  {
+	  if (base==null) {
+			base = SkGlobalData.getProjectDatabase();
+		}
+	  //先将置为true的记录改为false
+	  String sql2 = "update comboboxFun set bSaveIndex = 'false' where bSaveIndex='true'";
+	  String sql="update comboboxFun set bSaveIndex='true'  where nFunctionId='"+info.getFunctionId()+"'";
+		       base.execSql(sql2);
+		return base.execSql(sql);
+  }
+  
 }

@@ -2,22 +2,26 @@
 package com.android.Samkoonhmi.skgraphics.plc.touchshow;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.SKTimer;
-import com.android.Samkoonhmi.databaseinterface.AddrPropBiz;
 import com.android.Samkoonhmi.graphicsdrawframe.ImageDrawItem;
 import com.android.Samkoonhmi.graphicsdrawframe.TextItem;
 import com.android.Samkoonhmi.macro.MacroManager;
+import com.android.Samkoonhmi.model.ExpressModel;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.NumberDisplayInfo;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.StaticTextModel;
+import com.android.Samkoonhmi.model.SystemInfo;
 import com.android.Samkoonhmi.plccommunicate.PlcRegCmnStcTools;
 import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
 import com.android.Samkoonhmi.skenum.ADDRTYPE;
 import com.android.Samkoonhmi.skenum.DATA_TYPE;
+import com.android.Samkoonhmi.skenum.EXPRESS_SIGN;
 import com.android.Samkoonhmi.skenum.INPUT_TYPE;
 import com.android.Samkoonhmi.skenum.KEYBOARD_OPERATION;
 import com.android.Samkoonhmi.skenum.READ_WRITE_COM_TYPE;
@@ -27,6 +31,7 @@ import com.android.Samkoonhmi.skgraphics.plc.touchshow.base.SKGraphCmnTouch;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
 import com.android.Samkoonhmi.util.AddrProp;
 import com.android.Samkoonhmi.util.DataTypeFormat;
+import com.android.Samkoonhmi.util.Expression;
 import com.android.Samkoonhmi.util.GlobalPopWindow;
 import com.android.Samkoonhmi.util.ImageFileTool;
 import com.android.Samkoonhmi.util.MSERV;
@@ -37,11 +42,11 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.PaintFlagsDrawFilter;
 import android.graphics.Rect;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.renderscript.Element.DataType;
 import android.util.Log;
 import android.view.MotionEvent;
 
@@ -49,9 +54,8 @@ import android.view.MotionEvent;
  * 数值输入显示器
  * 
  * @author 瞿丽平
- * 
  */
-public class SKNumInputDisplay extends SKGraphCmnTouch {
+public class SKNumInputDisplay extends SKGraphCmnTouch implements IItem {
 	private NumberDisplayInfo info;
 	private Rect mRect;
 	private Paint mPaint;
@@ -62,9 +66,7 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 	private double addressValue = 0; // 监控地址值
 	private String showValue = "0";// 显示值
 	private double baseNumber = 1;// 根据小数位数得到显示的数值（显示值的偏移）
-	private boolean flag = true;
 	private StaticTextModel text;
-	private boolean flagError = false;// 标志是否显示error
 	private SKKeyPopupWindow popKey = null;
 	private String inputKeyString;
 	private TextItem textItem;
@@ -75,7 +77,6 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 	private boolean showByUser;
 	private boolean showByAddr;
 	private boolean touchByAddr;
-	private boolean initFlag;
 	private SKItems items;
 	private int itemId;
 	private int senceId;
@@ -93,19 +94,21 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 	private final static int NUMBER = 5;
 	private final static int INPUTMAX = 6;
 	private final static int INPUTMIN = 7;
-//	private int gloabledecimalNumber = 0;// 小数位数
+	// private int gloabledecimalNumber = 0;// 小数位数
 	private double inputMax = 65535;
 	private double inputMin = 0;
 	private Bitmap bgBitmap; // 背景图片
 	private Context mContext;
 	private myMainHandler hand = null;
 	private boolean notTouchOpenKey = false;
-	private int currentColor =0;
+	private int currentColor = 0;
 	private Bitmap mLockBitmap;
-	private Paint mBitmapPaint;//用于画图片
+	private Paint mBitmapPaint;// 用于画图片
+	private double mainValue = 0;
 
 	public SKNumInputDisplay(Context context, int itemId, int senceId,
 			NumberDisplayInfo info) {
+
 		mContext = context;
 		isOnClick = false;
 		isTouchFlag = true;
@@ -114,25 +117,24 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		showByUser = false;
 		showByAddr = false;
 		touchByAddr = false;
-		initFlag = true;
 		this.senceId = senceId;
 		this.itemId = itemId;
 		mPaint = new Paint();
 		items = new SKItems();
 		this.info = info;
 		notTouchOpenKey = false;
-		
-		if (info!=null) {
+
+		if (info != null) {
 			mRect = new Rect();
 			mRect.left = info.getnStartX();
 			mRect.right = info.getnStartX() + info.getnWidth();
 			mRect.top = info.getnStartY();
 			mRect.bottom = info.getnStartY() + info.getnHeight();
-			
+
 			textRect = new Rect(info.getnTextStartX(), info.getnTextStartY(),
 					info.getnTextStartX() + info.getnTextWidth(),
 					info.getnTextStartY() + info.getnTextHeight());
-			
+
 			text = new StaticTextModel();
 			text.setM_eTextAlign(info.geteShowStyle());
 			text.setM_nFontColor(info.getnFontColor());
@@ -145,27 +147,75 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 			text.setRectWidth(textRect.width());
 			text.setLineWidth(0);
 			text.setM_alphaPadding(info.getnTransparent());// 设置透明度
-//			if (info.getnTransparent() == 0) {
-//				text.setBorderAlpha(255);
-//				text.setLineColor(Color.BLACK);
-//				text.setLineWidth(1);
-//			}
+			// if (info.getnTransparent() == 0) {
+			// text.setBorderAlpha(255);
+			// text.setLineColor(Color.BLACK);
+			// text.setLineWidth(1);
+			// }
 
 			text.setM_backColorPadding(info.getnBackColor());
-			
+
 			textItem = new TextItem(text);
 			textItem.initTextPaint();
 			textItem.initRectBoderPaint();
 			textItem.initRectPaint();
-			
+
 			items.itemId = this.itemId;
 			items.nCollidindId = info.getnCollidindId();
 			items.nZvalue = info.getnZvalue();
 			items.sceneId = this.senceId;
 			items.rect = mRect;
-			items.mGraphics=this;
+			items.mGraphics = this;
+
+			if (null != info.getTouchInfo()) {
+				if (null != info.getTouchInfo().getTouchAddrProp()) {
+					touchByAddr = true;
+				}
+				if (info.getTouchInfo().isbTouchByUser()) {
+					touchByUser = true;
+				}
+			}
+			if (null != info.getShowInfo()) {
+				if (null != info.getShowInfo().getShowAddrProp()) {
+					showByAddr = true;
+				}
+				if (info.getShowInfo().isbShowByUser()) {
+					showByUser = true;
+				}
+			}
+			currentColor = info.getnBackColor();
+			// 获取小数位数值
+			getDecimaNumber();
+			// 获取允许输入的最大最小值
+			getInputMaxMinValue();
+			// 缩放 拿最大最小值
+			if (info.isbIsScale()) {
+				getMaxMinValue();
+			} else {
+				// 没有进行缩放，根据数据类型确定最大，最小值
+				sourceMax = getMaxNumber(info.geteNumberType());
+				showMax = sourceMax;
+				sourceMin = getMinNumber(info.geteNumberType());
+				showMin = sourceMin;
+			}
+			// 获取小数位数值
+			getDecimaNumber();
+			// 获取允许输入的最大最小值
+			getInputMaxMinValue();
+			// 缩放 拿最大最小值
+			if (info.isbIsScale()) {
+				getMaxMinValue();
+			} else {
+				// 没有进行缩放，根据数据类型确定最大，最小值
+				sourceMax = getMaxNumber(info.geteNumberType());
+				showMax = sourceMax;
+				sourceMin = getMinNumber(info.geteNumberType());
+				showMin = sourceMin;
+			}
+
+			registAddr();
 		}
-		
+
 	}
 
 	/**
@@ -176,50 +226,13 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		if (null == info) {
 			return;
 		}
-
-		initFlag = true;
-		 currentColor = info.getnBackColor();
-		if (null != info.getTouchInfo()) {
-			if (null != info.getTouchInfo().getTouchAddrProp()) {
-				touchByAddr = true;
-			}
-			if (info.getTouchInfo().isbTouchByUser()) {
-				touchByUser = true;
-			}
-		}
-		if (null != info.getShowInfo()) {
-			if (null != info.getShowInfo().getShowAddrProp()) {
-				showByAddr = true;
-			}
-			if (info.getShowInfo().isbShowByUser()) {
-				showByUser = true;
-			}
-		}
-		
 		numberIsShow();
 		numberIsTouch();
-
-		// 注册地址接口
-		registAddr();
-		// 获取小数位数值
-		getDecimaNumber();
-		// 获取允许输入的最大最小值
-		getInputMaxMinValue();
-		// 缩放 拿最大最小值
-		if (info.isbIsScale()) {
-			getMaxMinValue();
-		}
-		// 没有进行缩放，根据数据类型确定最大，最小值
-		else {
-			sourceMax = getMaxNumber(info.geteNumberType());
-			showMax = sourceMax;
-			sourceMin = getMinNumber(info.geteNumberType());
-			showMin = sourceMin;
-		}
 		if (null == popKey) {
 			popKey = new SKKeyPopupWindow(SKSceneManage.getInstance().mContext,
 					true, info.getnKeyId(), info.geteNumberType());
 			popKey.setCallback(callback);
+			popKey.setInputType(true);
 			if ((info.geteFontCss() & TextAttribute.PASSWORD) == TextAttribute.PASSWORD) {
 				popKey.setPassWord(true);
 			} else {
@@ -519,7 +532,7 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		if (null == info) {
 			return false;
 		}
-		
+
 		if (info.geteInputTypeId() == INPUT_TYPE.BIT) {
 			return false;
 		}
@@ -528,22 +541,23 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 				|| y > info.getnStartY() + info.getnHeight()) {
 			return false;
 		} else {
-			if(!info.isbIsInput()){ //不允许输入 直接返回
+			if (!info.isbIsInput()) { // 不允许输入 直接返回
 				return false;
-			}else{
+			} else {
 				if (!isTouchFlag || !isShowFlag) {
 					if (!isTouchFlag && info != null) {
 						if (info.getTouchInfo() != null) {
 							if (event.getAction() == MotionEvent.ACTION_DOWN) {
 								if (info.getTouchInfo().isbTouchByUser()) {
-									SKSceneManage.getInstance().turnToLoginPop();
+									SKSceneManage.getInstance()
+											.turnToLoginPop();
 								}
 							}
 						}
 					}
 					return false;
 				}
-				
+
 				if (event.getAction() == MotionEvent.ACTION_DOWN) {
 					isOnClick = true;
 
@@ -556,7 +570,7 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 								hand = new myMainHandler(Looper.getMainLooper());
 							}
 							hand.sendEmptyMessageDelayed(TOUCHHANDER, info
-									.getTouchInfo().getnPressTime() * 1000);
+									.getTouchInfo().getnPressTime() * 100);
 						} else {
 							doTouch(notTouchOpenKey);
 						}
@@ -571,8 +585,8 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 					touch = true;
 				}
 			}
-			}
-			
+		}
+
 		return touch;
 
 	}
@@ -661,7 +675,6 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 			if (isShowFlag) {
 				draw(mPaint, canvas);
 			}
-			initFlag = true;
 			return true;
 		} else {
 			return false;
@@ -689,8 +702,8 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 						bgBitmap.getHeight());
 			}
 			if (bgBitmap != null) {
-				if (mBitmapPaint==null) {
-					mBitmapPaint=new Paint();
+				if (mBitmapPaint == null) {
+					mBitmapPaint = new Paint();
 					mBitmapPaint.setDither(true);
 					mBitmapPaint.setAntiAlias(true);
 				}
@@ -698,19 +711,19 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 			}
 		}
 		// 不可触控加上锁图标
-		if (!isTouchFlag) {
+		if (!isTouchFlag && SystemInfo.isbLockIcon()) {
 			if (mLockBitmap == null) {
 				mLockBitmap = ImageFileTool
 						.getBitmap(R.drawable.lock, mContext);
 			}
 			if (mLockBitmap != null) {
-				if (mBitmapPaint==null) {
-					mBitmapPaint=new Paint();
+				if (mBitmapPaint == null) {
+					mBitmapPaint = new Paint();
 					mBitmapPaint.setDither(true);
 					mBitmapPaint.setAntiAlias(true);
 				}
-				canvas.drawBitmap(mLockBitmap, info.getnStartX(), info.getnStartY(),
-						mBitmapPaint);
+				canvas.drawBitmap(mLockBitmap, info.getnStartX(),
+						info.getnStartY(), mBitmapPaint);
 			}
 		}
 
@@ -724,7 +737,15 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 	 */
 	private void drawTextValue(Paint paint, Canvas canvas) {
 		// 画文本
-		showValue = getBaseNumber(oldValue, false);
+		if (info.geteNumberType() == DATA_TYPE.HEX_32
+				|| info.geteNumberType() == DATA_TYPE.HEX_16
+				|| info.geteNumberType() == DATA_TYPE.OTC_16
+				|| info.geteNumberType() == DATA_TYPE.OTC_32) {
+			// 16进制 8进制不需要进行小数转换
+		} else {
+			showValue = getBaseNumber(oldValue, false);
+		}
+
 		// 用密码的形式显示输入的数字
 		if ((info.geteFontCss() & TextAttribute.PASSWORD) == TextAttribute.PASSWORD) {
 			showValue = "******";
@@ -737,103 +758,161 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 	 * 注册地址接口
 	 */
 	private void registAddr() {
+
+		// 注册表达式中的地址
+		// 显示表达式
+		if (info.isbShowExp()) {
+			// 第一个数
+			ArrayList<ExpressModel> list = info.getShowExpModel();
+			if (list != null) {
+				int size = list.size();
+				switch (size) {
+				case 0:
+					break;
+				case 1:
+					if (null != info.getShowExpModel().get(0).getmAddProp()) {
+						SKPlcNoticThread.getInstance().addNoticProp(
+								info.getShowExpModel().get(0).getmAddProp(),
+								expFirstCall, false, senceId);
+					}
+					break;
+				case 2:
+					if (null != info.getShowExpModel().get(0).getmAddProp()) {
+						SKPlcNoticThread.getInstance().addNoticProp(
+								info.getShowExpModel().get(0).getmAddProp(),
+								expFirstCall, false, senceId);
+					}
+					if (null != info.getShowExpModel().get(1).getmAddProp()) {
+						SKPlcNoticThread.getInstance().addNoticProp(
+								info.getShowExpModel().get(1).getmAddProp(),
+								expSecondCall, false, senceId);
+					}
+					break;
+				case 3:
+					if (null != info.getShowExpModel().get(0).getmAddProp()) {
+						SKPlcNoticThread.getInstance().addNoticProp(
+								info.getShowExpModel().get(0).getmAddProp(),
+								expFirstCall, false, senceId);
+					}
+					if (null != info.getShowExpModel().get(1).getmAddProp()) {
+						SKPlcNoticThread.getInstance().addNoticProp(
+								info.getShowExpModel().get(1).getmAddProp(),
+								expSecondCall, false, senceId);
+					}
+					if (null != info.getShowExpModel().get(2).getmAddProp()) {
+						SKPlcNoticThread.getInstance().addNoticProp(
+								info.getShowExpModel().get(2).getmAddProp(),
+								expThirdCall, false, senceId);
+					}
+					break;
+				}
+			}
+
+		}
 		// 注册显示值地址
 		if (null != info.getnAddress()) {
 			SKPlcNoticThread.getInstance().addNoticProp(info.getnAddress(),
-					call, false);
+					call, false, senceId);
 		}
-		
-		//地址偏移
-		if (null!=info.getmOffSetAddr()) {
+
+		// 地址偏移
+		if (null != info.getmOffSetAddr()) {
 			SKPlcNoticThread.getInstance().addNoticProp(info.getmOffSetAddr(),
-					addOffSet, false);
+					addOffSet, false, senceId);
 		}
-		
-		//注册地址偏移
-		if (null!=info) {
-			
-		}
+
 		// 触控地址
 		if (touchByAddr) {
 			// Log.d("plc", "SKNumberInput 注册触控通知");
 			ADDRTYPE addrType = info.getTouchInfo().geteCtlAddrType();
 			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance()
-						.addNoticProp(info.getTouchInfo().getTouchAddrProp(),
-								touchCall, true);
+				SKPlcNoticThread.getInstance().addNoticProp(
+						info.getTouchInfo().getTouchAddrProp(), touchCall,
+						true, senceId);
 			} else {
 				SKPlcNoticThread.getInstance().addNoticProp(
 						info.getTouchInfo().getTouchAddrProp(), touchCall,
-						false);
+						false, senceId);
 			}
 		}
+
 		// 显现地址
 		if (showByAddr) {
 			// Log.d("plc", "SKNumberInput 注册显现通知");
 			ADDRTYPE addrType = info.getShowInfo().geteAddrType();
 			if (addrType == ADDRTYPE.BITADDR) {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getShowInfo().getShowAddrProp(), showCall, true);
+						info.getShowInfo().getShowAddrProp(), showCall, true,
+						senceId);
 			} else {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getShowInfo().getShowAddrProp(), showCall, false);
+						info.getShowInfo().getShowAddrProp(), showCall, false,
+						senceId);
 			}
 
 		}
+
 		if (info.geteDecimalType() == SHOWAREA.ADDRESS) {
 			// 小数位数地址
 			if (null != info.getDecimaNumberAddrProp()) {
 				// Log.d("plc", "SKNumberInput 注册取小数位数通知");
-				SKPlcNoticThread.getInstance()
-						.addNoticProp(info.getDecimaNumberAddrProp(),
-								decimaNumberCall, false);
+				SKPlcNoticThread.getInstance().addNoticProp(
+						info.getDecimaNumberAddrProp(), decimaNumberCall,
+						false, senceId);
 			}
 		}
+
 		if (info.geteSourceArea() == SHOWAREA.ADDRESS && info.isbIsScale()) {
 			// 源范围最大值地址
 			if (null != info.getSourceMaxAddrProp()) {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getSourceMaxAddrProp(), sourceMaxCall, false);
+						info.getSourceMaxAddrProp(), sourceMaxCall, false,
+						senceId);
 
 			}
 			// 源范围最小值地址
 			if (null != info.getSourceMinAddrProp()) {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getSourceMinAddrProp(), sourceMinCall, false);
+						info.getSourceMinAddrProp(), sourceMinCall, false,
+						senceId);
 			}
 		}
+
 		if (info.getnShow() == SHOWAREA.ADDRESS && info.isbIsScale()) {
 			// 显现最大值地址
 			if (null != info.getShowMaxAddrProp()) {
 				// Log.d("number", "注册显现最大值地址");
 				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getShowMaxAddrProp(), showMaxCall, false);
+						info.getShowMaxAddrProp(), showMaxCall, false, senceId);
 			}
 			// 显现最小值地址
 			if (null != info.getShowMinAddrProp()) {
 				// Log.d("number", "注册显现最小值地址");
 				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getShowMinAddrProp(), showMinCall, false);
+						info.getShowMinAddrProp(), showMinCall, false, senceId);
 			}
 		}
+
 		if (info.geteInputTypeId() == INPUT_TYPE.BIT) {
 			// 位控制键盘地址
 			if (null != info.getsBitAddress()) {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getsBitAddress(), bitKeyBoard, true);
+						info.getsBitAddress(), bitKeyBoard, true, senceId);
 			}
 		}
+
 		// 输入的最大值
 		if (info.isbIsInput() && info.getInputMaxAddr() != null
 				&& SHOWAREA.ADDRESS == info.geteInputAreaType()) {
 			SKPlcNoticThread.getInstance().addNoticProp(info.getInputMaxAddr(),
-					inputMaxCall, false);
+					inputMaxCall, false, senceId);
 		}
+
 		// 输入的最小值
 		if (info.isbIsInput() && info.getInputMinAddr() != null
 				&& SHOWAREA.ADDRESS == info.geteInputAreaType()) {
 			SKPlcNoticThread.getInstance().addNoticProp(info.getInputMinAddr(),
-					inputMinCall, false);
+					inputMinCall, false, senceId);
 		}
 	}
 
@@ -854,6 +933,7 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		}
 
 	};
+
 	/**
 	 * 允许输入的最小值
 	 */
@@ -895,7 +975,7 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 					}
 				}
 			} else {
-				//Log.d("number", "bitKeyBoard 通知转换值失败");
+				// Log.d("number", "bitKeyBoard 通知转换值失败");
 			}
 
 		}
@@ -925,29 +1005,32 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		}
 
 	};
-	
-	//地址偏移
-	SKPlcNoticThread.IPlcNoticCallBack addOffSet=new SKPlcNoticThread.IPlcNoticCallBack(){
+
+	// 地址偏移
+	SKPlcNoticThread.IPlcNoticCallBack addOffSet = new SKPlcNoticThread.IPlcNoticCallBack() {
 
 		@Override
 		public void addrValueNotic(Vector<Byte> nStatusValue) {
-			if (nStatusValue!=null) {
-				if(info.getnAddress()!=null){
+			if (nStatusValue != null) {
+				if (info.getnAddress() != null) {
 					Vector<Short> mIData = new Vector<Short>();
-			       //16位整数
-					boolean result = PlcRegCmnStcTools.bytesToShorts(nStatusValue,
-							mIData);
+					// 16位整数
+					boolean result = PlcRegCmnStcTools.bytesToShorts(
+							nStatusValue, mIData);
+
 					if (result) {
-						int value=mIData.get(0);
-						int temp=info.getnAddress().nAddrValue+value;
-						if (temp<0) {
+						int value = mIData.get(0);
+						int temp = info.getnAddress().nAddrValue + value;
+						if (temp < 0) {
 							showValue = "0";
 							oldValue = showValue;
-							SKPlcNoticThread.getInstance().destoryCallback(call);
+							SKPlcNoticThread.getInstance().destoryCallback(
+									call, senceId);
 							SKSceneManage.getInstance().onRefresh(items);
 							return;
 						}
-						if (info.getmOffSetAddress()==null) {
+
+						if (info.getmOffSetAddress() == null) {
 							AddrProp addrProp = new AddrProp();
 							addrProp.eAddrRWprop = info.getnAddress().eAddrRWprop;
 							addrProp.eConnectType = info.getnAddress().eConnectType;
@@ -959,325 +1042,57 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 							addrProp.nUserPlcId = info.getnAddress().nUserPlcId;
 							addrProp.sPlcProtocol = info.getnAddress().sPlcProtocol;
 							info.setmOffSetAddress(addrProp);
-						}else {
-							info.getmOffSetAddress().nAddrValue=temp;
+						} else {
+							info.getmOffSetAddress().nAddrValue = temp;
 						}
-						
-						SKPlcNoticThread.getInstance().destoryCallback(call);
-						SKPlcNoticThread.getInstance().addNoticProp(info.getmOffSetAddress(), call, false);
-						
-						if (info.getnAddress().eConnectType>1) {
-							SKSceneManage.getInstance().updateSceneReadAddrs(senceId, info.getmOffSetAddress());
+
+						SKPlcNoticThread.getInstance().destoryCallback(call,
+								senceId);
+						SKPlcNoticThread.getInstance().addNoticProp(
+								info.getmOffSetAddress(), call, false, senceId,
+								true);
+
+						if (info.getnAddress().eConnectType > 1) {
+							SKSceneManage.getInstance().updateSceneReadAddrs(
+									senceId, info.getmOffSetAddress());
 						}
 					}
 				}
 			}
 		}
-		
+
 	};
 
 	/**
 	 * 根据高位色低位色设置背景颜色
 	 */
-	
 	private synchronized void setRectPaint(double dValue) {
 		if (dValue > info.getnHightNumber()) {
 			// 没有设置高位色背景 并且显示值大于高位值 设置颜色
-			if(currentColor != info.getnHightColor()){
+			if (currentColor != info.getnHightColor()) {
 				text.setM_backColorPadding(info.getnHightColor());
 				textItem.initRectPaint();
 				currentColor = info.getnHightColor();
 			}
-			
+
 		} else if (dValue < info.getnLowerNumber()) {
 			// 没有设置低位色背景 并且显示值小于低位值 设置颜色
-			if(currentColor != info.getnLowerColor()){
+			if (currentColor != info.getnLowerColor()) {
 				text.setM_backColorPadding(info.getnLowerColor());
 				textItem.initRectPaint();
 				currentColor = info.getnLowerColor();
 			}
-			
+
 		} else {
 			// 如果设置了高位色背景 或者低位色背景
-			if(currentColor != info.getnBackColor()){
+			if (currentColor != info.getnBackColor()) {
 				text.setM_backColorPadding(info.getnBackColor());
 				textItem.initRectPaint();
 				currentColor = info.getnBackColor();
 			}
-			
+
 		}
 	}
-
-	/**
-	 * plc通知改变值接口
-	 */
-	private boolean valueBool = false;
-	private boolean fv = false;
-	private String addressValueFromPlc = "";
-	private double showValueDouble = 0;
-	private String oldValue = "";
-	SKPlcNoticThread.IPlcNoticCallBack call = new SKPlcNoticThread.IPlcNoticCallBack() {
-
-		@Override
-		public void addrValueNotic(Vector<Byte> nStatusValue) {
-			switch (info.geteNumberType()) {
-			case INT_16: // 16位整数\
-				if (null == mSData) {
-					mSData = new Vector<Short>();
-				} else {
-					mSData.clear();
-				}
-				valueBool = PlcRegCmnStcTools.bytesToShorts(nStatusValue,
-						mSData);
-				if (valueBool && mSData.size() != 0) {
-					showValueDouble = showScale(mSData.get(0));
-					setRectPaint(showValueDouble);
-					showValue = Short.toString((short) showValueDouble);
-					fv = true;
-				}
-				break;
-			case POSITIVE_INT_16: // 16位正整数
-				if (null == mIData) {
-					mIData = new Vector<Integer>();
-				} else {
-					mIData.clear();
-				}
-				valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue,
-						mIData);
-				if (valueBool && 0 != mIData.size()) {
-					showValueDouble = showScale(mIData.get(0));
-					setRectPaint(showValueDouble);
-					showValue = Integer.toString((int) showValueDouble);
-					fv = true;
-				}
-
-				break;
-			case INT_32: // 32位整数
-				if (null == mIData) {
-					mIData = new Vector<Integer>();
-				} else {
-					mIData.clear();
-				}
-				valueBool = PlcRegCmnStcTools.bytesToInts(nStatusValue, mIData);
-				if (valueBool && 0 != mIData.size()) {
-					showValueDouble = showScale(mIData.get(0));
-					setRectPaint(showValueDouble);
-					showValue = Integer.toString((int) showValueDouble);
-					fv = true;
-				}
-				break;
-			case POSITIVE_INT_32: // 32位正整数
-				if (null == mLData) {
-					mLData = new Vector<Long>();
-				} else {
-					mLData.clear();
-				}
-				valueBool = PlcRegCmnStcTools
-						.bytesToUInts(nStatusValue, mLData);
-				if (valueBool && 0 != mLData.size()) {
-					showValueDouble = showScale(mLData.get(0));
-					setRectPaint(showValueDouble);
-					showValue = Long.toString((long) showValueDouble);
-					fv = true;
-				}
-				break;
-			case BCD_16:
-				// 调用BCD码转换
-				// 16位BCD码只能显示四位数 所以要判断，如果长度大于四位，则显示后四位数
-				if (null == mIData) {
-					mIData = new Vector<Integer>();
-				} else {
-					mIData.clear();
-				}
-				valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue,
-						mIData);
-				if (valueBool && 0 != mIData.size()) {
-					if (mIData.get(0) < 0) {
-						flagError = true;
-						showValue = "ERROR";
-					} else {
-						addressValueFromPlc = String.valueOf(mIData.get(0));
-						if ("ERROR".equals(addressValueFromPlc)
-								|| "".equals(addressValueFromPlc)) {
-							showValue = "ERROR";
-						} else {
-							if ("ERROR".equals(addressValueFromPlc)
-									|| "".equals(addressValueFromPlc)) {
-								showValue = "ERROR";
-							} else {
-								try {
-									showValueDouble = showScale(mIData.get(0));
-									setRectPaint(showValueDouble);
-									if (showValueDouble < 0) {
-										flagError = true;
-										showValue = "ERROR";
-									} else {
-										// 调用BCD码转换
-										// 16位BCD码只能显示四位数 所以要判断，如果长度大于四位，则显示后四位数
-										showValue = DataTypeFormat.intToBcdStr(
-												(long) showValueDouble, false);
-									}
-
-								} catch (Exception e) {
-									e.printStackTrace();
-									showValue = addressValueFromPlc;
-								}
-							}
-						}
-
-					}
-					fv = true;
-				}
-				break;
-			case BCD_32:
-				// 调用BCD码转换
-				// 32位BCD码只能显示八位数 所以要判断，如果长度大于八位，则显示后八位数
-				if (null == mLData) {
-					mLData = new Vector<Long>();
-				} else {
-					mLData.clear();
-				}
-				valueBool = PlcRegCmnStcTools
-						.bytesToUInts(nStatusValue, mLData);
-				if (valueBool && 0 != mLData.size()) {
-					if (mLData.get(0) < 0) {
-						showValue = "ERROR";
-					} else {
-						addressValueFromPlc = String.valueOf(mLData.get(0));
-						if ("ERROR".equals(addressValueFromPlc)
-								|| "".equals(addressValueFromPlc)) {
-							showValue = "ERROR";
-						} else {
-							try {
-								showValueDouble = showScale(mLData.get(0));
-								setRectPaint(showValueDouble);
-								if (showValueDouble < 0) {
-									flagError = true;
-									showValue = "ERROR";
-								} else {
-									// 调用BCD码转换
-									// 32位BCD码只能显示八位数 所以要判断，如果长度大于八位，则显示后八位数
-									showValue = DataTypeFormat.intToBcdStr(
-											(long) showValueDouble, false);
-								}
-
-							} catch (Exception e) {
-								// TODO: handle exception
-								e.printStackTrace();
-								showValue = addressValueFromPlc;
-							}
-
-						}
-					}
-					fv = true;
-				}
-				break;
-			case FLOAT_32: // 浮点数
-				if (null == mFData) {
-					mFData = new Vector<Float>();
-				} else {
-					mFData.clear();
-				}
-				valueBool = PlcRegCmnStcTools.bytesToFloats(nStatusValue,
-						mFData);
-				if (valueBool && 0 != mFData.size()) {
-					float showValueDouble = showScaleFloat(mFData.get(0));
-					setRectPaint(showValueDouble);
-					showValue = Float.toString(showValueDouble);
-					fv = true;
-				}
-				break;
-			case OTC_16: // 16位8进制
-				if (null == mIData) {
-					mIData = new Vector<Integer>();
-				} else {
-					mIData.clear();
-				}
-				valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue,
-						mIData);
-				if (valueBool && 0 != mIData.size()) {
-					showValueDouble = showScale(mIData.get(0));
-					setRectPaint(showValueDouble);
-					showValue = DataTypeFormat
-							.intToOctStr((long) showValueDouble);
-					fv = true;
-				}
-				break;
-			case OTC_32: // 32位的8进制
-				if (null == mLData) {
-					mLData = new Vector<Long>();
-				} else {
-					mLData.clear();
-				}
-				valueBool = PlcRegCmnStcTools
-						.bytesToUInts(nStatusValue, mLData);
-				if (valueBool && 0 != mLData.size()) {
-					showValueDouble = showScale(mLData.get(0));
-					setRectPaint(showValueDouble);
-					showValue = DataTypeFormat
-							.intToOctStr((long) showValueDouble);
-					fv = true;
-				}
-				break;
-			case HEX_16: // 16位16进制
-				if (null == mIData) {
-					mIData = new Vector<Integer>();
-				} else {
-					mIData.clear();
-				}
-				valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue,
-						mIData);
-				if (valueBool && 0 != mIData.size()) {
-					showValueDouble = showScale(mIData.get(0));
-					setRectPaint(showValueDouble);
-					showValue = DataTypeFormat
-							.intToHexStr((long) showValueDouble);
-
-					fv = true;
-				}
-
-				break;
-			case HEX_32: // 32位16进制
-				if (null == mLData) {
-					mLData = new Vector<Long>();
-				} else {
-					mLData.clear();
-				}
-				valueBool = PlcRegCmnStcTools
-						.bytesToUInts(nStatusValue, mLData);
-				if (valueBool && 0 != mLData.size()) {
-					showValueDouble = showScale(mLData.get(0));
-					setRectPaint(showValueDouble);
-					showValue = DataTypeFormat
-							.intToHexStr((long) showValueDouble);
-					fv = true;
-				}
-				break;
-			default:
-				if (null == mIData) {
-					mIData = new Vector<Integer>();
-				} else {
-					mIData.clear();
-				}
-				valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue,
-						mIData);
-				if (valueBool && 0 != mIData.size()) {
-					showValueDouble = showScale(mIData.get(0));
-					setRectPaint(showValueDouble);
-					showValue = Integer.toString((int) showValueDouble);
-					fv = true;
-				}
-				break;
-			}
-			oldValue = showValue;
-			
-			if (fv) {// 通知修改成功,通知刷新
-				SKSceneManage.getInstance().onRefresh(items);
-
-			}
-		}
-
-	};
 
 	@Override
 	public void realseMemeory() {
@@ -1286,29 +1101,12 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 			pop.closePop();
 		}
 		isOnClick = false;
-		//自定义键盘
-		if(!SKKeyPopupWindow.keyFlagIsShow)
-		{
-			if(null != popKey)
-			{
+		// 自定义键盘
+		if (!SKKeyPopupWindow.keyFlagIsShow) {
+			if (null != popKey) {
 				popKey.closePop();
 			}
 		}
-		// 销毁注册地址
-		SKPlcNoticThread.getInstance().destoryCallback(call);
-		if (info.getmOffSetAddr()!=null) {
-			SKPlcNoticThread.getInstance().destoryCallback(addOffSet);
-		}
-		SKPlcNoticThread.getInstance().destoryCallback(touchCall);
-		SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		SKPlcNoticThread.getInstance().destoryCallback(decimaNumberCall);
-		SKPlcNoticThread.getInstance().destoryCallback(sourceMaxCall);
-		SKPlcNoticThread.getInstance().destoryCallback(sourceMinCall);
-		SKPlcNoticThread.getInstance().destoryCallback(showMaxCall);
-		SKPlcNoticThread.getInstance().destoryCallback(showMinCall);
-		SKPlcNoticThread.getInstance().destoryCallback(bitKeyBoard);
-		SKPlcNoticThread.getInstance().destoryCallback(inputMaxCall);
-		SKPlcNoticThread.getInstance().destoryCallback(inputMinCall);
 
 	}
 
@@ -1330,6 +1128,7 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		return addressValueSource;
 
 	}
+
 	private float showScaleFloat(float addressValueSource) {
 		if (info.isbIsScale()) {
 			if ((sourceMax - sourceMin) != 0) {
@@ -1461,15 +1260,27 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		SEND_DATA_STRUCT mSendData = new SEND_DATA_STRUCT();
 		mSendData.eDataType = info.geteNumberType();
 		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
-		
-		if (info.getmOffSetAddress()!=null) {
-			PlcRegCmnStcTools
-			.setRegIntData(info.getmOffSetAddress(), dataList, mSendData);
-		}else {
-			PlcRegCmnStcTools
-			.setRegIntData(info.getnAddress(), dataList, mSendData);
+
+		if (info.getmOffSetAddress() != null) {
+			if (info.isInputIsShow()) {
+				PlcRegCmnStcTools.setRegIntData(info.getmOffSetAddress(),
+						dataList, mSendData);
+			} else {
+				PlcRegCmnStcTools.setRegIntData(info.getInputAddr(), dataList,
+						mSendData);
+			}
+
+		} else {
+			if (info.isInputIsShow()) {
+				PlcRegCmnStcTools.setRegIntData(info.getnAddress(), dataList,
+						mSendData);
+			} else {
+				PlcRegCmnStcTools.setRegIntData(info.getInputAddr(), dataList,
+						mSendData);
+			}
+
 		}
-		
+
 	}
 
 	/**
@@ -1505,13 +1316,26 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		SEND_DATA_STRUCT mSendData = new SEND_DATA_STRUCT();
 		mSendData.eDataType = info.geteNumberType();
 		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
-		
-		if (info.getmOffSetAddress()!=null) {
-			PlcRegCmnStcTools
-			.setRegLongData(info.getmOffSetAddress(), dataList, mSendData);
-		}else {
-			PlcRegCmnStcTools
-			.setRegLongData(info.getnAddress(), dataList, mSendData);
+
+		if (info.getmOffSetAddress() != null) {
+			if (info.isInputIsShow()) {
+				// 显示地址跟输入地址一样
+				PlcRegCmnStcTools.setRegLongData(info.getmOffSetAddress(),
+						dataList, mSendData);
+			} else {
+				PlcRegCmnStcTools.setRegLongData(info.getInputAddr(), dataList,
+						mSendData);
+			}
+
+		} else {
+			if (info.isInputIsShow()) {
+				// 显示地址跟输入地址一样
+				PlcRegCmnStcTools.setRegLongData(info.getnAddress(), dataList,
+						mSendData);
+			} else {
+				PlcRegCmnStcTools.setRegLongData(info.getInputAddr(), dataList,
+						mSendData);
+			}
 		}
 	}
 
@@ -1537,8 +1361,8 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 			if (info.isbRound()) { // 如果有四舍五入
 				int scale = decimaNumberGloble;// 设置位数
 				try {
-					BigDecimal b = new BigDecimal(inputStringDouble).setScale(scale,
-							BigDecimal.ROUND_HALF_UP);
+					BigDecimal b = new BigDecimal(inputStringDouble).setScale(
+							scale, BigDecimal.ROUND_HALF_UP);
 					inputStringDouble = b.doubleValue();
 				} catch (Exception e) {
 					// TODO: handle exception
@@ -1548,8 +1372,8 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		} else {
 			try {
 				int scale = decimaNumberGloble;// 设置位数
-				BigDecimal b = new BigDecimal(inputStringDouble).setScale(scale,
-						BigDecimal.ROUND_HALF_UP);
+				BigDecimal b = new BigDecimal(inputStringDouble).setScale(
+						scale, BigDecimal.ROUND_HALF_UP);
 				inputStringDouble = b.doubleValue();
 			} catch (Exception e) {
 				// TODO: handle exception
@@ -1568,13 +1392,29 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		SEND_DATA_STRUCT mSendData = new SEND_DATA_STRUCT();
 		mSendData.eDataType = info.geteNumberType();
 		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
-		
-		if (info.getmOffSetAddress()!=null) {
-			PlcRegCmnStcTools
-			.setRegDoubleData(info.getmOffSetAddress(), dataList, mSendData);
-		}else {
-			PlcRegCmnStcTools
-			.setRegDoubleData(info.getnAddress(), dataList, mSendData);
+
+		if (info.getmOffSetAddress() != null) {
+			if (info.isInputIsShow()) {
+				// 输入地址跟显示地址相同
+				PlcRegCmnStcTools.setRegDoubleData(info.getmOffSetAddress(),
+						dataList, mSendData);
+			} else {
+				// 输入地址跟显示地址不相同
+				PlcRegCmnStcTools.setRegDoubleData(info.getInputAddr(),
+						dataList, mSendData);
+			}
+
+		} else {
+			if (info.isInputIsShow()) {
+				// 输入地址跟显示地址相同
+				PlcRegCmnStcTools.setRegDoubleData(info.getnAddress(),
+						dataList, mSendData);
+			} else {
+				// 输入地址跟显示地址不相同
+				PlcRegCmnStcTools.setRegDoubleData(info.getInputAddr(),
+						dataList, mSendData);
+			}
+
 		}
 
 	}
@@ -1726,6 +1566,7 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 			valueBool = PlcRegCmnStcTools.bytesToFloats(nStatusValue, mFData);
 			if (valueBool && 0 != mFData.size()) {
 				tempValue = mFData.get(0);
+
 				fvb = true;
 			}
 			break;
@@ -1846,6 +1687,7 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		}
 
 	};
+
 	/**
 	 * 源范围最小值回调
 	 */
@@ -1969,78 +1811,6 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 	}
 
 	/**
-	 * 根据数据类型进行转换
-	 * 
-	 * @param addressValue
-	 *            进行缩放后的地址值
-	 * @return 要显示出来的值
-	 */
-	// private String convertShowByDataType(double addressValue) {
-	// String returnValue = "";
-	//
-	//
-	// switch (info.geteNumberType()) {
-	// case INT_16: // 16位整数
-	// returnValue = Short.toString((short) addressValue);
-	// break;
-	// case POSITIVE_INT_16: // 16位正整数
-	// returnValue = Integer.toString((int) addressValue);
-	// break;
-	// case INT_32: // 32位整数
-	// returnValue = Integer.toString((int) addressValue);
-	// break;
-	// case POSITIVE_INT_32: // 32位正整数
-	// returnValue = Long.toString((long) addressValue); dddddd
-	// break;
-	// case BCD_16:
-	// if (addressValue < 0) {
-	// flagError = true;
-	// returnValue = "ERROR";
-	// } else {
-	// // 调用BCD码转换
-	// // 16位BCD码只能显示四位数 所以要判断，如果长度大于四位，则显示后四位数
-	// returnValue = DataTypeFormat.intToBcdStr((long) addressValue,
-	// false);
-	// }
-	// break;
-	// case BCD_32:
-	// if (addressValue < 0) {
-	// flagError = true;
-	// returnValue = "ERROR";
-	// } else {
-	// // 调用BCD码转换
-	// // 32位BCD码只能显示八位数 所以要判断，如果长度大于八位，则显示后八位数
-	// returnValue = DataTypeFormat.intToBcdStr((long) addressValue,
-	// false);
-	// }
-	// break;
-	// case FLOAT_32: // 浮点数
-	// if (gloabledecimalNumber == 0) {
-	// returnValue = Long.toString((long) addressValue);
-	// } else {
-	// returnValue = Double.toString(addressValue);
-	// }
-	// break;
-	// case OTC_16: // 16位8进制
-	// returnValue = DataTypeFormat.intToOctStr((long) addressValue);
-	// break;
-	// case OTC_32: // 32位的8进制
-	// returnValue = DataTypeFormat.intToOctStr((long) addressValue);
-	// break;
-	// case HEX_16: // 16位16进制
-	// returnValue = DataTypeFormat.intToHexStr((long) addressValue);
-	// break;
-	// case HEX_32: // 32位16进制
-	// returnValue = DataTypeFormat.intToHexStr((long) addressValue);
-	// break;
-	// default:
-	// returnValue = Integer.toString((int) addressValue);
-	// break;
-	// }
-	// return returnValue;
-	// }
-
-	/**
 	 * 根据小数位数得到数值所要偏移的位数 rightOrleft true:右移 放大 false 左移 缩小
 	 */
 	private String getBaseNumber(String showValueString, boolean rightOrleft) {
@@ -2081,13 +1851,21 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 		if (SHOWAREA.CONSTANT == info.geteDecimalType()) {
 			decimaNumberGloble = info.getnDecimalLength();
 		}
-//		else {
-//			// 否则从地址中取小数位数长度
-//
-//			decimaNumberGloble = decimaNumberGloble;
-//
-//		}
-//		gloabledecimalNumber = decimaNumber;// 给小数位数赋值，显示convertShowByDataType的时候要用到gloabledecimalNumber
+		// 8进制 16 进制 不能有小数位数
+		if (info.geteNumberType() == DATA_TYPE.HEX_16
+				|| info.geteNumberType() == DATA_TYPE.HEX_32
+				|| info.geteNumberType() == DATA_TYPE.OTC_16
+				|| info.geteNumberType() == DATA_TYPE.OTC_32) {
+			decimaNumberGloble = 0;
+		}
+		// else {
+		// // 否则从地址中取小数位数长度
+		//
+		// decimaNumberGloble = decimaNumberGloble;
+		//
+		// }
+		// gloabledecimalNumber = decimaNumber;//
+		// 给小数位数赋值，显示convertShowByDataType的时候要用到gloabledecimalNumber
 	}
 
 	/**
@@ -2108,12 +1886,19 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 				mIData.clear();
 			}
 			valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue, mIData);
-			if (valueBool && 0 != mIData.size()) { 
+			if (valueBool && 0 != mIData.size()) {
 				decimaNumberGloble = mIData.get(0);
 			}
 			// 小数位数不能超过显示长度
 			if (decimaNumberGloble >= info.getnAllbytelength()) {
 				decimaNumberGloble = info.getnAllbytelength() - 1;
+			}
+			// 8进制 16 进制 不能有小数位数
+			if (info.geteNumberType() == DATA_TYPE.HEX_16
+					|| info.geteNumberType() == DATA_TYPE.HEX_32
+					|| info.geteNumberType() == DATA_TYPE.OTC_16
+					|| info.geteNumberType() == DATA_TYPE.OTC_32) {
+				decimaNumberGloble = 0;
 			}
 			SKSceneManage.getInstance().onRefresh(items);
 
@@ -2244,12 +2029,13 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 				// 只要有小数位数 存入plc的值都是要乘以偏移量
 				try {
 					double dValue = Double.valueOf(value);
-					//防止double精度损失 所以用四舍五入来保持原来的值
-					double tempD =Math.round(dValue * Math.pow(10, decimaNumber)) ;
-					long LValue = (long)tempD;
+					// 防止double精度损失 所以用四舍五入来保持原来的值
+					double tempD = Math.round(dValue
+							* Math.pow(10, decimaNumber));
+					long LValue = (long) tempD;
 					value = Long.toString(LValue);
 				} catch (Exception e) {
-                   e.printStackTrace();
+					e.printStackTrace();
 				}
 			} else {
 				// 没有小数位数 但是输入了小数点 直接四舍五入取整
@@ -2266,5 +2052,643 @@ public class SKNumInputDisplay extends SKGraphCmnTouch {
 			}
 		}
 		return value;
+	}
+
+	/**
+	 * 第一个数通知
+	 */
+	SKPlcNoticThread.IPlcNoticCallBack expFirstCall = new SKPlcNoticThread.IPlcNoticCallBack() {
+
+		@Override
+		public void addrValueNotic(Vector<Byte> nStatusValue) {
+			double value = main(nStatusValue);
+			info.getShowExpModel().get(0).setnVaule(value);
+			endCalculateShow();
+		}
+
+	};
+	/**
+	 * 第二个数通知
+	 */
+	SKPlcNoticThread.IPlcNoticCallBack expSecondCall = new SKPlcNoticThread.IPlcNoticCallBack() {
+
+		@Override
+		public void addrValueNotic(Vector<Byte> nStatusValue) {
+			double value = main(nStatusValue);
+			info.getShowExpModel().get(1).setnVaule(value);
+			endCalculateShow();
+
+		}
+
+	};
+	/**
+	 * 第三个数通知
+	 */
+	SKPlcNoticThread.IPlcNoticCallBack expThirdCall = new SKPlcNoticThread.IPlcNoticCallBack() {
+
+		@Override
+		public void addrValueNotic(Vector<Byte> nStatusValue) {
+			double value = main(nStatusValue);
+			info.getShowExpModel().get(2).setnVaule(value);
+			endCalculateShow();
+		}
+
+	};
+	/**
+	 * plc通知改变值接口
+	 */
+	private boolean valueBool = false;
+	private String addressValueFromPlc = "";
+	private double showValueDouble = 0;
+	private String oldValue = "";
+	SKPlcNoticThread.IPlcNoticCallBack call = new SKPlcNoticThread.IPlcNoticCallBack() {
+
+		@Override
+		public void addrValueNotic(Vector<Byte> nStatusValue) {
+			mainValue = main(nStatusValue);
+			endCalculateShow();
+		}
+
+	};
+
+	private double main(Vector<Byte> nStatusValue) {
+		double tempValue = 0;
+		switch (info.geteNumberType()) {
+		case INT_16: // 16位整数\
+			if (null == mSData) {
+				mSData = new Vector<Short>();
+			} else {
+				mSData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToShorts(nStatusValue, mSData);
+			if (valueBool && mSData.size() != 0) {
+				tempValue = mSData.get(0);
+			}
+			break;
+		case POSITIVE_INT_16: // 16位正整数
+			if (null == mIData) {
+				mIData = new Vector<Integer>();
+			} else {
+				mIData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue, mIData);
+			if (valueBool && 0 != mIData.size()) {
+				tempValue = mIData.get(0);
+			}
+			break;
+		case INT_32: // 32位整数
+			if (null == mIData) {
+				mIData = new Vector<Integer>();
+			} else {
+				mIData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToInts(nStatusValue, mIData);
+			if (valueBool && 0 != mIData.size()) {
+				tempValue = mIData.get(0);
+
+			}
+			break;
+		case POSITIVE_INT_32: // 32位正整数
+			if (null == mLData) {
+				mLData = new Vector<Long>();
+			} else {
+				mLData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToUInts(nStatusValue, mLData);
+			if (valueBool && 0 != mLData.size()) {
+				tempValue = mLData.get(0);
+			}
+			break;
+		case BCD_16:
+			// 调用BCD码转换
+			// 16位BCD码只能显示四位数 所以要判断，如果长度大于四位，则显示后四位数
+			if (null == mIData) {
+				mIData = new Vector<Integer>();
+			} else {
+				mIData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue, mIData);
+			if (valueBool && 0 != mIData.size()) {
+				tempValue = mIData.get(0);
+			}
+			break;
+		case BCD_32:
+			// 调用BCD码转换
+			// 32位BCD码只能显示八位数 所以要判断，如果长度大于八位，则显示后八位数
+			if (null == mLData) {
+				mLData = new Vector<Long>();
+			} else {
+				mLData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToUInts(nStatusValue, mLData);
+			if (valueBool && 0 != mLData.size()) {
+				tempValue = mLData.get(0);
+			}
+			break;
+		case FLOAT_32: // 浮点数
+			if (null == mFData) {
+				mFData = new Vector<Float>();
+			} else {
+				mFData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToFloats(nStatusValue, mFData);
+			if (valueBool && 0 != mFData.size()) {
+				tempValue = mFData.get(0);
+
+			}
+			break;
+		case OTC_16: // 16位8进制
+			if (null == mIData) {
+				mIData = new Vector<Integer>();
+			} else {
+				mIData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue, mIData);
+			if (valueBool && 0 != mIData.size()) {
+				tempValue = mIData.get(0);
+
+			}
+			break;
+		case OTC_32: // 32位的8进制
+			if (null == mLData) {
+				mLData = new Vector<Long>();
+			} else {
+				mLData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToUInts(nStatusValue, mLData);
+			if (valueBool && 0 != mLData.size()) {
+				tempValue = mLData.get(0);
+
+			}
+			break;
+		case HEX_16: // 16位16进制
+			if (null == mIData) {
+				mIData = new Vector<Integer>();
+			} else {
+				mIData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue, mIData);
+			if (valueBool && 0 != mIData.size()) {
+				tempValue = mIData.get(0);
+			}
+
+			break;
+		case HEX_32: // 32位16进制
+			if (null == mLData) {
+				mLData = new Vector<Long>();
+			} else {
+				mLData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToUInts(nStatusValue, mLData);
+			if (valueBool && 0 != mLData.size()) {
+				tempValue = mLData.get(0);
+			}
+			break;
+		default:
+			if (null == mIData) {
+				mIData = new Vector<Integer>();
+			} else {
+				mIData.clear();
+			}
+			valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue, mIData);
+			if (valueBool && 0 != mIData.size()) {
+				tempValue = mIData.get(0);
+			}
+			break;
+		}
+		return tempValue;
+	}
+
+	/**
+	 * 最终的计算显示方法
+	 */
+	private void endCalculateShow() {
+		double resultValue = 0;
+		// 计算
+		if (info.isbShowExp() && info.getShowExpModel().size() != 0) {
+			// 选择了表达式
+			for (int i = 0; i < info.getShowExpModel().size(); i++) {
+				ExpressModel model = info.getShowExpModel().get(i);
+				if (i == 0) {
+					resultValue = Expression.getInstance().evaluate(mainValue,
+							model.getnVaule(), model.getnSign());
+				} else {
+					resultValue = Expression.getInstance().evaluate(
+							resultValue, model.getnVaule(), model.getnSign());
+				}
+
+			}
+		} else {
+			resultValue = mainValue;
+		}
+
+		switch (info.geteNumberType()) {
+		case INT_16: // 16位整数\
+			showValueDouble = showScale(resultValue);
+			setRectPaint(showValueDouble);
+			showValue = Short.toString((short) showValueDouble);
+			break;
+		case POSITIVE_INT_16: // 16位正整数
+			showValueDouble = showScale(resultValue);
+			setRectPaint(showValueDouble);
+			showValue = Integer.toString((int) showValueDouble);
+			break;
+		case INT_32: // 32位整数
+			showValueDouble = showScale(resultValue);
+			setRectPaint(showValueDouble);
+			showValue = Integer.toString((int) showValueDouble);
+			break;
+		case POSITIVE_INT_32: // 32位正整数
+			showValueDouble = showScale(resultValue);
+			setRectPaint(showValueDouble);
+			showValue = Long.toString((long) showValueDouble);
+			break;
+		case BCD_16:
+			// 调用BCD码转换
+			// 16位BCD码只能显示四位数 所以要判断，如果长度大于四位，则显示后四位数
+			if (resultValue < 0) {
+				showValue = "ERROR";
+			} else {
+				addressValueFromPlc = String.valueOf(resultValue);
+				try {
+					showValueDouble = showScale(resultValue);
+					setRectPaint(showValueDouble);
+					if (showValueDouble < 0) {
+						showValue = "ERROR";
+					} else {
+						// 调用BCD码转换
+						// 16位BCD码只能显示四位数 所以要判断，如果长度大于四位，则显示后四位数
+						showValue = DataTypeFormat.intToBcdStr(
+								(long) showValueDouble, false);
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+					showValue = addressValueFromPlc;
+				}
+			}
+			break;
+		case BCD_32:
+			// 调用BCD码转换
+			// 32位BCD码只能显示八位数 所以要判断，如果长度大于八位，则显示后八位数
+			if (resultValue < 0) {
+				showValue = "ERROR";
+			} else {
+				addressValueFromPlc = String.valueOf(resultValue);
+				try {
+					showValueDouble = showScale(resultValue);
+					setRectPaint(showValueDouble);
+					if (showValueDouble < 0) {
+						showValue = "ERROR";
+					} else {
+						// 调用BCD码转换
+						// 32位BCD码只能显示八位数 所以要判断，如果长度大于八位，则显示后八位数
+						showValue = DataTypeFormat.intToBcdStr(
+								(long) showValueDouble, false);
+					}
+				} catch (Exception e) {
+					// TODO: handle exception
+					e.printStackTrace();
+					showValue = addressValueFromPlc;
+				}
+			}
+			break;
+		case FLOAT_32: // 浮点数
+			float showValueDoublef = showScaleFloat((float) resultValue);
+			setRectPaint(showValueDoublef);
+			showValue = Float.toString(showValueDoublef);
+			break;
+		case OTC_16: // 16位8进制
+			showValueDouble = showScale(resultValue);
+			setRectPaint(showValueDouble);
+			showValue = DataTypeFormat.intToOctStr((long) showValueDouble);
+			break;
+		case OTC_32: // 32位的8进制
+			showValueDouble = showScale(resultValue);
+			setRectPaint(showValueDouble);
+			showValue = DataTypeFormat.intToOctStr((long) showValueDouble);
+			break;
+		case HEX_16: // 16位16进制
+			showValueDouble = showScale(resultValue);
+			setRectPaint(showValueDouble);
+			showValue = DataTypeFormat.intToHexStr((long) showValueDouble);
+			break;
+		case HEX_32: // 32位16进制
+			showValueDouble = showScale(resultValue);
+			setRectPaint(showValueDouble);
+			showValue = DataTypeFormat.intToHexStr((long) showValueDouble);
+			break;
+		default:
+			showValueDouble = showScale(resultValue);
+			setRectPaint(showValueDouble);
+			showValue = Integer.toString((int) showValueDouble);
+			break;
+		}
+		oldValue = showValue;
+		SKSceneManage.getInstance().onRefresh(items);
+	}
+
+	/**
+	 * 脚本对外接口
+	 */
+	@Override
+	public IItem getIItem() {
+		// TODO Auto-generated method stub
+		return this;
+	}
+
+	@Override
+	public int getItemLeft(int id) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			return info.getnStartX();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			return info.getnStartY();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			return info.getnWidth();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			return info.getnHeight();
+		}
+		return -1;
+	}
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO Auto-generated method stub
+		// nCurrentState;
+		if (info != null) {
+			return getColor(info.getnBackColor());
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO Auto-generated method stub
+		return isShowFlag;
+	}
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO Auto-generated method stub
+		return isTouchFlag;
+	}
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO Auto-generated method stub
+
+		if (info != null) {
+			if (x == info.getnStartX()) {
+				return true;
+			}
+			if (x < 0
+					|| x > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			
+			int l = items.rect.left;
+			info.setnStartX(x);
+			items.rect.left = x;
+			items.rect.right = x - l + items.rect.right;
+			items.mMoveRect = new Rect();
+			text.setStartX(x);
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (y == info.getnStartY()) {
+				return true;
+			}
+			if (y < 0
+					|| y > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			info.setnStartY(y);
+			int t = items.rect.top;
+			items.rect.top = y;
+			items.rect.bottom = y - t + items.rect.bottom;
+			items.mMoveRect = new Rect();
+			text.setStartY(y);
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (w == info.getnWidth()) {
+				return true;
+			}
+			if (w < 0
+					|| w > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			info.setnWidth((short) w);
+			items.rect.right = w - items.rect.width() + items.rect.right;
+			items.mMoveRect = new Rect();
+			text.setRectWidth(items.rect.width());
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (h == info.getnHeight()) {
+				return true;
+			}
+			if (h < 0
+					|| h > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			info.setnHeight((short) h);
+			items.rect.bottom = h - items.rect.height() + items.rect.bottom;
+			items.mMoveRect = new Rect();
+			text.setRectHeight(items.rect.height());
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			int color = Color.rgb(r, g, b);
+			if (color == info.getnBackColor()) {
+				return true;
+			}
+			info.setnBackColor(color);
+			currentColor=color;
+			text.setM_backColorPadding(color);
+			textItem.resetColor(color, 2);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v == isShowFlag) {
+			return true;
+		}
+		isShowFlag = v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v==isTouchFlag) {
+			return true;
+		}
+		isTouchFlag = v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO Auto-generated method stub
+		if (info==null||alpha<0||alpha>255) {
+			return false;
+		}
+		if (info.getnTransparent()==alpha) {
+			return true;
+		}
+		info.setnTransparent(alpha);
+		text.setM_alphaPadding(alpha);// 设置透明度
+		textItem.resetAlpha(alpha);
+		SKSceneManage.getInstance().onRefresh(items);
+		return false;
+	}
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	/**
+	 * 获取RGB颜色
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
 	}
 }

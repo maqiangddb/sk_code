@@ -1,28 +1,30 @@
 package com.android.Samkoonhmi.skgraphics.plc.touchshow;
 
 import java.sql.Date;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Vector;
+
+import android.R.integer;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.text.TextUtils;
 import android.view.MotionEvent;
-import android.widget.Toast;
 
-import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.SKThread;
 import com.android.Samkoonhmi.graphicsdrawframe.DragTable;
 import com.android.Samkoonhmi.graphicsdrawframe.HTitleItem.EnterKeyCallBack;
 import com.android.Samkoonhmi.model.DragTableInfo;
 import com.android.Samkoonhmi.model.HistoryShowInfo;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.RowCell;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.SystemInfo;
@@ -48,7 +50,7 @@ import com.android.Samkoonhmi.util.SKLanguage;
 import com.android.Samkoonhmi.util.TASK;
 import com.android.Samkoonhmi.util.TextAlignUtil;
 
-public class SKHistoryShow extends SKGraphCmnTouch{
+public class SKHistoryShow extends SKGraphCmnTouch implements IItem{
 
 	private static final String TAG="SKHistoryShow";
 	private static final int SHOW_DIALOG=10;
@@ -75,9 +77,11 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 	private short nRow;//显示行数
 	private ArrayList<String> mHList;//标题栏信息
 	private Vector<RowCell> mRowCells;//显示文本信息
+	private Vector<RowCell> mOldRowCells;//记录文本信息
 	private long nStartTime=0;//开始时间
 	private long nEndTime=0;//结束时间
 	private int nAllCount=0;//数据总数
+	private int nOldAllCount=0;//记录数据总数
     private Vector<Integer> mCodeList;//显示通道号集合
 	private boolean isLoading;//是否已经读取数据库信息
 	private boolean refresh;
@@ -91,6 +95,9 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 	private boolean isSearching=false;			//是否正在显示搜索结果
 	private int nSearchItem;				//点击列
 	private int nSearchIndex;				//搜索列
+	private boolean bSearchId;				//搜索序号
+	private int nSearchIdNumber;			//搜索序号
+	
 	
 	
 	public SKHistoryShow(int sceneId,int itemId,Context context,HistoryShowInfo info){
@@ -105,6 +112,7 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 		mLoadInfo=new TableLoadInfo();
 		this.info=info;
 		mHandler=new UIHandler(mContext.getMainLooper());
+		mOldRowCells = new Vector<RowCell>();
 		
 		if (info!=null) {
 			items = new SKItems();
@@ -118,6 +126,173 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 			items.nCollidindId = info.getnCollidindId();
 			items.rect = rect;
 			items.mGraphics=this;
+			
+			//初始化没一小格信息
+			initTbaleItem();
+			
+			nRow=(short)(info.getnLine()+1);
+			
+			if (dInfo==null) {
+				
+				dInfo = new DragTableInfo();
+				dInfo.setnFrameColor(info.getnFrameColor());
+				dInfo.setnLineColor(info.getnFrameColor());
+				dInfo.setnTableBackcolor(info.getnBackcolor());
+				
+				dInfo.setnTitleFontColor(info.getnTitleFontColor());
+				if (info.getmTitleFontSizes().size()>SystemInfo.getCurrentLanguageId()) {
+					int temp=info.getmTitleFontSizes().get(SystemInfo.getCurrentLanguageId());
+					dInfo.setnTitleFontSize((short)temp);
+				}else {
+					dInfo.setnTitleFontSize((short)10);
+				}
+				dInfo.setnTitleBackcolor(info.getnTitleBackColor());
+				if (info.getmTitleFontType().size()>SystemInfo.getCurrentLanguageId()) {
+					dInfo.setmHTypeFace(TextAlignUtil.getTypeFace(info.getmTitleFontType().get(SystemInfo.getCurrentLanguageId())));
+				}else {
+					dInfo.setmHTypeFace(Typeface.DEFAULT);
+				}
+				dInfo.setmVTypeFace(Typeface.DEFAULT);
+				dInfo.setmTypeFace(Typeface.DEFAULT);
+				
+				dInfo.setnVTitleFontColor(info.getnTextFontColor());
+				dInfo.setnVTitleFontSize((short)info.getnTextFontSize());
+				dInfo.setnVTitleBackcolor(info.getnBackcolor());
+				
+				dInfo.setnTextFontColor(info.getnTextFontColor());
+				dInfo.setnTextFontSize((short)info.getnTextFontSize());
+				dInfo.setnRow(nRow);
+				dInfo.setShowNum(info.isbShowCode());
+				nShowColum=nColum;
+				int show=0;
+				if (info.isbShowCode()) {
+					show++;
+				}
+				if (info.isbShowDate()) {
+					show++;
+				}
+				if (info.isbShowTime()) {
+					show++;
+				}
+				
+				if (nColum>4+show) {
+					nShowColum=(short)(4+show);
+				}
+				
+				dInfo.setnRank(nShowColum);
+				dInfo.setnDataRank(nColum);
+				dInfo.setnAlpha(info.getnAlpha());
+				dInfo.setnWidth(info.getnWidth());
+				dInfo.setnAllColumWidth(info.getnWidth());
+				dInfo.setnHeight(info.getnHeight());
+				dInfo.setnLeftTopX(info.getnLeftTopX());
+				dInfo.setnLeftTopY(info.getnLeftTopY());
+				if (nColum>nShowColum) {
+					if (info.getmRowWidht()!=null) {
+						ArrayList<Double> temp=info.getmRowWidht();
+						double colum=(double)info.getnWidth()/nShowColum;
+						temp.set(info.getmRowWidht().size()-1, colum);
+						double width=0;
+						for (int i = 0; i < nColum; i++) {
+							if (i<info.getmRowWidht().size()) {
+								width+=info.getmRowWidht().get(i);
+							}else {
+								width+=colum;
+							}
+						}
+						double nwidth=width-info.getnWidth();
+						dInfo.setnAllColumWidth((int)width);
+						if (nwidth>0) {
+							dInfo.setnDiffer((int)nwidth);
+						}else {
+							dInfo.setnDiffer(0);
+						}
+						
+					}
+				}
+				
+				dInfo.setmRowWidth(info.getmRowWidht());
+				dInfo.setmRowHeight(info.getmRowHeight());
+				dTable = new DragTable(dInfo, mContext, items,true);
+				dTable.setiPageTurning(iTurning);
+				dTable.setiClickListener(clickListener);
+				dInfo.setnAllCount(nAllCount);
+				dTable.init(null);
+				dTable.updateDataNum(nAllCount);
+				dTable.initData(mRowCells, mHList,0);
+				dTable.drawTable();
+			}else{
+				dTable.updateDataNum(nOldAllCount);
+				dTable.moveToBottom();
+				if(nOldAllCount<info.getnLine()){
+					dTable.initData(mOldRowCells, mHList,0);
+				}else{
+					dTable.initData(mOldRowCells, mHList,nOldAllCount-mOldRowCells.size()+1);
+				}
+				dInfo.setnAllCount(nOldAllCount);
+			}
+			
+			this.show = true;
+			this.touch = true;
+			this.showByAddr = false;
+			this.touchByAddr = false;
+			this.showByUser = false;
+			this.touchByUser = false;
+			
+			// 显现权限
+			if (info.getmShowInfo() != null) {
+				if (info.getmShowInfo().getShowAddrProp()!=null) {
+					// 受地址控制
+					showByAddr = true;
+				}
+				if (info.getmShowInfo().isbShowByUser()) {
+					// 受用户权限控制
+					showByUser = true;
+				}
+			}
+
+			// 触控权限
+			if (info.getmTouchInfo() != null) {
+				if (info.getmTouchInfo().getTouchAddrProp()!=null) {
+					// 受地址控制
+					touchByAddr = true;
+				}
+
+				if (info.getmTouchInfo().isbTouchByUser()) {
+					// 受用户权限控制
+					touchByUser = true;
+				}
+			}
+
+			// 注册显现地址
+			if (showByAddr) {
+				ADDRTYPE addrType = info.getmShowInfo().geteAddrType();
+				if (addrType == ADDRTYPE.BITADDR) {
+					SKPlcNoticThread.getInstance().addNoticProp(info.getmShowInfo().getShowAddrProp(), showCall,
+							true,nSceneId);
+				} else {
+					SKPlcNoticThread.getInstance().addNoticProp(info.getmShowInfo().getShowAddrProp(), showCall,
+							false,nSceneId);
+				}
+
+			}
+
+			// 注册触控地址
+			if (touchByAddr) {
+				ADDRTYPE addrType = info.getmTouchInfo().geteCtlAddrType();
+				if (addrType == ADDRTYPE.BITADDR) {
+					SKPlcNoticThread.getInstance().addNoticProp(info.getmTouchInfo().getTouchAddrProp(),
+							touchCall, true,nSceneId);
+				} else {
+					SKPlcNoticThread.getInstance().addNoticProp(info.getmTouchInfo().getTouchAddrProp(),
+							touchCall, false,nSceneId);
+				}
+			}
+			
+			//注册地址控制
+			if(info.isbControl()){
+				SKPlcNoticThread.getInstance().addNoticProp(info.getmControlAddr(), contralCall, false,nSceneId);
+			}
 		}
 	}
 	
@@ -152,13 +327,7 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 		sTaskName="";
 		DataCollect.getInstance().destoryDataCollectCallback(dataCallBack);
 		SKThread.getInstance().getBinder().onDestroy(tCallback, sTaskName);
-		SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		SKPlcNoticThread.getInstance().destoryCallback(touchCall);
-		if (info!=null) {
-			if (info.isbControl()) {
-				SKPlcNoticThread.getInstance().destoryCallback(contralCall);
-			}
-		}
+		
 		isLoading=false;
 		refresh=false;
 		if (mHandler!=null) {
@@ -168,6 +337,14 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 		if(mSKSearchDialog !=null){
 			mSKSearchDialog.hidePopWindow();
 			
+		}
+		
+		if(!(mRowCells==null||mRowCells.isEmpty())){
+			mOldRowCells.clear();
+			if(mRowCells != null){
+				mOldRowCells.addAll(mRowCells);
+				nOldAllCount = nAllCount;
+			}
 		}
 	}
 	
@@ -234,12 +411,6 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 			return;
 		}
 		this.flag=false;
-		this.show = true;
-		this.touch = true;
-		this.showByAddr = false;
-		this.touchByAddr = false;
-		this.showByUser = false;
-		this.touchByUser = false;
 		this.isLoading=false;
 		this.nCacheNum=0;
 		this.bFore=false;
@@ -249,97 +420,6 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 
 		//初始化没一小格信息
 		initTbaleItem();
-		
-		nRow=(short)(info.getnLine()+1);
-		
-		if (dInfo==null) {
-			
-			dInfo = new DragTableInfo();
-			dInfo.setnFrameColor(info.getnFrameColor());
-			dInfo.setnLineColor(info.getnFrameColor());
-			dInfo.setnTableBackcolor(info.getnForecolor());
-			
-			dInfo.setnTitleFontColor(info.getnTitleFontColor());
-			if (info.getmTitleFontSizes().size()>SystemInfo.getCurrentLanguageId()) {
-				int temp=info.getmTitleFontSizes().get(SystemInfo.getCurrentLanguageId());
-				dInfo.setnTitleFontSize((short)temp);
-			}else {
-				dInfo.setnTitleFontSize((short)10);
-			}
-			dInfo.setnTitleBackcolor(info.getnTitleBackColor());
-			if (info.getmTitleFontType().size()>SystemInfo.getCurrentLanguageId()) {
-				dInfo.setmHTypeFace(TextAlignUtil.getTypeFace(info.getmTitleFontType().get(SystemInfo.getCurrentLanguageId())));
-			}else {
-				dInfo.setmHTypeFace(Typeface.DEFAULT);
-			}
-			dInfo.setmVTypeFace(Typeface.DEFAULT);
-			dInfo.setmTypeFace(Typeface.DEFAULT);
-			
-			dInfo.setnVTitleFontColor(info.getnTextFontColor());
-			dInfo.setnVTitleFontSize((short)info.getnTextFontSize());
-			dInfo.setnVTitleBackcolor(info.getnForecolor());
-			
-			dInfo.setnTextFontColor(info.getnTextFontColor());
-			dInfo.setnTextFontSize((short)info.getnTextFontSize());
-			dInfo.setnRow(nRow);
-			dInfo.setShowNum(info.isbShowCode());
-			nShowColum=nColum;
-			if (dInfo.isShowNum()) {
-				if (nShowColum>7) {
-					nShowColum=7;
-				}
-			}else {
-				if (nShowColum>6) {
-					nShowColum=6;
-				}
-			}
-			dInfo.setnRank(nShowColum);
-			dInfo.setnDataRank(nColum);
-			dInfo.setnAlpha(info.getnAlpha());
-			dInfo.setnWidth(info.getnWidth());
-			dInfo.setnAllColumWidth(info.getnWidth());
-			dInfo.setnHeight(info.getnHeight());
-			dInfo.setnLeftTopX(info.getnLeftTopX());
-			dInfo.setnLeftTopY(info.getnLeftTopY());
-			if (nColum>nShowColum) {
-				if (info.getmRowWidht()!=null) {
-					ArrayList<Double> temp=info.getmRowWidht();
-					double colum=(double)info.getnWidth()/nShowColum;
-					temp.set(info.getmRowWidht().size()-1, colum);
-					double width=0;
-					for (int i = 0; i < nColum; i++) {
-						if (i<info.getmRowWidht().size()) {
-							width+=info.getmRowWidht().get(i);
-						}else {
-							width+=colum;
-						}
-					}
-					double nwidth=width-info.getnWidth();
-					dInfo.setnAllColumWidth((int)width);
-					if (nwidth>0) {
-						dInfo.setnDiffer((int)nwidth);
-					}else {
-						dInfo.setnDiffer(0);
-					}
-					
-				}
-			}
-			
-			dInfo.setmRowWidth(info.getmRowWidht());
-			dInfo.setmRowHeight(info.getmRowHeight());
-			dTable = new DragTable(dInfo, mContext, items,true);
-			dTable.setiPageTurning(iTurning);
-			dTable.setiClickListener(clickListener);
-			dInfo.setnAllCount(nAllCount);
-			dTable.init(null);
-			dTable.updateDataNum(nAllCount);
-			dTable.initData(mRowCells, mHList,0);
-			dTable.drawTable();
-		}
-		
-		if (sTaskName.equals("")) {
-			sTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-		}
 		
 		mLoadInfo.nLoadType=0;
 		mLoadInfo.nLoadCount=info.getnLine();
@@ -514,70 +594,16 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 	 * 注册通知
 	 */
 	private void register() {
-		// 显现权限
-		if (info.getmShowInfo() != null) {
-			if (info.getmShowInfo().getShowAddrProp()!=null) {
-				// 受地址控制
-				showByAddr = true;
-			}
-			if (info.getmShowInfo().isbShowByUser()) {
-				// 受用户权限控制
-				showByUser = true;
-			}
-		}
-
-		// 触控权限
-		if (info.getmTouchInfo() != null) {
-			if (info.getmTouchInfo().getTouchAddrProp()!=null) {
-				// 受地址控制
-				touchByAddr = true;
-			}
-
-			if (info.getmTouchInfo().isbTouchByUser()) {
-				// 受用户权限控制
-				touchByUser = true;
-			}
-		}
-
-		// 注册显现地址
-		if (showByAddr) {
-			ADDRTYPE addrType = info.getmShowInfo().geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmShowInfo().getShowAddrProp(), showCall,
-						true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmShowInfo().getShowAddrProp(), showCall,
-						false);
-			}
-
-		}
-
-		// 注册触控地址
-		if (touchByAddr) {
-			ADDRTYPE addrType = info.getmTouchInfo().geteCtlAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmTouchInfo().getTouchAddrProp(),
-						touchCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmTouchInfo().getTouchAddrProp(),
-						touchCall, false);
-			}
-		}
-		
-		//注册地址控制
-		if(info.isbControl()){
-			SKPlcNoticThread.getInstance().addNoticProp(info.getmControlAddr(), contralCall, false);
-		}
 		
 		//注册语言切换通知
-		SKLanguage.getInstance().getBinder().onRegister(lCallback);
+		if (SystemInfo.getLanguageNumber()>1) {
+			SKLanguage.getInstance().getBinder().onRegister(lCallback);
+		}
 		
 		//注册采集通知
-		//Log.d(TAG, "register id:"+info.getnGroupId());
 		Vector<Integer> gVector=new Vector<Integer>();
 		gVector.add(info.getnGroupId());
 		DataCollect.getInstance().addNoticProp(2, gVector, dataCallBack);
-		
 	}
 	
 	/**
@@ -610,7 +636,6 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 	 * 历史数据查询时间范围
 	 */
 	private void doTimeScope(Vector<Integer> data) {
-		// TODO Auto-generated method stub
 		boolean bNoStart=false,bNoEnd=false;
 		if (data.size()<13) {
 			return;
@@ -1008,13 +1033,20 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 				if(isSearchable&&isSearching){//搜索
 					
 					String sQueryElement = getSearchItem(nSearchIndex);//获得搜索列名称
-					System.out.println("sQueryElement:"+sQueryElement);
+					
 					String sSearchCondition = "";
 					if(sQueryElement.equals("id")){
 						sSearchCondition = " >= "+mSearchString;
+						bSearchId = true;
+						try{
+							nSearchIdNumber = Integer.parseInt(mSearchString);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
 					}else{
 						sSearchCondition = " like " + "\'%"+mSearchString + "%\'";
 					}
+					System.out.println("sSearchCondition:"+sSearchCondition);
 					nAllCount=DataCollect.getInstance().getDataCount(info.getnGroupId(), sQueryElement, sSearchCondition);
 					dTable.setEnterKeyShow(true);
 					dTable.getHTitleItem().SetEnterKeyCallBack(iEnterKeyCallBack);
@@ -1055,9 +1087,11 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 			}
 			
 			//Log.d(TAG, "nAllCount:"+nAllCount+",type:"+mLoadInfo.nLoadType);
-
+			if(bSearchId){
+				mLoadInfo.nRowIndex += nSearchIdNumber;
+				mLoadInfo.nEndIndex += nSearchIdNumber;
+			}
 			initData(dataProps,mLoadInfo.nLoadType,mLoadInfo.nRowIndex,mLoadInfo.nEndIndex);
-
 		}
 	};	
 	
@@ -1176,9 +1210,7 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 			}else {
 				dTable.updateDataNum(nAllCount);
 			}
-			
 		}
-		
 	}
 	
 	/**
@@ -1433,15 +1465,16 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 		
 		@Override
 		synchronized public void onConfirm(int index, String Scontent) {
-			// TODO Auto-generated method stub
 			mSearchString = Scontent;//获得搜索条件匹配
 			
-			if(mSearchString == null) return;
-			if(mSearchString.isEmpty()) return;
+			if(TextUtils.isEmpty(mSearchString)){
+				return;
+			}
 			nSearchIndex = nSearchItem;
 			mLoadInfo.nLoadType=0; //设置初始化标识		
 			
 			isSearching=true;//标识为正在搜索，界面显示的是搜索结果，停止刷新
+			bSearchId = false;
 			
 			SkGlobalBackThread.getInstance().getGlobalBackHandler()
 				.obtainMessage(MODULE.READ_HISTORY_FROM_DATABASE, iReadCallback).sendToTarget();
@@ -1449,7 +1482,6 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 
 		@Override
 		public void onCancel() {
-			// TODO Auto-generated method stub
 		}
 	};
 	
@@ -1759,7 +1791,7 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 			}
 			
 			
-			mSKSearchDialog=new SKSearchDialog(mContext,popRect);
+			mSKSearchDialog=new SKSearchDialog(mContext.getApplicationContext(),popRect);
 			
 			mSKSearchDialog.setHintInfo(mHList.get(gid));
 			mSKSearchDialog.setiOperCall(SKSearchIOperCall);
@@ -1797,32 +1829,347 @@ public class SKHistoryShow extends SKGraphCmnTouch{
 	}
 	
 	/**
-	 * 重刷标题背景色
-	 * @param color 标题背景色
-	 */
-//	private void ResetTitleColorofTable(int color){
-//		
-//		//in case that dTable equals null
-//		try{
-//			dTable.setnInfogetnTitleBackcolor(color);
-//			dTable.resetTitlePaint();
-//			dTable.updateTitle(mHList);
-//			SKSceneManage.getInstance().onRefresh(items);
-//		}catch(Exception e){
-//			
-//		}
-//	}
-	
-	/**
 	 * 设置返回键响应
 	 */
 	EnterKeyCallBack iEnterKeyCallBack = new EnterKeyCallBack(){
-
 		@Override
 		public void onPress() {
-			// TODO Auto-generated method stub
 			ResetDataFromSearch();
 		}
-		
+
+		@Override
+		public void onLongTouch(int x, int y) {
+			// TODO Auto-generated method stub
+			
+		}
 	};
+	
+	
+	/**
+	 * 控件对外接口
+	 */
+	
+	public IItem getIItem(){
+		return this;
+	}
+	
+	@Override
+	public int getItemLeft(int id) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			return info.getnLeftTopX();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			return info.getnLeftTopY();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO 自动生成的方法存根
+		if(info!=null){
+			return info.getnWidth();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO 自动生成的方法存根
+		if(info!=null){
+			return info.getnHeight();
+		}
+		return -1;
+	}
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO 自动生成的方法存根
+		return null;
+	}
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			return getColor(info.getnBackcolor());
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			return getColor(info.getnFrameColor());
+		}
+		return null;
+	}
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO 自动生成的方法存根
+		return show;
+	}
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO 自动生成的方法存根
+		return touch;
+	}
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if (x<0||x>SKSceneManage.getInstance().getCurrentScene().nSceneWidth) {
+				return false;
+			}
+			if (x==info.getnLeftTopX()) {
+				return true;
+			}
+			info.setnLeftTopX((short)x);
+			int l=items.rect.left;
+			items.rect.left=x;
+			items.rect.right=x-l+items.rect.right;
+			items.mMoveRect=new Rect();
+			dTable.resetLeftTopX(x);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		
+		return false;
+	}
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if (y<0||y>SKSceneManage.getInstance().getCurrentScene().nSceneHeight) {
+				return false;
+			}
+			if (y==info.getnLeftTopY()) {
+				return true;
+			}
+			info.setnLeftTopY((short)y);
+			int t = items.rect.top;
+			items.rect.top = y;
+			items.rect.bottom = y - t + items.rect.bottom;
+			items.mMoveRect=new Rect();
+			dTable.resetLeftTopY(y);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if(w<0||w>SKSceneManage.getInstance().getCurrentScene().nSceneWidth){
+				return false;
+			}
+			if(w==info.getnWidth()){
+				return true;
+			}
+			info.setnWidth((short)w);
+			items.rect.right = w - items.rect.width() + items.rect.right;
+			items.mMoveRect=new Rect();
+			dTable.resetWidth(w);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if (h<0||h>SKSceneManage.getInstance().getCurrentScene().nSceneHeight) {
+				return false;
+			}
+			if(h==info.getnHeight()){
+				return true;
+			}
+			info.setnHeight((short)h);
+			items.rect.bottom = h - items.rect.height() + items.rect.bottom;
+			items.mMoveRect=new Rect();
+			dTable.resetHeigth(h);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		if (info==null) {
+			return false;
+		}
+		
+		int color=Color.rgb(r, g, b);
+		
+		if (color==info.getnBackcolor()) {
+			return true;
+		}
+		info.setnBackcolor(color);
+		dTable.resetBackcolor(color);
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		if (info==null) {
+			return false;
+		}
+		
+		int color=Color.rgb(r, g, b);
+		
+		if (color==info.getnFrameColor()) {
+			return true;
+		}
+		info.setnFrameColor(color);
+		dTable.resetLinecolor(color);
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		if (v==show) {
+			return true;
+		}
+		show=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		if (v==touch) {
+			return true;
+		}
+		touch=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			dTable.turnPage(0);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			dTable.turnPage(1);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			int type=0;
+			if (w<0) {
+				type=1;
+			}
+			dTable.moveRank(type,w);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			int type=0;
+			if(h<0){
+				type=1;
+			}
+			dTable.moveRow(type, h);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO 自动生成的方法存根
+		if (info==null||alpha<0||alpha>255) {
+			return false;
+		}
+		if (info.getnAlpha()==alpha) {
+			return true;
+		}
+		info.setnAlpha((short)alpha);
+		dTable.resetAlpha(alpha);
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+	
+	/**
+	 * 颜色取反
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
+	}
 }

@@ -20,12 +20,14 @@ import java.util.Vector;
 import com.android.Samkoonhmi.graphicsdrawframe.FreeLineItem;
 import com.android.Samkoonhmi.graphicsdrawframe.RectItem;
 import com.android.Samkoonhmi.graphicsdrawframe.TextItem;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.ShowInfo;
 import com.android.Samkoonhmi.model.StaticTextModel;
 import com.android.Samkoonhmi.model.TrendsDataInfo;
 import com.android.Samkoonhmi.model.sk_historytrends.ChannelGroupInfo;
 import com.android.Samkoonhmi.model.sk_historytrends.HistoryTrendsInfo;
+import com.android.Samkoonhmi.plccommunicate.PlcRegCmnStcTools;
 import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
 import com.android.Samkoonhmi.skenum.ADDRTYPE;
 import com.android.Samkoonhmi.skenum.CSS_TYPE;
@@ -42,6 +44,8 @@ import com.android.Samkoonhmi.skgraphics.ITimerUpdate;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.base.SKGraphCmnTouch;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
 import com.android.Samkoonhmi.util.AddrProp;
+import com.android.Samkoonhmi.util.ContextUtl;
+import com.android.Samkoonhmi.util.DataTypeFormat;
 import com.android.Samkoonhmi.util.DateStringUtil;
 import com.android.Samkoonhmi.util.HistoryCollectProp;
 import com.android.Samkoonhmi.util.MODULE;
@@ -52,17 +56,15 @@ import com.android.Samkoonhmi.util.ZoomAttr;
 import com.android.Samkoonhmi.skglobalcmn.DataCollect;
 import com.android.Samkoonhmi.skglobalcmn.DataCollect.HistoryDataProp;
 import com.android.Samkoonhmi.skglobalcmn.SkGlobalBackThread;
-import com.android.Samkoonhmi.skwindow.SKMenuManage;
 import com.android.Samkoonhmi.skwindow.SKProgress.ShowStyle;
 import com.android.Samkoonhmi.skwindow.SKToast;
 import com.android.Samkoonhmi.skwindow.SKProgress;
-
-import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.Paint.FontMetrics;
 import android.graphics.PointF;
 import android.graphics.Rect;
@@ -75,7 +77,7 @@ import android.view.MotionEvent;
 import android.view.View;
 
 public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
-		OnClickListener {
+		OnClickListener,IItem {
 
 	private static final String TAG = "SKHistoryTrends";
 	private static final int DIALOG_SHOW = 1;// 显示
@@ -83,6 +85,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	private static final int DIALOG_SEND = 3;// 发送数据
 	private static final int DIALOG_FRESH_START = 4;// 刷新开始日期
 	private static final int DIALOG_FRESH_END = 5;// 刷新结束日期
+	private static final int HIDE_SUBLINE=6;//隐藏辅助线
 	private HistoryTrendsInfo mTrendsInfo = null;
 	private List<ChannelGroupInfo> channelGroups;
 	public static final int TSP_XMARGIN = 40;
@@ -153,10 +156,14 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	private boolean bInitShow;// 初始化显示
 	private long nLastTime;// 最后采集点时间
 	private long nStartTime;// 最先采集点时间；
-	//private boolean bAddData;
 	private float nRealTime_Scale;
 	private FreeLineItem freeLineItem = null;
-	private boolean isDrawing;//正在绘制中
+	private boolean isDrawing;// 正在绘制中
+	private CURVE_TYPE mTrendType;// 采集类型
+
+	public CURVE_TYPE getmTrendType() {
+		return mTrendType;
+	}
 
 	/**
 	 * @param mOnDateChangedListener
@@ -169,7 +176,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	}
 
 	private boolean bMoveFlag;// 滑动标识
-	private boolean read_historytime; // 是否设置历史时间
+	//private boolean read_historytime; // 是否设置历史时间
 	private OPRATE Zoom_Oprate; // 放大操作模式
 	private long Zoom_Len; // 放大的时间范围
 	private long old_start_time;
@@ -177,10 +184,8 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	private Vector<ZoomAttr> mZoomList;// 放大集合
 	private Vector<ZoomAttr> mReduceList;// 缩小集合
 	private ZoomAttr Current_Zoom;// 当前缩放
-	//private int nZoomIndex; // 放大了多少次
 	private Vector<Integer> showAddrPropList; // 显现通知地址
 	private Vector<Integer> GroupList;
-	// private int nRealCollectRate; // 采样频率
 	private ShowInfo showInfo;// 显现属性
 	private boolean isShowFlag; // 显现标志
 	private boolean showByUser;// 显现受用户控制
@@ -205,10 +210,11 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	private Vector<FreeLineItem> freeLineItemGroups;
 	private Vector<FreeLineItem> ShowfreeLineItemGroups = null;
 	private int popup_flag; // 转圈
-	//private int show_flag; // 前台显示标志
 	private FreeLineItem[] freeLineItemList;
 	private TimeInfo mTimeInfo;
 	private float nUnitLenOfTime;// 每一毫米所占的长度
+	private boolean bShowSubline;//是否显示辅助线
+	private Paint mSublinePaint;
 
 	public SKHistoryTrends(int id, int sceneId, HistoryTrendsInfo info) {
 		// TODO Auto-generated constructor stub
@@ -219,10 +225,15 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		this.sTaskName = "";
 		this.nSceneId = sceneId;
 		this.TrendsCall_Flag = false;
+		this.bShowSubline=false;
 		end_list = null;
 		start_list = null;
 		mPaint = new Paint();
 		mPaint.setColor(Color.WHITE);
+		mSublinePaint=new Paint();
+		mSublinePaint.setAntiAlias(true);
+		mSublinePaint.setColor(Color.WHITE);
+		mSublinePaint.setStrokeWidth(1);
 		item = new SKItems();
 		TrendsWatch.getInstance().startWatch();
 		this.mTrendsInfo = info;
@@ -230,15 +241,16 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		mTimeInfo = new TimeInfo();
 
 		if (mTrendsInfo != null) {
+			mTrendType = mTrendsInfo.getnCurveType();
 			TrendsRect = new Rect();
 			TrendsRectItem = new RectItem(TrendsRect);
 
 			TrendsCurveRect = new Rect();
 			TrendsCurveRectItem = new RectItem(TrendsCurveRect);
 
-			mRect = new Rect(mTrendsInfo.getnLp(), mTrendsInfo.getnTp(),
-					mTrendsInfo.getnLp() + mTrendsInfo.getnWidth(),
-					mTrendsInfo.getnTp() + mTrendsInfo.getnHeight());
+			mRect = new Rect(mTrendsInfo.getnLp()-1, mTrendsInfo.getnTp()-1,
+					mTrendsInfo.getnLp() + mTrendsInfo.getnWidth()+1,
+					mTrendsInfo.getnTp() + mTrendsInfo.getnHeight()+1);
 
 			item.itemId = nTrendsId;
 			item.nZvalue = mTrendsInfo.getnZvalue();
@@ -246,6 +258,45 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			item.rect = mRect;
 			item.sceneId = nSceneId;
 			item.mGraphics = this;
+			
+			mSublinePaint.setColor(getInverseColor(mTrendsInfo.getnGraphColor()));
+
+			// 根据显现对象判断是受用户控制还是受地址控制
+			if (null != showInfo) {
+				if (null != showInfo.getShowAddrProp()) {
+					showByAddr = true;
+				}
+				if (showInfo.isbShowByUser()) {
+					showByUser = true;
+				}
+			}
+
+			// 显现受地址控制，注册地址
+			if (showByAddr) {
+				ADDRTYPE addrType = showInfo.geteAddrType();
+				if (addrType == ADDRTYPE.BITADDR) {
+					SKPlcNoticThread.getInstance()
+							.addNoticProp(showInfo.getShowAddrProp(), showCall,
+									true, sceneId);
+				} else {
+					SKPlcNoticThread.getInstance().addNoticProp(
+							showInfo.getShowAddrProp(), showCall, false,
+							sceneId);
+				}
+
+			}
+
+			// 开始显示时间
+			if (mTrendsInfo.getmFromAddr() != null) {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						mTrendsInfo.getmFromAddr(), fromCall, false, sceneId);
+			}
+			
+			// 结束显示时间
+			if (mTrendsInfo.getmToAddr() != null) {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						mTrendsInfo.getmToAddr(), toCall, false, sceneId);
+			}
 		}
 
 	}
@@ -264,35 +315,14 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			return;
 		}
 		bMoveFlag = false;
-		// 根据显现对象判断是受用户控制还是受地址控制
-		if (null != showInfo) {
-			if (null != showInfo.getShowAddrProp()) {
-				showByAddr = true;
-			}
-			if (showInfo.isbShowByUser()) {
-				showByUser = true;
-			}
-		}
+		RealTimeRefresh_Flag = false;
 
 		// 初始化显现标志
 		historyIsShow();
-		// 显现受地址控制，注册地址
-		if (showByAddr) {
-			ADDRTYPE addrType = showInfo.geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(
-						showInfo.getShowAddrProp(), showCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(
-						showInfo.getShowAddrProp(), showCall, false);
-			}
 
-		}
-
-		read_historytime = true;
+		//read_historytime = true;
 		if (sTaskName.equals("")) {
-			sTaskName = SKTrendsThread.getInstance().getBinder()
-					.onRegister(tCallback);
+			sTaskName = SKTrendsThread.getInstance().getBinder().onRegister(tCallback);
 		}
 
 		// 必须初始化，没初始化，拿到的是旧的时间
@@ -300,16 +330,35 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		end_date = Calendar.getInstance();
 
 		channelGroups = mTrendsInfo.getchannelGroups();
-		Init_ZoomData();
-		CalCurve();
-		SetHistoryTime();
-		SetGroupData();
-		Init_FreeLine();
-		init_curve();
-
 		nLastTime = 0;
 		nStartTime = 0;
-		//bAddData = false;
+
+		/**
+		 * 初始化缩放
+		 */
+		Init_ZoomData();
+		
+		/**
+		 * 计算曲线位置
+		 */
+		CalCurve();
+		
+		/**
+		 * 计算历史曲线显示时间
+		 */
+		SetHistoryTime();
+		
+		/**
+		 * 数据群组
+		 */
+		SetGroupData();
+		
+		//初始化线
+		Init_FreeLine();
+		
+		
+		init_curve();
+
 		bInitShow = true;
 		nRealTime_ShowFlag = true;
 		nRealTime_FirstFlag = false;
@@ -324,6 +373,29 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			GroupList = new Vector<Integer>();
 		}
 		GroupList.clear();
+		
+		// 显示on/off地址注册
+		showAddrPropList = null;
+		if (showAddrPropList == null) {
+			showAddrPropList = new Vector<Integer>();
+			for (short i = 0; i < mTrendsInfo.getnChannelNum(); i++) {
+				HISTORYSHOW_TYPE show_type = channelGroups.get(i)
+						.getnDisplayCondition();
+				if (show_type == HISTORYSHOW_TYPE.ALWAYS_SHOW) {
+					showAddrPropList.add(1);
+				} else {
+					AddrProp ChannelAddr = channelGroups.get(i)
+							.getnDisplayAddr();
+					TrendsWatch.getInstance().addNoticProp(ChannelAddr,
+							nSceneId);
+					showAddrPropList.add(0xff);
+				}
+			}
+		}
+
+		TrendsWatch.getInstance().getBinder().onRegister(TrendsCall);
+		TrendsWatch.getInstance().start();
+				
 
 		if (mTrendsInfo.getnCurveType() == CURVE_TYPE.REALTIME_CURVE) {
 			// 实时曲线，数据采集注册
@@ -341,6 +413,14 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			if (mTrendsInfo.getnTimeRange().equals(TIMERANGE_TYPE.RECENT_BEGIN)) {
 				GroupList.add((int) mTrendsInfo.getnGroupNum());
 				DataCollect.getInstance().addNoticProp(2, GroupList, call);
+			} else if (mTrendsInfo.getnTimeRange().equals(
+					TIMERANGE_TYPE.RANGE_BEGIN)) {
+				GroupList.add((int) mTrendsInfo.getnGroupNum());
+				DataCollect.getInstance().addNoticProp(2, GroupList, call);
+			} else if (mTrendsInfo.getnTimeRange().equals(
+					TIMERANGE_TYPE.ADDR_BEGIN)) {
+				GroupList.add((int) mTrendsInfo.getnGroupNum());
+				DataCollect.getInstance().addNoticProp(2, GroupList, call);
 			}
 			SKTrendsThread.getInstance().getBinder()
 					.onTask(MODULE.CAL_CURVE, TASK.CURVE_CAL_DATA, sTaskName); // 历史曲线，数据采集注册
@@ -350,26 +430,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		// 注册定时器
 		SKTimer.getInstance().getBinder().onRegister(callback, 600);
 
-		// 显示on/off地址注册
-		showAddrPropList = null;
-		if (showAddrPropList == null) {
-			showAddrPropList = new Vector<Integer>();
-			for (short i = 0; i < mTrendsInfo.getnChannelNum(); i++) {
-				HISTORYSHOW_TYPE show_type = channelGroups.get(i)
-						.getnDisplayCondition();
-				if (show_type == HISTORYSHOW_TYPE.ALWAYS_SHOW) {
-					showAddrPropList.add(1);
-				} else {
-					AddrProp ChannelAddr = channelGroups.get(i)
-							.getnDisplayAddr();
-					TrendsWatch.getInstance().addNoticProp(ChannelAddr);
-					showAddrPropList.add(0xff);
-				}
-			}
-		}
-
-		TrendsWatch.getInstance().getBinder().onRegister(TrendsCall);
-		TrendsWatch.getInstance().start();
+		
 		TrendsCall_Flag = true;
 		SKSceneManage.getInstance().onRefresh(item);
 	}
@@ -398,8 +459,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		}
 
 		// 绘制背景
-		canvas.drawBitmap(bgBitmap, mTrendsInfo.getnLp(), mTrendsInfo.getnTp(),
-				null);
+		canvas.drawBitmap(bgBitmap, mTrendsInfo.getnLp(), mTrendsInfo.getnTp(),null);
 
 		// Y轴时间
 		if (mTrendsInfo.isbMainVer()) {
@@ -409,16 +469,33 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		// 画曲线
 		DrawCurver(mPaint, canvas);
 
-		//X轴
+		// X轴
 		if (mTrendsInfo.isbMainHor()) {
 			if (mTrendsInfo.getnCurveType() == CURVE_TYPE.DATAGROUP_CURVE) {
 				// 绘制数据群组，x轴刻度
 				DrawDataGroup(mPaint, canvas);
 				return;
 			}
+		}
+		
+		// 实时曲线和历史曲线，x轴刻度
+		DrawTime(mPaint, canvas);
+		
+		//绘制辅助线
+		if(bShowSubline){
+			int top=(int)nSublineY;
+			if (top<mTrendsInfo.getnTp()+ mTrendsInfo.getnCurveY()) {
+				top=mTrendsInfo.getnTp()+ mTrendsInfo.getnCurveY();
+			}
+			int left=(int)nSublineX;
+			if (left<mTrendsInfo.getnLp()+mTrendsInfo.getnCurveX()) {
+				left=mTrendsInfo.getnLp()+mTrendsInfo.getnCurveX();
+			}
+			canvas.drawLine(mTrendsInfo.getnLp()+mTrendsInfo.getnCurveX(), top, 
+					mTrendsInfo.getnLp()+mTrendsInfo.getnCurveX()+mTrendsInfo.getnCurveWd(), top, mSublinePaint);
 			
-			// 实时曲线和历史曲线，x轴刻度
-			DrawTime(mPaint, canvas);
+			canvas.drawLine(left,mTrendsInfo.getnTp()+ mTrendsInfo.getnCurveY(), 
+					left, mTrendsInfo.getnTp()+mTrendsInfo.getnCurveY()+mTrendsInfo.getnCurveHt(), mSublinePaint);
 		}
 	}
 
@@ -447,8 +524,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			Vector<FreeLineItem> SendfreeLineItemGroups = new Vector<FreeLineItem>();
 			FreeLineItem[] SendfreeLineItemList = null;
 
-			SendfreeLineItemList = new FreeLineItem[mTrendsInfo
-					.getnChannelNum()];
+			SendfreeLineItemList = new FreeLineItem[mTrendsInfo.getnChannelNum()];
 			for (short i = 0; i < mTrendsInfo.getnChannelNum(); i++) {
 				Vector<PointF> m_pointList = new Vector<PointF>();
 				SendfreeLineItemList[i] = new FreeLineItem(m_pointList,
@@ -458,6 +534,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 
 			if (taskId == TASK.CURVE_CAL_DATA) {
 
+				// Log.d(TAG, "CURVE_CAL_DATA.......");
 				if (mTrendsInfo.getnCurveType() == CURVE_TYPE.REALTIME_CURVE) {
 					// 实时曲线
 					if (RealTimeRefresh_Flag) {
@@ -467,40 +544,34 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 					HandleRealCurveData(realdata);
 					nRealTime_ShowFlag = Sample_Full_Flag;
 					nRealTime_Scale = Scroll_Scale;
-
+					//Log.d(TAG, "REALTIME_CURVE RealTimeRefresh_Flag = "+RealTimeRefresh_Flag);
 					if (RealTimeRefresh_Flag == true) {
 						GetCurFreeLine(SendfreeLineItemGroups);
 						handler.removeMessages(DIALOG_SEND);
-						handler.obtainMessage(DIALOG_SEND,
-								SendfreeLineItemGroups).sendToTarget();
+						handler.obtainMessage(DIALOG_SEND,SendfreeLineItemGroups).sendToTarget();
 					}
 					RealTimeRefresh_Flag = false;
 					mTimeInfo.isLoading = false;
 				} else if (mTrendsInfo.getnCurveType() == CURVE_TYPE.HISTORY_CURVE) {
 					// 历史曲线
-					if (read_historytime == true) {
-						mTimeInfo.isLoading = false;
-						return;
-					}
-					if (mTrendsInfo.getnTimeRange().equals(
-							TIMERANGE_TYPE.RECENT_BEGIN)) {
+					if (mTrendsInfo.getnTimeRange().equals(TIMERANGE_TYPE.RECENT_BEGIN)) {
+
 						if (bInitShow) {
+							//读取数据库
 							SkGlobalBackThread
 									.getInstance()
 									.getGlobalBackHandler()
-									.obtainMessage(
-											MODULE.READ_HISTORY_FROM_DATABASE,
-											iReadCallback).sendToTarget();
+									.obtainMessage(MODULE.READ_HISTORY_FROM_DATABASE,iReadCallback).sendToTarget();
 						} else {
 							if (RealTimeRefresh_Flag) {
 								return;
 							}
-							
+
 							RealTimeRefresh_Flag = true;
 							HandleRealCurveData(realdata);
 							nRealTime_ShowFlag = Sample_Full_Flag;
 							nRealTime_Scale = Scroll_Scale;
-
+							//Log.d(TAG, "RealTimeRefresh_Flag = "+RealTimeRefresh_Flag);
 							if (RealTimeRefresh_Flag == true) {
 								GetCurFreeLine(SendfreeLineItemGroups);
 								handler.removeMessages(DIALOG_SEND);
@@ -511,15 +582,13 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 							mTimeInfo.isLoading = false;
 						}
 					} else {
-						//Log.d(TAG, "----------");
+
 						SkGlobalBackThread
 								.getInstance()
 								.getGlobalBackHandler()
-								.obtainMessage(
-										MODULE.READ_HISTORY_FROM_DATABASE,
-										iReadCallback).sendToTarget();
+								.obtainMessage(MODULE.READ_HISTORY_FROM_DATABASE,iReadCallback).sendToTarget();
 						mTrendsInfo.setnTimeRange(mTrendsInfo.getnOldTimerange());
-						
+
 					}
 
 				} else if (mTrendsInfo.getnCurveType() == CURVE_TYPE.DATAGROUP_CURVE) {
@@ -560,6 +629,10 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 					ShowfreeLineItemGroups = handlefreeLineItemGroups;
 					SKSceneManage.getInstance().onRefresh(item);
 				}
+			}else if (msg.what==HIDE_SUBLINE) {
+				//隐藏辅助线
+				bShowSubline=false;
+				SKSceneManage.getInstance().onRefresh(item);
 			}
 		}
 
@@ -587,6 +660,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	/**
 	 * 定时回调接口
 	 */
+	private boolean bDataChange = true;// 数据有变化
 	SKTimer.ICallback callback = new SKTimer.ICallback() {
 
 		@Override
@@ -595,12 +669,19 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 				if ((mTrendsInfo.getnTimeRange()
 						.equals(TIMERANGE_TYPE.RANGE_BEGIN))
 						|| (mTrendsInfo.getnTimeRange()
-								.equals(TIMERANGE_TYPE.STORE_BEGIN))) {
-					SKTrendsThread
-							.getInstance()
-							.getBinder()
-							.onTask(MODULE.CAL_CURVE, TASK.CURVE_CAL_DATA,
-									sTaskName);
+								.equals(TIMERANGE_TYPE.STORE_BEGIN))
+						|| (mTrendsInfo.getnTimeRange()
+								.equals(TIMERANGE_TYPE.ADDR_BEGIN))) {
+					//Log.d(TAG, "bDataChange=" + bDataChange);
+					if (bDataChange) {
+						SKTrendsThread
+								.getInstance()
+								.getBinder()
+								.onTask(MODULE.CAL_CURVE, TASK.CURVE_CAL_DATA,
+										sTaskName);
+						bDataChange = false;
+					}
+
 				} else {
 
 					if (RealTimeRefresh_Flag) {
@@ -663,8 +744,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	private void Init_FreeLine() {
 		if (freeLineItem == null) {
 			Vector<PointF> m_pointList = new Vector<PointF>();
-			freeLineItem = new FreeLineItem(m_pointList,
-					END_ARROW_TYPE.STYLE_NONE);
+			freeLineItem = new FreeLineItem(m_pointList,END_ARROW_TYPE.STYLE_NONE);
 		}
 	}
 
@@ -707,11 +787,8 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			Real_ScrollSample = 1;
 		}
 
-//		if (mTrendsInfo.getnCurveType() == CURVE_TYPE.REALTIME_CURVE) {
-//			
-//		}
 		// 1毫秒所占的长度
-		nUnitLenOfTime = (float) nCurveWd/ (mTrendsInfo.getnRecentMinute() * 60 * 1000);
+		nUnitLenOfTime = (float) nCurveWd/(mTrendsInfo.getnRecentMinute() * 60 * 1000);
 
 		for (short i = 0; i < mTrendsInfo.getnChannelNum(); i++) {
 			Vector<PointF> m_pointList = new Vector<PointF>();
@@ -719,8 +796,8 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 					END_ARROW_TYPE.STYLE_NONE);
 			freeLineItemGroups.add(freeLineItemList[i]);
 		}
-		//show_flag = 0;
-		isDrawing=false;
+		// show_flag = 0;
+		isDrawing = false;
 
 		Sample_Full_Flag = false;
 		if (mTrendsInfo.getnCurveType() == CURVE_TYPE.REALTIME_CURVE) {
@@ -756,15 +833,13 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 
 			if (nLen > 0) {
 				SKTrendsThread
-						.getInstance()
+				        .getInstance()
 						.getBinder()
-						.onTask(MODULE.CAL_CURVE, TASK.CURVE_CAL_DATA,
-								sTaskName);
+						.onTask(MODULE.CAL_CURVE, TASK.CURVE_CAL_DATA,sTaskName);
 			}
 		}
 
-		public void noticDelDatabase(int gid) {
-		}
+		public void noticDelDatabase(int gid) {}
 	};
 
 	/**
@@ -783,27 +858,45 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 				return;
 			}
 
+			// Log.d(TAG, "add..............");
 			if (mTrendsInfo.getnCurveType() == CURVE_TYPE.HISTORY_CURVE) {
 				// 历史曲线
-				if (mTrendsInfo.getnTimeRange().equals(
-						TIMERANGE_TYPE.RECENT_BEGIN)) {
-					if (nLastTime==0) {
-						//未初始化
+				if (mTrendsInfo.getnTimeRange().equals(TIMERANGE_TYPE.RECENT_BEGIN)) {
+					if (bInitShow) {
+						// 未初始化
 						return;
 					}
-					if (end_date.getTimeInMillis()<nLastTime-(mTrendsInfo.getnRecentMinute() * 60 * 1000)) {
-						//已经移动，不处于最后时间
+					if (end_date.getTimeInMillis() < nLastTime- (mTrendsInfo.getnRecentMinute() * 60 * 1000)) {
+						// 已经移动，不处于最后时间
 						return;
 					}
 					if (mTimeInfo.isLoading) {
-						//正在加载数据中
+						// 正在加载数据中
 						return;
 					}
-					nLastTime=System.currentTimeMillis();
+					nLastTime = System.currentTimeMillis();
+				} else if (mTrendsInfo.getnTimeRange().equals(TIMERANGE_TYPE.RANGE_BEGIN)) {
+					// 设置起始时间+结束时间
+					long c = System.currentTimeMillis();
+					if (c >= nStartTime && c < nLastTime) {
+						bDataChange = true;
+					}
+					return;
+				} else if (mTrendsInfo.getnTimeRange().equals(TIMERANGE_TYPE.STORE_BEGIN)) {
+					// 存盘数据的开始
+					bDataChange = true;
+					return;
+				} else if (mTrendsInfo.getnTimeRange().equals(TIMERANGE_TYPE.ADDR_BEGIN)) {
+					// 受地址范围控制显示
+					long c = System.currentTimeMillis();
+					if (c >= nStartTime && c < nLastTime) {
+						bDataChange = true;
+					}
+					return;
 				}
-				
 			}
 
+		    //Log.d(TAG, "add......");
 			if (null == realdata) {
 				realdata = new Vector<String>();
 			} else {
@@ -816,12 +909,10 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			}
 
 			if (nLen > 0) {
-				// Log.d(TAG, "nLen ...."+nLen);
 				SKTrendsThread
 						.getInstance()
 						.getBinder()
-						.onTask(MODULE.CAL_CURVE, TASK.CURVE_CAL_DATA,
-								sTaskName);
+						.onTask(MODULE.CAL_CURVE, TASK.CURVE_CAL_DATA,sTaskName);
 			}
 		}
 
@@ -861,6 +952,8 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 						showAddrPropList.set(i, 1);
 				}
 			}
+			// Log.d(TAG, "onTrends...........");
+			SKSceneManage.getInstance().onRefresh(item);
 		}
 	};
 
@@ -869,54 +962,55 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	 */
 	private int start_x;// 等待界面X坐标
 	private int start_y;// 等待界面Y坐标
+	private float nLastTimeForDB=0;
 	SkGlobalBackThread.IReadHistoryCallback iReadCallback = new SkGlobalBackThread.IReadHistoryCallback() {
 
 		@Override
 		public void begainReadHistory() {
 
+			// Log.d(TAG, "begainReadHistory...........");
 			if (bInitShow) {
 				// 获取开始点和最后一点的采集时间
-				long[] time = DataCollect.getInstance().getLastTime(
-						mTrendsInfo.getnGroupNum());
-				if (time[0] <= 0) {
-					nStartTime = System.currentTimeMillis();
-					nLastTime = nStartTime + mTrendsInfo.getnRecentMinute()
-							* 60 * 1000;
-					//RealTimeRefresh_Flag = true;
-				} else {
-					nStartTime = time[0];
-					nLastTime = time[1];
-					//mTrendsInfo.setnTimeRange(TIMERANGE_TYPE.RANGE_BEGIN);
-				}
+				if (mTrendsInfo.getnTimeRange() == TIMERANGE_TYPE.RECENT_BEGIN) {
+					long[] time = DataCollect.getInstance().getLastTime(mTrendsInfo.getnGroupNum());
+					if (time[0] <= 0) {
+						nStartTime = System.currentTimeMillis();
+						nLastTime = nStartTime + mTrendsInfo.getnRecentMinute()* 60 * 1000;
+						nLastTimeForDB=0;
+						// RealTimeRefresh_Flag = true;
+					} else {
+						nStartTime = time[0];
+						nLastTime = time[1];
+						nLastTimeForDB=nLastTime;
+						// mTrendsInfo.setnTimeRange(TIMERANGE_TYPE.RANGE_BEGIN);
+					}
 
-				if (end_date == null) {
-					end_date = Calendar.getInstance();
-				}
+					if (end_date == null) {
+						end_date = Calendar.getInstance();
+					}
 
-				if (start_date == null) {
-					start_date = Calendar.getInstance();
-				}
+					if (start_date == null) {
+						start_date = Calendar.getInstance();
+					}
 
-				end_date.setTimeInMillis(nLastTime);
-				start_date.setTimeInMillis(end_date.getTimeInMillis()
-						- mTrendsInfo.getnRecentMinute() * 60 * 1000);
-
-				if (start_date.getTimeInMillis() < nStartTime) {
-					nLastTime = nStartTime + mTrendsInfo.getnRecentMinute()
-							* 60 * 1000;
-					start_date.setTimeInMillis(nStartTime);
 					end_date.setTimeInMillis(nLastTime);
-				}
+					start_date.setTimeInMillis(end_date.getTimeInMillis()- mTrendsInfo.getnRecentMinute() * 60 * 1000);
 
-				bInitShow = false;
-				//Log.d(TAG, "bInitShow="+bInitShow);
+					if (start_date.getTimeInMillis() < nStartTime) {
+						nLastTime = nStartTime + mTrendsInfo.getnRecentMinute()* 60 * 1000;
+						start_date.setTimeInMillis(nStartTime);
+						end_date.setTimeInMillis(nLastTime);
+					}
+				}
+				// Log.d(TAG, "bInitShow="+bInitShow);
 			}
 
+			nUnitLenOfTime = (float) nCurveWd/ (end_date.getTimeInMillis() - start_date.getTimeInMillis());
+			
 			Vector<FreeLineItem> SendfreeLineItemGroups = new Vector<FreeLineItem>();
 			FreeLineItem[] SendfreeLineItemList = null;
 
-			SendfreeLineItemList = new FreeLineItem[mTrendsInfo
-					.getnChannelNum()];
+			SendfreeLineItemList = new FreeLineItem[mTrendsInfo.getnChannelNum()];
 
 			for (short i = 0; i < mTrendsInfo.getnChannelNum(); i++) {
 				Vector<PointF> m_pointList = new Vector<PointF>();
@@ -940,11 +1034,11 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 				if (start_y < 0) {
 					start_y = 0;
 				}
-
+			
 				handler.sendEmptyMessage(DIALOG_SHOW);
 				HandleHistoryData(start_list, end_list);
 				if (TimeRange_Flag == true) {
-					Log.d(TAG, "TimeRange_Flag="+TimeRange_Flag);
+					// Log.d(TAG, "TimeRange_Flag="+TimeRange_Flag);
 					start_date = start_list.C_Date;
 					end_date = Calendar.getInstance();
 				}
@@ -956,8 +1050,10 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 					.sendToTarget();
 			bMoveFlag = false;
 			mTimeInfo.isLoading = false;
+			bInitShow = false;
 		}
 	};
+	
 
 	// 曲线的计算代码
 	@SuppressWarnings("unchecked")
@@ -967,31 +1063,37 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 
 		FreeLineItem freeLineItem2;
 		Vector<PointF> m_pointList2;
-		//PointF test_point;
+		// PointF test_point;
 
-		for (short j = 0; j < mTrendsInfo.getnChannelNum(); j++) {
-			freeLineItem1 = freeLineItemGroups.get(j);
-			m_pointList1 = freeLineItem1.getM_fpointList();
+		try{
+			for (short j = 0; j < mTrendsInfo.getnChannelNum(); j++) {
+				freeLineItem1 = freeLineItemGroups.get(j);
+				m_pointList1 = freeLineItem1.getM_fpointList();
 
-			freeLineItem2 = items.get(j);
-			m_pointList2 = freeLineItem2.getM_fpointList();
-			m_pointList2.clear();
-			PointF test_point=new PointF();
-			
-			if (null == m_pointList1 || m_pointList1.isEmpty()){
-				continue;
+				freeLineItem2 = items.get(j);
+				m_pointList2 = freeLineItem2.getM_fpointList();
+				m_pointList2.clear();
+				PointF test_point = new PointF();
+
+				if (null == m_pointList1 || m_pointList1.isEmpty()) {
+					continue;
+				}
+				// 克隆数组
+				// m_pointList2=(Vector<PointF>)m_pointList1.clone();
+				// Log.d(TAG, "m_pointList2:"+m_pointList2.size());
+
+				for (short i = 0; i < m_pointList1.size(); i++) {
+					PointF start = new PointF();
+					test_point = m_pointList1.get(i);
+					start.set((int)test_point.x, (int)test_point.y);
+					m_pointList2.add(start);
+				}
 			}
-			//克隆数组
-			//m_pointList2=(Vector<PointF>)m_pointList1.clone();
-			//Log.d(TAG, "m_pointList2:"+m_pointList2.size());
-			
-			for (short i = 0; i < m_pointList1.size(); i++) {
-				PointF start = new PointF();
-				test_point = m_pointList1.get(i);
-				start.set(test_point.x, test_point.y);
-				m_pointList2.add(start);
-			}
+		}catch (Exception e) {
+			e.printStackTrace();
+			Log.e(TAG, "SKHistoryTrends GetCurFreeLine() error !!! ");
 		}
+	
 	}
 
 	/**
@@ -999,14 +1101,12 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	 * @param nValueList-数据点集合
 	 * @param 采集频率 -nRealCollectRate 单位200ms
 	 */
-	
 	public void HandleRealCurveData(Vector<String> nValueList) {
 
 		RealTimeRefresh_Flag = false;
 		if (null == nValueList || nValueList.isEmpty()) {
 			return;
 		}
-
 		realCurveCompute(nValueList);
 	}
 
@@ -1014,12 +1114,20 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	 * 实时曲线点的计算
 	 */
 	private boolean bMovePoint;// 移动点
-	private void realCurveCompute(Vector<String> nValueList) {
+
+	private synchronized void realCurveCompute(Vector<String> nValueList) {
 		String value = "";
 		double convet_value = 0, error_num;
 		long time = System.currentTimeMillis();
 		bMovePoint = false;
 
+		if (end_date.getTimeInMillis() - start_date.getTimeInMillis()==0) {
+			Log.e(TAG, "HistoryTrends no init .....");
+			return;
+		}
+		//计算每毫米所占长度
+		nUnitLenOfTime = (float) nCurveWd/ (end_date.getTimeInMillis() - start_date.getTimeInMillis());
+		
 		for (short i = 0; i < mTrendsInfo.getnChannelNum(); i++) {
 			int channel = channelGroups.get(i).getnNumOfChannel();
 			if (channel < 0) {
@@ -1033,7 +1141,8 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			}
 
 			try {
-				convet_value = Double.valueOf(value);
+				//乘以缩放倍数
+				convet_value = Double.valueOf(value)/Current_Zoom.y_rate;
 				error_num = 0;
 			} catch (NumberFormatException Event) {
 				System.err.println("convet_value error");
@@ -1050,24 +1159,23 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		}
 
 		if (bMovePoint) {
-			//Log.d(TAG, "bMovePoint="+bMovePoint);
+			//Log.d(TAG, "bMovePoint = "+bMovePoint);
 			int nScroll = mTrendsInfo.getnScrollSample() * 2;
 			if (nScroll > nCurveWd) {
 				nScroll = nCurveWd;
 			}
-			
-			long len=end_date.getTimeInMillis()-start_date.getTimeInMillis();
+
+			long len = end_date.getTimeInMillis()- start_date.getTimeInMillis();
 			int times = (int) (nScroll / nUnitLenOfTime);
 			end_date.setTimeInMillis(time + times);
-			start_date.setTimeInMillis(end_date.getTimeInMillis()
-					- len);
+			start_date.setTimeInMillis(end_date.getTimeInMillis() - len);
 		}
 
 	}
 
 	/**
 	 * 实时曲线点的移动
-	 * @param index -通道号
+	 * @param index-通道号
 	 */
 	private void moveRealCurvePoint(int index, long time) {
 		/**
@@ -1083,18 +1191,17 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		freeLineItem = freeLineItemGroups.get(index); // 第几通道的曲线
 		m_pointList = freeLineItem.getM_fpointList();
 
-		if (end_date.getTimeInMillis()>start_date.getTimeInMillis()) {
-			nUnitLenOfTime = (float) nCurveWd/(end_date.getTimeInMillis()-start_date.getTimeInMillis());
+		if (end_date.getTimeInMillis() > start_date.getTimeInMillis()) {
+			nUnitLenOfTime = (float) nCurveWd/ (end_date.getTimeInMillis() - start_date.getTimeInMillis());
 		}
-		
-		if (nUnitLenOfTime<=0) {
+
+		if (nUnitLenOfTime <= 0) {
 			return;
 		}
-		
-		int nMoveLen = (int) ((time - start_date.getTimeInMillis()) * nUnitLenOfTime);
+
+		float nMoveLen =(time - start_date.getTimeInMillis()) * nUnitLenOfTime;
 		point_x = nCurveX + nMoveLen;
-		//Log.d(TAG, "point_x="+point_x+",nMoveLen="+nMoveLen);
-		
+		//Log.d(TAG, "time = "+time +",s = "+start_date.getTimeInMillis()+", t ="+(time - start_date.getTimeInMillis()));
 		if (point_x >= (nCurveX + nCurveWd)) {
 
 			// 删除,滚动样本数*2，减少移动的次数
@@ -1120,17 +1227,22 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			}
 
 			start.set(point_x - nScroll, point_y);
+			//Log.d(TAG, "reset x = "+(point_x - nScroll));
 		} else {
 			start.set(point_x, point_y);
+			//Log.d(TAG, "set x = "+point_x);
 		}
 
 		// 最后一点X坐标，和现在新产生的X坐标比较，如果相同，则比较，Y轴上的点,
 		// Y轴上最多留2个点,最大和最小，其他点忽略
 		if (m_pointList.size() == 0) {
+			//Log.d(TAG, "size = 0 ...... ");
 			m_pointList.add(start);
 			RealTimeRefresh_Flag = true;
+			
 		} else {
 			int i = m_pointList.size() - 1;
+			//Log.d(TAG, " x="+m_pointList.get(i).x+",px="+point_x);
 			if (m_pointList.get(i).x == point_x) {
 				// 相等，则比较Y轴上的点
 				if (m_pointList.size() > 1) {
@@ -1186,12 +1298,12 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 				}
 			} else if (point_x > m_pointList.get(i).x) {
 				// 大于，则添加新增点
-				//Log.d(TAG, "nUnitLenOfTime="+nUnitLenOfTime+",point_x="+point_x+",x="+m_pointList.get(i).x);
 				m_pointList.add(start);
 				RealTimeRefresh_Flag = true;
 			}
 		}
 	}
+
 
 	/**
 	 * 数据群组计算
@@ -1206,33 +1318,34 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		float newx, newy;
 		double convet_value = 0;
 		int error_num;
-		if (null == groupdata || groupdata.isEmpty()){
+		if (null == groupdata || groupdata.isEmpty()) {
 			return;
 		}
 
 		for (short j = 0; j < groupdata.size(); j++) {
 			nValueList = groupdata.get(j);
-			if (null == nValueList || nValueList.isEmpty()){
+			if (null == nValueList || nValueList.isEmpty()) {
 				continue;
 			}
 			nLen = nValueList.size();
-			if (nLen > Real_DataSample){
+			if (nLen > Real_DataSample) {
 				nLen = Real_DataSample;
 			}
-			
+
 			freeLineItem = freeLineItemGroups.get(j); // 第几通道的曲线
 			m_pointList = freeLineItem.getM_fpointList();
 			m_pointList.clear();
 
 			for (short i = 0; i < nLen; i++) {
 				PointF start = new PointF();
-				value = nValueList.get(i);
-				if (value == null)
-					continue;
 				try {
+					value = nValueList.get(i);
+					if (value == null)
+						continue;
+					
 					convet_value = Double.valueOf(value);
 					error_num = 0;
-				} catch (NumberFormatException Event) {
+				} catch (Exception Event) {
 					System.err.println("convet_value error");
 					error_num = 1;
 				}
@@ -1252,6 +1365,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	/**
 	 * 计算历史曲线数据
 	 */
+	private float nCurTimeX;//当前时间所处位置
 	public void HandleHistoryData(TrendCalendar start_list,
 			TrendCalendar end_list) {
 		Calendar start_date = start_list.C_Date;
@@ -1313,19 +1427,25 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 				e.printStackTrace();
 			}
 
-		} else
+		} else{
 			historydata = DataCollect.getInstance().getGroupCollectDataByTime(
 					mTrendsInfo.getnGroupNum(), Real_DataSample, nChannelList,
 					oldest_s, recent_s, Collect_Value);
+		}
 
 		// System.out.println("mTrendsInfo.getnChannelNum() "+mTrendsInfo.getnChannelNum());
 
+		//计算当前时间的位置
+		float nMoveLen =(System.currentTimeMillis() - start_date.getTimeInMillis()) * nUnitLenOfTime;
+		nCurTimeX =nCurveX+nMoveLen;
+		//Log.d(TAG, "nCurTimeX = "+nCurTimeX);
 		for (short i = 0; i < mTrendsInfo.getnChannelNum(); i++) {
 			ConvertHistoryDataToPoint(i);
 		}
 	}
 
 	private void Move_YData() {
+		nCurTimeX=0;
 		for (short i = 0; i < mTrendsInfo.getnChannelNum(); i++) {
 			ConvertHistoryDataToPoint(i);
 		}
@@ -1384,21 +1504,35 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 
 		// System.err.println("historydata"+historydata);
 		mPoint.clear();
-		if (null == historydata || historydata.isEmpty())
+		if (null == historydata || historydata.isEmpty()){
 			return;
+		}
 
 		size = historydata.size();
-		if (size == 0)
+		if (size == 0){
 			return;
-		// System.err.println("size"+size);
+		}
+		
+		float nDiffer=0;
+		if (nCurTimeX>0) {
+			//获取最后一点坐标，并且和当前最后一点比较，然后退出时，比当前的大，则向左平移
+			float last=(size-1)*Sample_Scale+nCurveX;
+			//Log.d(TAG, "last = "+last+", nCurTimeX = "+nCurTimeX+",size="+(size-1));
+			if (last-nCurTimeX>0) {
+				nDiffer=last-nCurTimeX;
+			}
+		}
+		
 		for (short i = 0; i < size; i++) {
 			PointF start = new PointF();
 			nValueList = historydata.get(i);
 			if (null == nValueList || nValueList.isEmpty())
 				continue;
 			value = nValueList.get(channelnum);
-			if (value == null)
+			if (value == null){
 				continue;
+			}
+				
 			try {
 				current_hisdata = Double.valueOf(value);
 				error_num = 0;
@@ -1406,11 +1540,17 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 				System.err.println("convet_value error");
 				error_num = 1;
 			}
-			if (error_num == 1)
+			if (error_num == 1){
 				point_y = (float) (nCurveY + nCurveHt);
-			else
+			}else{
 				ConvertDataToPoint(current_hisdata, 1);
+			}
 			x_aix = (float) (nCurveX + i * Sample_Scale); // x轴坐标
+			x_aix=x_aix-nDiffer;
+			if (x_aix<nCurveX) {
+				x_aix=nCurveX;
+			}
+			//Log.d(TAG, "x_aix = "+x_aix +",i="+i);
 			start.set(x_aix, point_y);
 			mPoint.add(start);
 		}
@@ -1420,11 +1560,17 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	 * 获取背景图片
 	 */
 	private Bitmap getBgBitmap(int width, int height) {
-		bgBitmap = Bitmap.createBitmap(width, height, Config.ARGB_8888);
-		Canvas bCanvas = new Canvas(bgBitmap);
+		if (width < 1) {
+			width = 1;
+		}
+		if (height < 1) {
+			height = 1;
+		}
+		Bitmap mBitmap = Bitmap.createBitmap(width, height, Config.ARGB_8888);
+		Canvas bCanvas = new Canvas(mBitmap);
 		Paint paint = new Paint();
 		DrawFrameAndTag(paint, bCanvas);
-		return bgBitmap;
+		return mBitmap;
 	}
 
 	@Override
@@ -1434,8 +1580,8 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		DataCollect.getInstance().destoryDataCollectCallback(groupcall);
 		SKTimer.getInstance().getBinder().onDestroy(callback);
 		mTrendsInfo.setnTimeRange(mTrendsInfo.getnOldTimerange());
-		SKTrendsThread.getInstance().getBinder()
-				.onDestroy(tCallback, sTaskName);
+		// SKTrendsThread.getInstance().getBinder()
+		// .onDestroy(tCallback, sTaskName);
 
 		sTaskName = "";
 		if (popup_flag == 1) {
@@ -1487,8 +1633,8 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		y_len = showMax - showMin;
 		X_TagMainWd = (short) (nCurveWd / mTrendsInfo.getnHorMajorScale());
 
-		Log.d(TAG, "y_len:"+y_len);
-		
+		// Log.d(TAG, "y_len:"+y_len);
+
 		for (short i = 0; i <= mTrendsInfo.getnHorMajorScale(); i++) {
 			y_scale = (double) (i * y_len / mTrendsInfo.getnHorMajorScale());
 			Max_Data = Math.rint(y_scale);
@@ -1534,11 +1680,6 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	 */
 	private void DrawTime(Paint paint, Canvas canvas) {
 
-		if (mTrendsInfo.getbXmark() == false) {
-			// 不显示时间
-			return;
-		}
-
 		// 开始时间
 		long Timelen;
 		if ((mTrendsInfo.getnCurveType() == CURVE_TYPE.REALTIME_CURVE)
@@ -1551,18 +1692,27 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 				if (start_date == null) {
 					start_date = Calendar.getInstance();
 				}
-				Log.d(TAG, "init start time...");
-				getTime(start_date.getTimeInMillis());
+				//getTime(start_date.getTimeInMillis());
 				Timelen = (long) (start_date.getTimeInMillis() + mTrendsInfo
 						.getnRecentMinute() * 60 * 1000);
 				end_date.setTimeInMillis(Timelen);
 				nRealTime_FirstFlag = true;
 			}
 		}
+		
+		//不管有没有显示刻度，start_date 和 end_date 都必须赋值
+		if (!mTrendsInfo.isbMainHor()) {
+			return;
+		}
+		
+		if (mTrendsInfo.getbXmark() == false) {
+			// 不显示时间
+			return;
+		}
 
 		long start_mil, end_mil, bt_mil, cur_mil;
 		Calendar cur_date;
-		short nCur_TimeX=0, nCur_TimeY=0, nCur_TimeWd=0, nCur_TimeHt=0, nCur_DateX, nCur_DateY, nCur_DateWd, nCur_DateHt;
+		short nCur_TimeX = 0, nCur_TimeY = 0, nCur_TimeWd = 0, nCur_TimeHt = 0, nCur_DateX, nCur_DateY, nCur_DateWd, nCur_DateHt;
 		short X_TagMainWd;
 
 		start_mil = start_date.getTimeInMillis();
@@ -1646,9 +1796,9 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 				nCur_TimeHt = (short) (mTrendsInfo.getnTp()
 						+ mTrendsInfo.getnHeight() - nCur_TimeY);
 			}
-			
+
 			if (mTrendsInfo.isbShowTime()) {
-				//显示时间
+				// 显示时间
 				cur_text.setM_sTextStr(cur_time_s);
 				cur_text.setM_nFontColor(mTrendsInfo.getnMarkColor());
 				cur_text.setM_nFontSize(mTrendsInfo.getnFontSize());
@@ -1669,15 +1819,14 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 				cur_textItem.initRectPaint();
 				cur_textItem.draw(canvas);
 			}
-			
 
 			if (mTrendsInfo.getnCurveType() == CURVE_TYPE.HISTORY_CURVE) {
 				if (mTrendsInfo.isbShowData()) {
-					//显示日期
+					// 显示日期
 					StaticTextModel cur_datetext = new StaticTextModel();
 					nCur_DateX = (short) (nCurveX + X_TagMainWd * i - getCurTextLengthInPixels(
 							paint, cur_date_s) / 2);
-					
+
 					if (i == mTrendsInfo.getnHorMajorScale())
 						nCur_DateX = nEnd_DateX;
 					nCur_DateY = (short) (nCurveY + nCurveHt + nCur_TimeHt
@@ -1739,9 +1888,10 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			return;
 		real_len = y_len * Current_Zoom.y_rate;
 		real_min = y_len * Current_Zoom.y_start + showMin;
-		
-		//Log.d(TAG, "......y_len="+y_len+",showMax="+showMax+",showMin="+showMin);
-		
+
+		// Log.d(TAG,
+		// "......y_len="+y_len+",showMax="+showMax+",showMin="+showMin);
+
 		for (short i = 0; i <= mTrendsInfo.getnVertMajorScale(); i++) {
 			y_scale = (double) (i * real_len / mTrendsInfo.getnVertMajorScale() + real_min);
 			StaticTextModel max_text = new StaticTextModel();
@@ -1790,9 +1940,9 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	 */
 	private void DrawFrameAndTag(Paint paint, Canvas canvas) {
 		TrendsRect.left = 0;// mTrendsInfo.getnLp(); //控件外框
-		TrendsRect.right = mTrendsInfo.getnWidth();// mTrendsInfo.getnLp()+mTrendsInfo.getnWidth();
+		TrendsRect.right = mTrendsInfo.getnWidth();
 		TrendsRect.top = 0;// mTrendsInfo.getnTp();
-		TrendsRect.bottom = mTrendsInfo.getnHeight();// mTrendsInfo.getnTp()+mTrendsInfo.getnHeight();
+		TrendsRect.bottom = mTrendsInfo.getnHeight();
 		TrendsRectItem.setAlpha(0);
 		TrendsRectItem.setLineAlpha(0);
 		TrendsRectItem.setBackColor(Color.BLACK);
@@ -1802,19 +1952,13 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		TrendsRectItem.setType(END_POINT_TYPE.FLAT_CAP);
 		TrendsRectItem.setStyle(CSS_TYPE.CSS_SOLIDCOLOR);
 		TrendsRectItem.draw(paint, canvas);
-
 		TrendsCurveRect.left = mTrendsInfo.getnCurveX();// nCurveX; //曲线外框
 		TrendsCurveRect.right = mTrendsInfo.getnCurveX() + nCurveWd;
 		TrendsCurveRect.top = mTrendsInfo.getnCurveY();// nCurveY;
 		TrendsCurveRect.bottom = mTrendsInfo.getnCurveY() + nCurveHt;
-
-		TrendsCurveRectItem.setAlpha(mTrendsInfo.getnCurveAlpha());
-		// Log.d(TAG,
-		// "mTrendsInfo.getnCurveAlpha() "+mTrendsInfo.getnCurveAlpha());
+		TrendsCurveRectItem.setAlpha(255);
 		TrendsCurveRectItem.setBackColor(mTrendsInfo.getnGraphColor());
-		// TrendsCurveRectItem.setLineWidth(1);
-		TrendsCurveRectItem.setLineColor(/* Color.WHITE */mTrendsInfo
-				.getnBoradColor());
+		TrendsCurveRectItem.setLineColor(mTrendsInfo.getnBoradColor());
 		TrendsCurveRectItem.setLineType(LINE_TYPE.SOLID_LINE);
 		TrendsCurveRectItem.setType(END_POINT_TYPE.FLAT_CAP);
 		TrendsCurveRectItem.setStyle(CSS_TYPE.CSS_SOLIDCOLOR);
@@ -2058,8 +2202,8 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			return;
 		}
 
-		//show_flag = 1;
-		isDrawing=true;
+		// show_flag = 1;
+		isDrawing = true;
 		for (int i = 0; i < ShowfreeLineItemGroups.size(); i++) {
 			if (showAddrPropList.get(i).equals(1)) {
 				freeLineItem = ShowfreeLineItemGroups.get(i);
@@ -2072,10 +2216,13 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 				freeLineItem.draw(paint, canvas);
 			}
 		}
-		isDrawing=false;
-		//show_flag = 0;
+		isDrawing = false;
+		// show_flag = 0;
 	}
 
+	/**
+	 * 计算曲线位置
+	 */
 	private void CalCurve() {
 		nCurveX = (short) (mTrendsInfo.getnLp() + mTrendsInfo.getnCurveX());
 		nCurveY = (short) (mTrendsInfo.getnTp() + mTrendsInfo.getnCurveY());
@@ -2084,8 +2231,6 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		XLine_Tag = nCurveHt / 25;
 		XScale_Tag = nCurveHt / 50;
 		YLine_Tag = nCurveWd / 40;
-		// YScale_Tag=nCurveHt/80;
-
 	}
 
 	private int getLastDayOfMonth(int year, int month) { // 获取某年某月的最后一天
@@ -2113,34 +2258,6 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
 	}
 
-	/**
-	 * 放大，缩小 ，移动，时间计算
-	 */
-	private void Cal_ShowTime() {
-		long l;
-		long time_start, time_end;
-		float start, len;
-		if (Zoom_Oprate == OPRATE.OPRATE_LARGE) {
-			l = end_date.getTimeInMillis() - start_date.getTimeInMillis();
-
-			old_start_time = start_date.getTimeInMillis();
-			len = l * Current_Zoom.zoom_rate;
-			time_start = (long) (old_start_time + len);
-			start_date.setTimeInMillis(time_start);// .setTime(time_start);
-
-			// Log.d(TAG, "show time.............");
-			getTime(start_date.getTimeInMillis());
-			getTime(end_date.getTimeInMillis());
-
-		} else if (Zoom_Oprate == OPRATE.OPRATE_MOVE_X) {
-			start = Zoom_Len * Current_Zoom.zoom_start;
-			len = Zoom_Len * Current_Zoom.zoom_rate;
-			time_start = (long) (old_start_time + start);
-			time_end = (long) (old_start_time + start + len);
-			start_date.setTimeInMillis(time_start);// .setTime(time_start);
-			end_date.setTimeInMillis(time_end);
-		}
-	}
 
 	/**
 	 * 历史曲线开始结束时间计算
@@ -2168,11 +2285,9 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 
 		switch (mTrendsInfo.getnTimeRange()) {
 		case RECENT_BEGIN:
-			long second = 0,
-			l;
-			int newyear,
-			newmonth,
-			newday;
+			//最近多少分/时/天/月/年
+			long second = 0,l;
+			int newyear,newmonth,newday;
 			if (mTrendsInfo.getnRecentMonth() != 0) {
 				newyear = end_date.get(Calendar.YEAR);
 				newmonth = (int) (end_date.get(Calendar.MONTH) - mTrendsInfo
@@ -2189,7 +2304,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 				start_date.set(Calendar.YEAR, newyear);
 				l = end_date.getTimeInMillis() - start_date.getTimeInMillis();
 				total_second = (int) (l / 1000);
-				Log.d(TAG, "total_second " + total_second);
+				// Log.d(TAG, "total_second " + total_second);
 				return;
 			} else if (mTrendsInfo.getnRecentDay() != 0) {
 				second = mTrendsInfo.getnRecentDay() * 24 * 60 * 60;
@@ -2204,22 +2319,40 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			start_date.setTimeInMillis(l);
 			break;
 		case RANGE_BEGIN:
+			//设置起始时间+结束时间
 			start_date.set(Calendar.DAY_OF_MONTH, mTrendsInfo.getnStartDay());
-			start_date.set(Calendar.MONTH, mTrendsInfo.getnStartMonth());
+			start_date.set(Calendar.MONTH, mTrendsInfo.getnStartMonth() - 1);
 			start_date.set(Calendar.YEAR, mTrendsInfo.getnStartYear());
 			start_date.set(Calendar.HOUR_OF_DAY, mTrendsInfo.getnStartHour());
 			start_date.set(Calendar.MINUTE, mTrendsInfo.getnStartMinute());
 			end_date.set(Calendar.DAY_OF_MONTH, mTrendsInfo.getnEndDay());
-			end_date.set(Calendar.MONTH, mTrendsInfo.getnEndMonth());
+			end_date.set(Calendar.MONTH, mTrendsInfo.getnEndMonth() - 1);
 			end_date.set(Calendar.YEAR, mTrendsInfo.getnEndYear());
 			end_date.set(Calendar.HOUR_OF_DAY, mTrendsInfo.getnEndHour());
 			end_date.set(Calendar.MINUTE, mTrendsInfo.getnEndMinute());
+			nStartTime = start_date.getTimeInMillis();
+			nLastTime = end_date.getTimeInMillis();
+			//getTime(nStartTime);
+			//getTime(nLastTime);
 			break;
 		case STORE_BEGIN:
+			//存盘数据的开始
+			break;
+		case ADDR_BEGIN:
+			//地址控制显示时间范围
+			if (start_date != null) {
+				nStartTime = mTrendsInfo.getnFromTime();
+				start_date.setTimeInMillis(nStartTime);
+			}
+			if (end_date != null) {
+				nLastTime = mTrendsInfo.getnToTime();
+				end_date.setTimeInMillis(nLastTime);
+			}
+			break;
 		default:
 			break;
 		}
-		read_historytime = false;
+		//read_historytime = false;
 	}
 
 	@Override
@@ -2235,19 +2368,21 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	float tan60 = (float) 1.73;
 	float scale;
 	private boolean first_down = false;
-
+	private float nSublineX;//辅助线X坐标
+	private float nSublineY;//辅助线Y坐标
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 		SKSceneManage.getInstance().time = 0;
 		// TODO Auto-generated method stub
 		boolean retVal = false;
 
-		if (mTrendsInfo == null)
+		if (mTrendsInfo == null){
 			return retVal;
-		if (!isShowFlag) // 如果不可显现则不可触控
+		}
+		if (!isShowFlag){
+			// 如果不可显现则不可触控
 			return retVal;
-		if (mTrendsInfo.getnCurveType() != CURVE_TYPE.HISTORY_CURVE) // 历史曲线，处理触摸事件
-			return retVal;
+		}
 
 		short touchX = (short) event.getX();
 		short touchY = (short) event.getY();
@@ -2284,36 +2419,52 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			if (skToast != null) {
 				skToast.cancel();
 			}
+			nSublineX=X;
+			nSublineY=Y;
+			bShowSubline=true;
 			nDownX = X;
 			nDownY = Y;
 			first_down = true;
 			retVal = true;
 			bMoveFlag = false;
+			SKSceneManage.getInstance().onRefresh(item);
 			break;
 		case MotionEvent.ACTION_MOVE:
 			retVal = true;
 			first_down = false;
-			if (bMoveFlag == true)
-				return retVal;
-			if ((Math.abs(Y - nDownY) > Y_MOVE_DISTANCES)
-					|| (Math.abs(X - nDownX) > X_MOVE_DISTANCES)) {
-				if (skToast != null) {
-					skToast.cancel();
+			if (mTrendsInfo.getnCurveType() == CURVE_TYPE.HISTORY_CURVE){
+				// 历史曲线，处理触摸事件
+				if (bMoveFlag == true){
+					return retVal;
 				}
-				bMoveFlag = true;
-				scale = Math.abs(Y - nDownY) / Math.abs(X - nDownX);
-				if (scale < tan30) {
-					retVal = X_DirectMove();
-				} else if (scale > tan60) {
-					retVal = Y_DirectMove();
-				}
+				if ((Math.abs(Y - nDownY) > Y_MOVE_DISTANCES)
+						|| (Math.abs(X - nDownX) > X_MOVE_DISTANCES)) {
+					if (skToast != null) {
+						skToast.cancel();
+					}
+					bMoveFlag = true;
+					scale = Math.abs(Y - nDownY) / Math.abs(X - nDownX);
+					if (scale < tan30) {
+						retVal = X_DirectMove();
+					} else if (scale > tan60) {
+						retVal = Y_DirectMove();
+					}
 
-				retVal = true;
-				nDownX = X;
-				nDownY = Y;
+					retVal = true;
+					nDownX = X;
+					nDownY = Y;
+				}
 			}
-
 			break;
+		case MotionEvent.ACTION_CANCEL:
+		case MotionEvent.ACTION_UP:
+		case MotionEvent.ACTION_OUTSIDE:
+			//Log.d(TAG, "action = "+event.getAction());
+			handler.removeMessages(HIDE_SUBLINE);
+			//5s钟之后隐藏
+			handler.sendEmptyMessageDelayed(HIDE_SUBLINE, 2000);
+			break;
+		
 		default:
 			break;
 		}
@@ -2327,7 +2478,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	private boolean Y_DirectMove() {
 
 		if (mTimeInfo.isLoading) {
-			ShowErrorMessage("正在加载数据...");
+			ShowErrorMessage(ContextUtl.getInstance().getString(R.string.islogining));
 			nDownX = X;
 			nDownY = Y;
 			return false;
@@ -2385,7 +2536,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	private synchronized boolean X_DirectMove() {
 
 		if (mTimeInfo.isLoading) {
-			ShowErrorMessage("正在加载数据...");
+			ShowErrorMessage(ContextUtl.getInstance().getString(R.string.islogining));
 			nDownX = X;
 			nDownY = Y;
 			return false;
@@ -2400,7 +2551,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		if (Current_Zoom.end_mils >= nLastTime) {
 			bEndTimeX = true;
 		}
-		//Log.d(TAG, "bStartTimeX:" + bStartTimeX + ",bEndTimeX:" + bEndTimeX);
+		// Log.d(TAG, "bStartTimeX:" + bStartTimeX + ",bEndTimeX:" + bEndTimeX);
 
 		if (bStartTimeX && bEndTimeX) {
 			return false;
@@ -2411,7 +2562,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			nDownX = X;
 			nDownY = Y;
 			// Log.d(TAG, "small..........");
-			ShowErrorMessage("已显示全部数据!");
+			ShowErrorMessage(ContextUtl.getInstance().getString(R.string.history_show_finished));
 			return false;
 		}
 
@@ -2421,7 +2572,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			if (bStartTimeX) {
 				// 已经处于开始时间
 				// Log.d(TAG, "start time..........");
-				ShowErrorMessage("已经处于开始时间!");
+				ShowErrorMessage(ContextUtl.getInstance().getString(R.string.history_start_time));
 				result = false;
 			}
 
@@ -2444,7 +2595,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			// 向左平移
 			if (bEndTimeX) {
 				// Log.d(TAG, "last time..........");
-				ShowErrorMessage("已经处于最后时间！");
+				ShowErrorMessage(ContextUtl.getInstance().getString(R.string.history_last_time));
 				result = false;
 			}
 
@@ -2483,14 +2634,12 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 
 	/**
 	 * 放大
-	 * 
-	 * @param type
-	 *            =0 X轴放大; type=1 Y轴放大; type=2 XY轴放大;
+	 * @param type =0 X轴放大; type=1 Y轴放大; type=2 XY轴放大;
 	 */
 	public boolean large(int type) {
 
 		if (mTimeInfo.isLoading) {
-			ShowErrorMessage("正在加载数据...");
+			ShowErrorMessage(ContextUtl.getInstance().getString(R.string.islogining));
 			// 正在加载数据
 			return false;
 		}
@@ -2501,7 +2650,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			// X轴放大
 			isLargeX = largeX();
 			if (!isLargeX) {
-				ShowErrorMessage("已经最大");
+				ShowErrorMessage(ContextUtl.getInstance().getString(R.string.history_largest));
 				return false;
 			}
 			break;
@@ -2509,7 +2658,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			// Y轴放大
 			isLargeY = largeY();
 			if (!isLargeY) {
-				ShowErrorMessage("已经最大");
+				ShowErrorMessage(ContextUtl.getInstance().getString(R.string.history_largest));
 				return false;
 			}
 			break;
@@ -2518,7 +2667,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			isLargeX = largeX();
 			isLargeY = largeY();
 			if (!isLargeX && !isLargeY) {
-				ShowErrorMessage("已经最大");
+				ShowErrorMessage(ContextUtl.getInstance().getString(R.string.history_largest));
 				return false;
 			}
 			break;
@@ -2534,19 +2683,20 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	 * X-轴放大
 	 */
 	private synchronized boolean largeX() {
-		
+
 		float zoomrate;
 		long l;
 		l = end_date.getTimeInMillis() - start_date.getTimeInMillis();
 		zoomrate = (float) 0.5;
 
 		if (l < 240 * 1000) {
-			
+
 			if (l > 120 * 1000 && !mTimeInfo.isLargeX) {
 				mTimeInfo.isLargeX = true;
 				zoomrate = (float) (l - 120 * 1000) / l;
 			} else {
-				//Log.d(TAG, "l="+l+",mTimeInfo.isLargeX="+(!mTimeInfo.isLargeX));
+				// Log.d(TAG,
+				// "l="+l+",mTimeInfo.isLargeX="+(!mTimeInfo.isLargeX));
 				return false;
 			}
 		}
@@ -2562,9 +2712,9 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		Current_Zoom.start_mils = start_date.getTimeInMillis();
 		Current_Zoom.end_mils = end_date.getTimeInMillis();
 		mTrendsInfo.setnTimeRange(TIMERANGE_TYPE.RANGE_BEGIN);
-		Log.d(TAG, "lardy x");
-		getTime(end_date.getTimeInMillis());
-		
+		// Log.d(TAG, "lardy x");
+		//getTime(end_date.getTimeInMillis());
+
 		return true;
 	}
 
@@ -2599,15 +2749,13 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 
 	/**
 	 * 缩小
-	 * 
-	 * @param type
-	 *            =0 X轴缩小; type=1 Y轴缩小; type=2 XY轴缩小;
+	 * @param type =0 X轴缩小; type=1 Y轴缩小; type=2 XY轴缩小;
 	 */
 	public boolean reduce(int type) {
 
 		if (mTimeInfo.isLoading) {
 			// 正在加载数据
-			ShowErrorMessage("正在加载数据...");
+			ShowErrorMessage(ContextUtl.getInstance().getString(R.string.islogining));
 			return false;
 		}
 
@@ -2617,7 +2765,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			// X轴缩小
 			isReduceX = reduceX();
 			if (!isReduceX) {
-				ShowErrorMessage("已经最小");
+				ShowErrorMessage(ContextUtl.getInstance().getString(R.string.history_minimum));
 				return false;
 			}
 			break;
@@ -2625,7 +2773,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			// Y轴缩小
 			isReduceY = reduceY();
 			if (!isReduceY) {
-				ShowErrorMessage("已经最小");
+				ShowErrorMessage(ContextUtl.getInstance().getString(R.string.history_minimum));
 				return false;
 			}
 			break;
@@ -2635,7 +2783,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			isReduceY = reduceY();
 			// Log.d(TAG, "......isReduceY="+isReduceY);
 			if (!isReduceX && !isReduceY) {
-				ShowErrorMessage("已经最小");
+				ShowErrorMessage(ContextUtl.getInstance().getString(R.string.history_minimum));
 				return false;
 			}
 			break;
@@ -2654,16 +2802,18 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		// 缩小,以水平时间轴，中心点缩小
 		boolean bStartTimeX = false, bEndTimeX = false;
 		if (start_date.getTimeInMillis() <= nStartTime) {
-		    //Log.d(TAG, "r Current_Zoom.start_mils="+Current_Zoom.start_mils+",nStartTime="+nStartTime);
+			// Log.d(TAG,
+			// "r Current_Zoom.start_mils="+Current_Zoom.start_mils+",nStartTime="+nStartTime);
 			bStartTimeX = true;
 		}
 
 		if (end_date.getTimeInMillis() >= nLastTime) {
-			//Log.d(TAG, "r Current_Zoom.end_mils="+Current_Zoom.end_mils+",nLastTime="+nLastTime);
+			// Log.d(TAG,
+			// "r Current_Zoom.end_mils="+Current_Zoom.end_mils+",nLastTime="+nLastTime);
 			bEndTimeX = true;
 		}
 		if (bStartTimeX && bEndTimeX) {
-			Log.d(TAG, "reduceX.....");
+			// Log.d(TAG, "reduceX.....");
 			return false;
 		}
 
@@ -2709,7 +2859,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		Current_Zoom.end_mils = end_date.getTimeInMillis();
 		mTimeInfo.isLargeX = false;
 		mTrendsInfo.setnTimeRange(TIMERANGE_TYPE.RANGE_BEGIN);
-		
+
 		return true;
 	}
 
@@ -2770,6 +2920,112 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 
 	}
 
+	/**
+	 * 开始显示地址
+	 */
+	SKPlcNoticThread.IPlcNoticCallBack fromCall = new SKPlcNoticThread.IPlcNoticCallBack() {
+
+		@Override
+		public void addrValueNotic(Vector<Byte> nStatusValue) {
+			nStartTime = getTime(nStatusValue);
+			// Log.d(TAG, "nStartTime="+nStartTime);
+			if (nStartTime < 0) {
+				return;
+			}
+			if (start_date != null) {
+				start_date.setTimeInMillis(nStartTime);
+				mTrendsInfo.setnFromTime(nStartTime);
+				if (nStartTime > nLastTime) {
+					return;
+				}
+				mTrendsInfo.setnFromTime(nStartTime);
+				SKTrendsThread
+						.getInstance()
+						.getBinder()
+						.onTask(MODULE.CAL_CURVE, TASK.CURVE_CAL_DATA,
+								sTaskName);
+				bDataChange = false;
+			}
+		}
+	};
+
+	/**
+	 * 结束显示地址
+	 */
+	SKPlcNoticThread.IPlcNoticCallBack toCall = new SKPlcNoticThread.IPlcNoticCallBack() {
+
+		@Override
+		public void addrValueNotic(Vector<Byte> nStatusValue) {
+			nLastTime = getTime(nStatusValue);
+			// Log.d(TAG, "nStartTime="+nStartTime+",nLastTime="+nLastTime);
+			if (end_date != null) {
+				end_date.setTimeInMillis(nLastTime);
+				if (nLastTime < nStartTime) {
+					return;
+				}
+				mTrendsInfo.setnToTime(nLastTime);
+				SKTrendsThread
+						.getInstance()
+						.getBinder()
+						.onTask(MODULE.CAL_CURVE, TASK.CURVE_CAL_DATA,
+								sTaskName);
+				bDataChange = false;
+			}
+		}
+	};
+
+	/**
+	 * 获取时间
+	 */
+	private long getTime(Vector<Byte> nStatusValue) {
+		if (nStatusValue == null) {
+			return 0;
+		}
+		Vector<Integer> list = new Vector<Integer>();
+		boolean result = PlcRegCmnStcTools.bytesToUShorts(nStatusValue, list);
+		long time = 0;
+
+		if (result) {
+			if (list == null || list.size() < 6) {
+				return time;
+			}
+
+			try {
+				int[] array = new int[] { 0, 0, 0, 0, 0, 0 };
+				for (int i = 0; i < list.size(); i++) {
+					String s = DataTypeFormat.intToBcdStr(list.get(i), false);
+					if (s != null && !s.equals("ERROR")) {
+						array[i] = Integer.valueOf(s);
+					}
+					// Log.d(TAG, "i="+i+",time="+array[i]);
+				}
+				if (array[0] < 1970) {
+					time = 0;
+					return time;
+				}
+
+				Calendar c = Calendar.getInstance();
+				c.set(Calendar.YEAR, array[0]);
+				c.set(Calendar.MONTH, array[1] - 1);
+				c.set(Calendar.DAY_OF_MONTH, array[2]);
+				c.set(Calendar.HOUR_OF_DAY, array[3]);
+				c.set(Calendar.MINUTE, array[4]);
+				c.set(Calendar.SECOND, array[5]);
+				time = c.getTimeInMillis();
+				if (time < 0) {
+					time = 0;
+				}
+
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+
+		return time;
+	}
+
+	
+	
 	/** 以下部分处理时间窗口弹出 **/
 
 	/**
@@ -2781,11 +3037,12 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		END_DATE, // 结束日期
 		END_TIME, // 结束时间
 	}
-	
-	DatePicker datePicker,datePicker1;
-	boolean isFreshStart,isFreshEnd;
+
+	DatePicker datePicker, datePicker1;
+	boolean isFreshStart, isFreshEnd;
+
 	private void initPopupWindow(TYPE flag) {
-		isFreshStart=isFreshEnd=false;
+		isFreshStart = isFreshEnd = false;
 		nCompile_Flag = (TYPE) flag;
 		switch (flag) {
 		case START_DATE:
@@ -2820,13 +3077,11 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 
 				}
 			};
-			datePicker = (DatePicker) cView
-					.findViewById(R.id.datePicker);
+			datePicker = (DatePicker) cView.findViewById(R.id.datePicker);
 			// Month is 0 based
-			datePicker.init(start_date.get(Calendar.YEAR),
-					10,10,
+			datePicker.init(start_date.get(Calendar.YEAR), 10, 10,
 					monDateChangedListener);
-			isFreshStart=true;
+			isFreshStart = true;
 			break;
 
 		case START_TIME:
@@ -2896,13 +3151,11 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 
 				}
 			};
-			datePicker1 = (DatePicker) cView
-					.findViewById(R.id.datePicker);
+			datePicker1 = (DatePicker) cView.findViewById(R.id.datePicker);
 			// Month is 0 based
-			datePicker1.init(end_date.get(Calendar.YEAR),
-					10,10,
+			datePicker1.init(end_date.get(Calendar.YEAR), 10, 10,
 					monDateChangedListener1);
-			isFreshEnd=true;
+			isFreshEnd = true;
 			break;
 
 		case END_TIME:
@@ -2952,33 +3205,42 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 		cancelButton.setOnClickListener(this);
 
 		// 设置窗口的大小
-		mPopupWindow = new myPopupWindow(cView, SKSceneManage.getInstance().nSceneWidth-20,
-				SKSceneManage.getInstance().nSceneHeight-20);
+		mPopupWindow = new myPopupWindow(cView,
+				SKSceneManage.getInstance().nSceneWidth - 20,
+				SKSceneManage.getInstance().nSceneHeight - 20);
 	}
 
 	private void showPopupWindow() {
 
-		SKScene cView=SKSceneManage.getInstance().getCurrentScene();
-		if (null != cView && null != mPopupWindow && SKProgress.onResume && !popIsShow) {
-			popIsShow = true;
-			mPopupWindow.setFocusable(true);
-			mPopupWindow.update();
-			mPopupWindow.showAtLocation(cView, Gravity.NO_GRAVITY, 10,
-					10);
-			
-			//强刷2位的月份
-			if(handler !=null){
-				if(isFreshStart){
-					datePicker.updateDate(start_date.get(Calendar.YEAR), 10,10);
-					mPopupWindow.handler.sendEmptyMessageDelayed(DIALOG_FRESH_START,100);
-					isFreshStart=false;
-				}else  if(isFreshEnd){
-					datePicker1.updateDate(end_date.get(Calendar.YEAR), 10,10);
-					mPopupWindow.handler.sendEmptyMessageDelayed(DIALOG_FRESH_END,100);
-					isFreshEnd=false;
+		try {
+			SKScene cView = SKSceneManage.getInstance().getCurrentScene();
+			if (null != cView && null != mPopupWindow && SKProgress.onResume
+					&& !popIsShow) {
+				popIsShow = true;
+				mPopupWindow.setFocusable(true);
+				mPopupWindow.update();
+				mPopupWindow.showAtLocation(cView, Gravity.NO_GRAVITY, 10, 10);
+
+				// 强刷2位的月份
+				if (handler != null) {
+					if (isFreshStart) {
+						datePicker
+								.updateDate(start_date.get(Calendar.YEAR), 10, 10);
+						mPopupWindow.handler.sendEmptyMessageDelayed(
+								DIALOG_FRESH_START, 100);
+						isFreshStart = false;
+					} else if (isFreshEnd) {
+						datePicker1.updateDate(end_date.get(Calendar.YEAR), 10, 10);
+						mPopupWindow.handler.sendEmptyMessageDelayed(
+								DIALOG_FRESH_END, 100);
+						isFreshEnd = false;
+					}
 				}
 			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
+		
 	}
 
 	private int DisposePopUpWindows(short touchX, short touchY) {
@@ -3096,6 +3358,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 					end_date.get(Calendar.DATE),
 					end_date.get(Calendar.HOUR_OF_DAY),
 					end_date.get(Calendar.MINUTE));
+
 			break;
 		case END_DATE:
 			// Month is 0 based
@@ -3174,7 +3437,7 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 			mZoomList.clear();
 			mTrendsInfo.setnTimeRange(TIMERANGE_TYPE.RANGE_BEGIN);
 		} else {
-			ShowErrorMessage("结束时间小于等于开始时间，设置失败！");
+			ShowErrorMessage(ContextUtl.getInstance().getString(R.string.history_time_error));
 			SKSceneManage.getInstance().onRefresh(item);
 		}
 		mPopupWindow.dismiss();
@@ -3219,35 +3482,391 @@ public class SKHistoryTrends extends SKGraphCmnTouch implements ITimerUpdate,
 	}
 
 	/** 时间窗口弹出结束 **/
-	class myPopupWindow extends PopupWindow{
+	class myPopupWindow extends PopupWindow {
 		public myPopupWindow(View cView, int nCurveWd, int nCurveHt) {
 			// TODO Auto-generated constructor stub
-			super( cView,  nCurveWd,  nCurveHt);
+			super(cView, nCurveWd, nCurveHt);
 		}
+
 		Handler handler = new Handler() {
 			@Override
 			public void handleMessage(Message msg) {
 				super.handleMessage(msg);
-				if(msg.what == DIALOG_FRESH_START){
+				if (msg.what == DIALOG_FRESH_START) {
 					update1(false);
-				}else if(msg.what == DIALOG_FRESH_END){
+				} else if (msg.what == DIALOG_FRESH_END) {
 					update1(true);
 				}
 			}
 		};
-		
-		public void update1(boolean isEnd){
-			if(isEnd){
-				if(datePicker1 != null){
-					datePicker1.updateDate(end_date.get(Calendar.YEAR), end_date.get(Calendar.MONTH),
+
+		public void update1(boolean isEnd) {
+			if (isEnd) {
+				if (datePicker1 != null) {
+					datePicker1.updateDate(end_date.get(Calendar.YEAR),
+							end_date.get(Calendar.MONTH),
 							end_date.get(Calendar.DATE));
 				}
-			}else{
-				if(datePicker != null){
-					datePicker.updateDate(start_date.get(Calendar.YEAR), start_date.get(Calendar.MONTH),
+			} else {
+				if (datePicker != null) {
+					datePicker.updateDate(start_date.get(Calendar.YEAR),
+							start_date.get(Calendar.MONTH),
 							start_date.get(Calendar.DATE));
 				}
 			}
 		}
+	}
+	
+	 /**
+	 * 颜色取反
+	 */
+	private int getInverseColor(int color) {
+		int r = (color >> 16) & 0xFF;
+		int g = (color >> 8) & 0xFF;
+		int b = color & 0xFF;
+		return Color.rgb(255 - r, 255 - g, 255 - b);
+	}
+
+	/**
+	 * 脚本对外接口
+	 */
+	@Override
+	public IItem getIItem() {
+		// TODO Auto-generated method stub
+		return this;
+	}
+
+
+	@Override
+	public int getItemLeft(int id) {
+		// TODO Auto-generated method stub
+		if (mTrendsInfo!=null) {
+			return mTrendsInfo.getnLp();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO Auto-generated method stub
+		if (mTrendsInfo!=null) {
+			return mTrendsInfo.getnLp();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO Auto-generated method stub
+		if (mTrendsInfo!=null) {
+			return mTrendsInfo.getnWidth();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO Auto-generated method stub
+		if (mTrendsInfo!=null) {
+			return mTrendsInfo.getnHeight();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO Auto-generated method stub
+		//nCurrentState;
+		if (mTrendsInfo!=null) {
+			return getColor(mTrendsInfo.getnGraphColor());
+		}
+		return null;
+	}
+	
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO Auto-generated method stub
+		if (mTrendsInfo!=null) {
+			return getColor(mTrendsInfo.getnBoradColor());
+		}
+		return null;
+	}
+
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO Auto-generated method stub
+		return isShowFlag;
+	}
+
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO Auto-generated method stub
+		
+		if (mTrendsInfo != null) {
+			if (x == mTrendsInfo.getnLp()) {
+				return true;
+			}
+			if (x < 0|| x > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			mTrendsInfo.setnLp((short)x);
+			int l=item.rect.left;
+			item.rect.left=x;
+			item.rect.right=x-l+item.rect.right;
+			item.mMoveRect=new Rect();
+			
+			mTrendsInfo.setnCurveX((short)(mTrendsInfo.getnCurveX()+x-l));
+			nCurveX = (short) (mTrendsInfo.getnLp() + mTrendsInfo.getnCurveX());
+			
+			SKTrendsThread.getInstance().getBinder()
+			.onTask(MODULE.CAL_CURVE, TASK.CURVE_CAL_DATA, sTaskName); // 历史曲线，数据采集注册
+			
+			//SKSceneManage.getInstance().onRefresh(item);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO Auto-generated method stub
+		if (mTrendsInfo != null) {
+			if (y == mTrendsInfo.getnTp()) {
+				return true;
+			}
+			if (y < 0|| y > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			mTrendsInfo.setnTp((short)y);
+			int t = item.rect.top;
+			item.rect.top = y;
+			item.rect.bottom = y - t + item.rect.bottom;
+			item.mMoveRect=new Rect();
+			
+			mTrendsInfo.setnCurveY((short)(mTrendsInfo.getnCurveY()+y-t));
+			nCurveY = (short) (mTrendsInfo.getnTp() + mTrendsInfo.getnCurveY());
+			
+			SKTrendsThread.getInstance().getBinder()
+			.onTask(MODULE.CAL_CURVE, TASK.CURVE_CAL_DATA, sTaskName); // 历史曲线，数据采集注册
+			//SKSceneManage.getInstance().onRefresh(item);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO Auto-generated method stub
+		if (mTrendsInfo != null) {
+			if (w == mTrendsInfo.getnWidth()) {
+				return true;
+			}
+			if (w < 0|| w > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			int len=w-mTrendsInfo.getnWidth();
+			mTrendsInfo.setnWidth((short)w);
+			item.rect.right = w - item.rect.width() + item.rect.right;
+			item.mMoveRect=new Rect();
+			
+			mTrendsInfo.setnCurveWd((short)(mTrendsInfo.getnCurveWd()+len));
+			nCurveWd = (short) (mTrendsInfo.getnCurveWd());
+			bgBitmap=null;
+			SKSceneManage.getInstance().onRefresh(item);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO Auto-generated method stub
+		if (mTrendsInfo != null) {
+			if (h == mTrendsInfo.getnHeight()) {
+				return true;
+			}
+			if (h < 0|| h > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			
+			int len=h-mTrendsInfo.getnHeight();
+			mTrendsInfo.setnHeight((short)h);
+			item.rect.bottom = h - item.rect.height() + item.rect.bottom;
+			item.mMoveRect=new Rect();
+			
+			mTrendsInfo.setnCurveHt((short)(mTrendsInfo.getnCurveHt()+len));
+			nCurveHt = (short) (mTrendsInfo.getnCurveHt());
+			bgBitmap=null;
+			SKSceneManage.getInstance().onRefresh(item);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (mTrendsInfo!=null) {
+			int color=Color.rgb(r, g, b);
+			if (color==mTrendsInfo.getnGraphColor()) {
+				return true;
+			}
+			mTrendsInfo.setnGraphColor(color);
+			bgBitmap=null;
+			SKSceneManage.getInstance().onRefresh(item);
+			return true;
+		}
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (mTrendsInfo!=null) {
+			int color=Color.rgb(r, g, b);
+			if (color==mTrendsInfo.getnBoradColor()) {
+				return true;
+			}
+			mTrendsInfo.setnBoradColor(color);
+			bgBitmap=null;
+			SKSceneManage.getInstance().onRefresh(item);
+			return true;
+		}
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v==isShowFlag) {
+			return true;
+		}
+		isShowFlag=v;
+		SKSceneManage.getInstance().onRefresh(item);
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+	
+	/**
+	 * 颜色取反
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
 	}
 }

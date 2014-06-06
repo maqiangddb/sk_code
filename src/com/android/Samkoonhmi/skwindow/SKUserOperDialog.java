@@ -1,6 +1,7 @@
 package com.android.Samkoonhmi.skwindow;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -98,6 +99,11 @@ public class SKUserOperDialog {
 	 * 显示
 	 */
 	public void showPopWindow(int type,int width,int height){
+		if (!SKSceneManage.getInstance().isbWindowFocus()) {
+			//窗口未获取焦点
+			Log.e("AKPopupWindow", "no window forcus ...");
+			return ;
+		}
 		if(isShow){
 			return;
 		}

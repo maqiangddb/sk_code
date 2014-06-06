@@ -92,7 +92,15 @@ public class DBTool {
 	private FlowBlockBiz mFlowBlockBiz;
 	//表格
 	private TableBiz mTableBiz;
-	
+	//下拉框
+	private DragdownBoxBiz mDragdownBoxBiz;
+	//XY曲线
+	private XYCurveBiz mXYCurveBiz;
+	//表达式
+	private ExpressBiz mExpressBiz;
+
+	private UserInfoBiz mUserInfoBiz;
+
 	/**
 	 * 报警
 	 */
@@ -454,6 +462,46 @@ public class DBTool {
 			mFlowBlockBiz=new FlowBlockBiz();
 		}
 		return mFlowBlockBiz;
+	}
+	
+	/**
+	 * 下拉框
+	 */
+	public DragdownBoxBiz getmDragdownBoxBiz(){
+		if(null==mDragdownBoxBiz){
+			mDragdownBoxBiz=new DragdownBoxBiz();
+		}
+		return mDragdownBoxBiz;
+	}
+
+	/**
+	 * 表达式
+	 * @return
+	 */
+	public ExpressBiz getmExpressBiz(){
+		if(null == mExpressBiz){
+			mExpressBiz = new ExpressBiz();
+		}
+		return mExpressBiz;
+	}
+	/**
+	 * 用户管理
+	 */
+	public UserInfoBiz getmUserInfoBiz(){
+		if(null==mUserInfoBiz){
+			mUserInfoBiz=new UserInfoBiz();
+		}
+		return mUserInfoBiz;
+	}
+	
+	/**
+	 * XY曲线
+	 */
+	public XYCurveBiz getmXYCurveBiz() {
+		if (null==mXYCurveBiz) {
+			mXYCurveBiz=new XYCurveBiz();
+		}
+		return mXYCurveBiz;
 	}
 }
 

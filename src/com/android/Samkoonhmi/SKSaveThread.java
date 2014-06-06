@@ -468,7 +468,7 @@ public class SKSaveThread {
 	private void doSaveDefault(){
 		short j = 0;
 		try {
-
+			//Log.d(TAG, "doSaveDefault   ........   ");
 			mSendData.eDataType = DATA_TYPE.BIT_1; // LB
 			mSendData.eByteHLPos = BYTE_H_L_POS.L_BYTE_FIRST;
 			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_R;
@@ -614,8 +614,9 @@ public class SKSaveThread {
 			super.handleMessage(msg);
 			if (msg.what==HANDLER_LOOPER) {
 //			Log.d(TAG, "handleMessage m_bThreadLoop "+m_bThreadLoop);
-				if(m_bThreadLoop)
-						doSave();
+				if(m_bThreadLoop){
+					doSave();
+				}
 			}else if (msg.what==HANDLER_INIT) {
 				//初始化数据
 				init();

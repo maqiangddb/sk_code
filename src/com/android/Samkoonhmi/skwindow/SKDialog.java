@@ -2,6 +2,7 @@ package com.android.Samkoonhmi.skwindow;
 
 import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.SKScene;
+import com.android.Samkoonhmi.model.ScenceInfo;
 import com.android.Samkoonhmi.model.WindowInfo;
 import android.app.Dialog;
 import android.content.Context;
@@ -31,21 +32,24 @@ public class SKDialog extends Dialog {
 		mContext=context;
 	}
 
-	public void onCreate(SKScene view, WindowInfo info) {
+	public void onCreate(SKScene view, ScenceInfo info) {
 		if (show) {
 			return;
 		}
 
 		if (view != null) {
 			boolean draw = false;
-			if (info.isbShowTitle()) {
-				view.setTitleName(info.getsTileName());
-				draw = true;
+			if (info!=null) {
+				if (info.isbShowTitle()) {
+					view.setTitleName(info.getsTileName());
+					draw = true;
+				}
+				if (info.isbShowShutBtn()) {
+					view.setTitleButton(info.isbShowShutBtn());
+					draw = true;
+				}
 			}
-			if (info.isbShowShutBtn()) {
-				view.setTitleButton(info.isbShowShutBtn());
-				draw = true;
-			}
+			
 			if (draw) {
 				view.drawTitle();
 			}

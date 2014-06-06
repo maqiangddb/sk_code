@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.graphics.Point;
 import android.graphics.PointF;
 import com.android.Samkoonhmi.model.LineInfo;
+import com.android.Samkoonhmi.model.ShowInfo;
 import com.android.Samkoonhmi.skenum.END_ARROW_TYPE;
 import com.android.Samkoonhmi.skenum.END_POINT_TYPE;
 import com.android.Samkoonhmi.skenum.LINE_CLASS;
@@ -65,6 +66,8 @@ public class LineInfoBiz extends DataBase {
 				line.setnStartY(cursor.getInt(cursor.getColumnIndex("nStartY")));
 				line.setnWidth(cursor.getInt(cursor.getColumnIndex("nWidth")));
 				line.setnHeight(cursor.getInt(cursor.getColumnIndex("nHeight")));
+				ShowInfo showInfo = TouchShowInfoBiz.getShowInfoById(line.getId());
+				line.setShowInfo(showInfo);
 				list.add(line);
 				
 				if (init) {

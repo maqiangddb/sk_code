@@ -14,8 +14,8 @@ public class SystemParam {
 	public static final int UP_LOAD=0x00000100 ;//允许上载组态
 	public static final int UP_LOAD_USE_PWD=0x00000200;//--UP_LOAD_USE_PWD//上载需要密码
 	public static final int HMI_PROTECT=0x00000400 ;//--HMI_PROTECT //使用时效权限
-	public static final int AUTO_LOGIN       = 0x00000800;////自动登录默认用户
-
+	public static final int LONG_INSPECT       = 0x00000800;////是否启动远程监控
+    public static final int VNC_CONNECT_MUCH = 0x00001000;//允许多人访问vnc
 	
 //   public static final int DEFAULT_SET=0x00000000;//默认设置
 //   public static final int VERTICAL_SHOW=0x00000001;//垂直显示

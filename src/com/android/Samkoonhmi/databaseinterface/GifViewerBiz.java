@@ -43,7 +43,7 @@ public class GifViewerBiz extends DataBase{
 
 		ArrayList<GifViewerInfo> list=new ArrayList<GifViewerInfo>();
 		Cursor tmpCursor = null;	
-		String id = "";
+		StringBuffer id = new StringBuffer();
 		boolean init = true;
 		
 		tmpCursor = mDB.getDatabaseBySql(mSearchTableStr, new String[] { Integer.toString(sid) });
@@ -79,18 +79,20 @@ public class GifViewerBiz extends DataBase{
 			
 			list.add(dstGVInfo);
 			if (init) {
-				id += " nItemId=" + dstGVInfo.getnItemId();
+				id.append(" nItemId in(" + dstGVInfo.getnItemId());
 				init = false;
 			} else {
-				id += " or nItemId=" + dstGVInfo.getnItemId();
+				id.append("," + dstGVInfo.getnItemId());
 			}
 		}
 		close(tmpCursor);
-
+		id.append(")");
+		String sId=id.toString();
+		
 		if (list.size()>0) {
 			
 			//图片表查询语句
-			String mSearchGifStr="select * from imagePath where "+id;
+			String mSearchGifStr="select * from imagePath where "+sId;
 			tmpCursor = mDB.getDatabaseBySql(mSearchGifStr, null);
 			if(null == tmpCursor){//获取游标失败
 				Log.e("GifViewerBiz","select: Get Gif cursor failed!");
@@ -98,16 +100,21 @@ public class GifViewerBiz extends DataBase{
 			}
 			GifViewerInfo dstGVInfo=null;
 			int nItemId=-1;
+			int index=0;
 			while(tmpCursor.moveToNext()){
 				if (nItemId != tmpCursor.getInt(tmpCursor.getColumnIndex("nItemId"))) {
 					nItemId = tmpCursor.getInt(tmpCursor.getColumnIndex("nItemId"));
-					for (int i = 0; i < list.size(); i++) {
-						if (list.get(i).getnItemId() == nItemId) {
-							dstGVInfo = list.get(i);
-							break;
+					if (list.get(index).getnItemId()==nItemId) {
+						dstGVInfo = list.get(index);
+					}else {
+						for (int i = 0; i < list.size(); i++) {
+							if (list.get(i).getnItemId() == nItemId) {
+								dstGVInfo = list.get(i);
+								break;
+							}
 						}
 					}
-
+					index++;
 				}
 				dstGVInfo.setGifPath(tmpCursor.getString(tmpCursor.getColumnIndex("sPicPath")));
 			}

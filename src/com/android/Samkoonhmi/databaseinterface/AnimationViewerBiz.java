@@ -69,7 +69,7 @@ public class AnimationViewerBiz extends DataBase {
 
 		ArrayList<AnimationViewerInfo> list=new ArrayList<AnimationViewerInfo>();
 		
-		String id = "";
+		StringBuffer id =new StringBuffer();
 		boolean init = true;
 		Cursor tmpCursor = null;
 		tmpCursor = mDB.getDatabaseBySql(mSearchTableStr,new String[] { Integer.toString(sid) });
@@ -159,21 +159,24 @@ public class AnimationViewerBiz extends DataBase {
 			
 			list.add(dstAVInfo);
 			if (init) {
-				id += " nItemId=" + dstAVInfo.getnItemId();
+				id.append(" nItemId in(" + dstAVInfo.getnItemId());
 				init = false;
 			} else {
-				id += " or nItemId=" + dstAVInfo.getnItemId();
+				id.append("," + dstAVInfo.getnItemId());
 			}
 
 		}// End of while(tmpCursor.moveToNext())
 		close(tmpCursor);
 
+		id.append(")");
+		String sId=id.toString();
+		
 		if (list.size()>0) {
-			if (id.length()>0) {
+			if (sId.length()>0) {
 				// 读取文本列表
-				selectTextInfoList(list,id);
+				selectTextInfoList(list,sId);
 				// 读取图片列表
-				selectPicPathList(list,id);
+				selectPicPathList(list,sId);
 			}
 		}
 

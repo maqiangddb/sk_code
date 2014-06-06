@@ -39,12 +39,13 @@ public class DynamicCircleInfo {
 	private ShowInfo mShowInfo; // 显现属性
 
 	// 保留代码，不可删除
-	// private short nAreaLp; //区域原点X坐标
-	// private short nAreaTp; //区域原点Y坐标
-	// private short nAreaWidth; //区域宽度
-	// private short nAreaHeight; //区域高度
+	 private short nAreaLp; //控件起始点x坐标
+	 private short nAreaTp; //控件起始点y坐标
+	 private short nAreaWidth; //控件宽度
+	 private short nAreaHeight; //控件高度
 	// private int nAreaColor; //区域背景色
 
+	 
 	/**
 	 * 设置圆心X坐标信息
 	 * */
@@ -54,6 +55,38 @@ public class DynamicCircleInfo {
 			return;
 		}
 		this.nCpXpos = xpos;
+	}
+
+	public short getnAreaLp() {
+		return nAreaLp;
+	}
+
+	public void setnAreaLp(short nAreaLp) {
+		this.nAreaLp = nAreaLp;
+	}
+
+	public short getnAreaTp() {
+		return nAreaTp;
+	}
+
+	public void setnAreaTp(short nAreaTp) {
+		this.nAreaTp = nAreaTp;
+	}
+
+	public short getnAreaWidth() {
+		return nAreaWidth;
+	}
+
+	public void setnAreaWidth(short nAreaWidth) {
+		this.nAreaWidth = nAreaWidth;
+	}
+
+	public short getnAreaHeight() {
+		return nAreaHeight;
+	}
+
+	public void setnAreaHeight(short nAreaHeight) {
+		this.nAreaHeight = nAreaHeight;
 	}
 
 	/**

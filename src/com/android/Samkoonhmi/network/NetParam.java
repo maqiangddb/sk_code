@@ -11,4 +11,6 @@ public class NetParam {
 	
 	//上载历史数据
 	public static final char UP_COLLENT=0x01;
+	//上载配方数据
+	public static final char UP_COLLENT_REC=0x02;
 }

@@ -22,5 +22,5 @@ public class SKItems implements Serializable{
 	public Rect rect;            //控件所在位置
 	public Rect mMoveRect;       //控件移动后的位置，主要用于位置改变的控件
 	public SKGraphics mGraphics; //控件
-	public Canvas mCanvas;       //控件画布
+	
 }

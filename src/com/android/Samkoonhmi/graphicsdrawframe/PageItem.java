@@ -90,7 +90,7 @@ public class PageItem {
 	//点击行效果图片
 	private Bitmap mRowBitmap;
 	//行的高
-	private ArrayList<Double> mRowHeight;
+	public ArrayList<Double> mRowHeight;
 	//行的宽
 	public ArrayList<Double> mRowWidth;
 	public int nStartNum;
@@ -137,7 +137,12 @@ public class PageItem {
 		if (nColunm>nShowColunm) {
 			nShowColunm=nColunm;
 		}
-		
+		if(nWidth<1){
+			nWidth=1;
+		}
+		if(nHeight<1){
+			nHeight=1;
+		}
 		mBitmap=Bitmap.createBitmap(nWidth, nHeight, Config.ARGB_8888);
 		
 		mCanvas=new Canvas(mBitmap);
@@ -200,6 +205,7 @@ public class PageItem {
 		
 		mPaint.setColor(nPageBgColor);
 		mPaint.setAlpha(nAlpha);
+		Log.d("PageItem", "nPageBgColor ="+nPageBgColor+",nAlpha="+nAlpha);
 		if (nAlpha>0) {
 			canvas.drawRect(nLeftPadding, 0, nWidth, nHeight, mPaint);
 		}
@@ -675,5 +681,47 @@ public class PageItem {
 		this.nRowIndex = nRowIndex;
 	}
 
+	/**
+	 * 获取显示区域
+	 */
+	public Rect getShowRect(){
+		return mShowRect;
+	}
+	
+	/**
+	 * 重新设置宽度
+	 * @param w-宽度
+	 */
+	public void resetWidth(int w){
+		
+		int tmp=mShowRect.width();
+		mShowRect.right=mShowRect.right+w-tmp;
+		nWidth=w;
+		
+//		double len=(w-tmp)/nShowColunm;
+//		for (int i = 0; i < mRowWidth.size(); i++) {
+//			double ww=mRowWidth.get(i);
+//			mRowWidth.set(i, len+ww);
+//		}
+		initData();
+	}
+	
+	/**
+	 * 重新设置高度
+	 * @param h-高度
+	 */
+	public void resetHeight(double len){
+		//标题
+		mShowRect.top=mShowRect.top+(int)len;
+		mShowRect.bottom=mShowRect.bottom+(int)(len*(nRow+1));
+		nHeight=mShowRect.height();
+		
+		for (int i = 0; i < mRowHeight.size(); i++) {
+			double ww=mRowHeight.get(i);
+			mRowHeight.set(i, len+ww);
+		}
+		
+		initData();
+	}
 }
 

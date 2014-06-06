@@ -10,6 +10,7 @@ public class BaseMacroInfo {
     protected String MacroLibName;  	//宏指令库名称
     protected short  MacroType;         //宏指令类型  
     private int nSid;//场景id
+    protected int   scriptCount;      //执行次数
     
     public int getnSid() {
 		return nSid;
@@ -80,4 +81,18 @@ public class BaseMacroInfo {
     public short getMacroType(){
     	return this.MacroType;
     }
+    
+    /**
+	 * 设置场景脚本的执行次数
+	 * */
+	public void setRunCount(int n){
+		if(n < 0 ){
+			n = 0;
+		}
+		this.scriptCount = n;
+	}
+	
+	public int getRunCount(){
+		return  this.scriptCount;
+	}
 }

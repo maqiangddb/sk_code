@@ -33,15 +33,21 @@ import android.widget.Toast;
 import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.activity.LoginActivity;
 import com.android.Samkoonhmi.databaseinterface.LockInfoBiz;
+import com.android.Samkoonhmi.databaseinterface.SystemInfoBiz;
 import com.android.Samkoonhmi.model.SystemInfo;
 import com.android.Samkoonhmi.model.UserInfo;
 import com.android.Samkoonhmi.skenum.DATA_TYPE;
 import com.android.Samkoonhmi.skenum.WINDOW_TYPE;
+import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKHistoryTrends.TYPE;
 import com.android.Samkoonhmi.skwindow.LoginUserListSpinner;
 import com.android.Samkoonhmi.skwindow.SKProgress;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
+import com.android.Samkoonhmi.skwindow.SKSwitchOperDialog.IOperCall;
+import com.android.Samkoonhmi.skwindow.SKSwitchOperDialog.IOperCall.CALLTYPE;
 import com.android.Samkoonhmi.skwindow.SKToast;
 import com.android.Samkoonhmi.system.SystemControl;
+import com.android.Samkoonhmi.system.SystemVariable;
+import com.android.Samkoonhmi.system.address.SystemAddress;
 
 public class GlobalPopWindow {
 	private View showView;// 显示在哪个View
@@ -74,6 +80,13 @@ public class GlobalPopWindow {
 	private static int PASSWORD = 3;
 	private static int NUMBERPASS = 4; // 数字显示密码形式
 	private LoginUserListSpinner mSpinner;
+	private IOperCall iOperCall;// 登录，操作通知
+	private IOperCall.CALLTYPE eType;
+
+	public void setiOperCall(IOperCall iOperCall,IOperCall.CALLTYPE type) {
+		this.iOperCall = iOperCall;
+		this.eType=type;
+	}
 
 	public String getInputMax() {
 		return inputMax;
@@ -227,7 +240,7 @@ public class GlobalPopWindow {
 			case OUTTIME:// 超出时效窗口
 				outTimePop();
 				break;
-			case LOCK://锁屏
+			case LOCK:// 锁屏
 				lockPop();
 				break;
 			case KEYBOARD: // 键盘窗口
@@ -259,10 +272,12 @@ public class GlobalPopWindow {
 		Button cancelButton = (Button) cView.findViewById(R.id.cancel);
 		cancelButton.setVisibility(View.VISIBLE);
 		String defaultUserName = "";
-		String defaultUserPass = "";
 		if (null != SystemInfo.getDefaultUser()) {
 			defaultUserName = SystemInfo.getDefaultUser().getName();
-			defaultUserPass = SystemInfo.getDefaultUser().getPassword();
+		}
+		if (SystemInfo.getUserNameList() != null
+				&& SystemInfo.getUserNameList().size() > 0) {
+			defaultUserName = SystemInfo.getUserNameList().get(0);
 		}
 		userNameValue = defaultUserName;
 		userView.setText(defaultUserName);
@@ -280,8 +295,7 @@ public class GlobalPopWindow {
 							.getUserNameList(), textViewWidth);
 					mSpinner.initPopWindow();
 				}
-				Log.d("KS","userView.setOnClickListener----------");
-				mSpinner.showPopWindow(userView, 0, 36);
+				mSpinner.showPopWindow(userView, 0, 32);
 				mSpinner.setiCallGroupId(userCall);
 			}
 		});
@@ -323,6 +337,13 @@ public class GlobalPopWindow {
 					mPopupWindow.dismiss();
 					popIsShow = false;
 					callback.onStart();
+					if (iOperCall!=null) {
+						if (eType==null||eType==CALLTYPE.OPER) {
+							iOperCall.onCancel();
+						}else {
+							iOperCall.onStartMacro(MotionEvent.ACTION_DOWN);
+						}
+					}
 				}
 			}
 		});
@@ -365,7 +386,8 @@ public class GlobalPopWindow {
 						mPopupWindow.dismiss();
 						popIsShow = false;
 						callback.onStart();
-						// callback.onLogin();
+						//Log.d("PopWindow", "show..........");
+						SystemVariable.getInstance().writeBitAddr(0, SystemAddress.getInstance().SceneSaver());
 						return true;
 					}
 				});
@@ -398,6 +420,16 @@ public class GlobalPopWindow {
 				} else {
 					// 关闭窗口，继续使用
 					// 重新设置使用天数
+					if (LoginActivity.readPassCount < SystemInfo.getPassWord()
+							.size()) {
+						// 将已用过的密码标记设为true
+						SystemInfo.getPassWord()
+								.get(LoginActivity.readPassCount).setUser(true);
+						SystemInfoBiz sysBiz = new SystemInfoBiz();
+						boolean modifyBoo = sysBiz.updatePassUse(SystemInfo
+								.getPassWord().get(LoginActivity.readPassCount)
+								.getId());
+					}
 					if (SystemInfo.isbProtectType() == false) {
 						SharedPreferences.Editor shareEditor = showView
 								.getContext()
@@ -407,7 +439,6 @@ public class GlobalPopWindow {
 										0);
 						int passIndex = sharedPreferences
 								.getInt("passIndex", 0);
-
 						Date date = new Date();
 						SimpleDateFormat format = new SimpleDateFormat(
 								"yyyy/MM/dd");
@@ -427,6 +458,7 @@ public class GlobalPopWindow {
 						SystemInfo.setOnePassWord(SystemInfo.getPassWord().get(
 								LoginActivity.readPassCount));
 					}
+					SKSceneManage.getInstance().setbHmiLock(false);
 					mPopupWindow.dismiss();
 					popIsShow = false;
 					outTimeWindow = false;// 时效窗口已经关闭
@@ -440,7 +472,7 @@ public class GlobalPopWindow {
 		mPopupWindow = new PopupWindow(cView, mWidth, mHeight);
 	}
 
-	public void lockPop(){
+	public void lockPop() {
 
 		// Log.d("pass", "要填写的密码 窗口：：" + validatePassValue);
 		cView = mInflater.inflate(R.layout.outtime, null);
@@ -461,13 +493,13 @@ public class GlobalPopWindow {
 						.trim())) {
 					SKToast.makeText(showView.getContext(),
 							R.string.validatewrong, Toast.LENGTH_SHORT).show();
-				} else {				
-					
-					//设置解锁状态
+				} else {
+
+					// 设置解锁状态
 					LockInfoBiz.getInstance().SetbIsLock(false);
-					
+
 					// 重新设置系统参数中的密码实体
-					//这里
+					// 这里
 					if (LoginActivity.readPassCount + 1 > SystemInfo
 							.getPassWord().size()) {
 						SystemInfo.setOnePassWord(null);
@@ -485,7 +517,7 @@ public class GlobalPopWindow {
 		// 设置窗口的大小
 		mPopupWindow = new PopupWindow(cView, mWidth, mHeight);
 	}
-	
+
 	/**
 	 * 打开键盘窗口
 	 */
@@ -716,37 +748,65 @@ public class GlobalPopWindow {
 	 */
 	public void showPopupWindow() {
 		// Log.d("SKScene", "showPopupWindow" + ",showView:" + showView);
-		popIsShow = true;
-		if(callback != null){
-			callback.onShow();
-		}
-		if (null == mPopupWindow) {
-			initPopupWindow();
-		}
-		if (null != mPopupWindow) {
-			if (WINDOW_TYPE.SCREENSAVER == mWindowType) {
-				mPopupWindow.setFocusable(false);
-			} else {
-				mPopupWindow.setFocusable(true);
+		try {
+			
+			popIsShow = true;
+			if (callback != null) {
+				callback.onShow();
 			}
-			mPopupWindow.update();
-			// Log.d("SKScene", "showView::" + showView);
+			if (null == mPopupWindow) {
+				initPopupWindow();
+			}
+			if (null != mPopupWindow) {
+				if (WINDOW_TYPE.SCREENSAVER == mWindowType) {
+					mPopupWindow.setFocusable(false);
+				} else {
+					mPopupWindow.setFocusable(true);
+				}
+				mPopupWindow.update();
+				// Log.d("SKScene", "showView::" + showView);
 
-			mPopupWindow.setAnimationStyle(R.style.PopupAnimation);
-			if (null != showView && null != mPopupWindow && SKProgress.onResume) {
-				mPopupWindow.showAtLocation(showView, Gravity.CENTER, 0, 0);
+				mPopupWindow.setAnimationStyle(R.style.PopupAnimation);
+				if (null != showView && null != mPopupWindow && SKProgress.onResume) {
+					mPopupWindow.showAtLocation(showView, Gravity.CENTER, 0, 0);
+				}
 			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			popIsShow = false;
 		}
 
 	}
 
 	public void closePop() {
-		if (popIsShow && null != mPopupWindow) {
-			mPopupWindow.dismiss();
-			popIsShow = false;
-			if(callback != null){
-				callback.onStart();
+		try {
+			if (popIsShow && null != mPopupWindow) {
+				mPopupWindow.dismiss();
+				popIsShow = false;
+				if (callback != null) {
+					callback.onStart();
+				}
 			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e("GlobalPopWindow", "ak closePop error !");
+		}
+		
+	}
+
+	/**
+	 * 关闭窗口
+	 */
+	public void closePopWindow() {
+		try {
+			if (popIsShow && null != mPopupWindow) {
+				mPopupWindow.dismiss();
+				popIsShow = false;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e("GlobalPopWindow", "ak closePopWindow error!");
 		}
 	}
 
@@ -795,7 +855,14 @@ public class GlobalPopWindow {
 				// 切换用户，更新界面显示和触控
 				SKSceneManage.getInstance().updateState();
 				callback.onStart();
-
+				if (iOperCall != null) {
+					if (eType==null||eType==CALLTYPE.OPER) {
+						iOperCall.onConfirm(MotionEvent.ACTION_DOWN);
+					}else {
+						iOperCall.onStartMacro(MotionEvent.ACTION_DOWN);
+					}
+					
+				}
 				break;
 
 			default:
@@ -820,8 +887,7 @@ public class GlobalPopWindow {
 			myHandler.sendEmptyMessage(LOGIN_SUCCESS);
 		} else {
 
-			SKToast.makeText(context, R.string.namepasswrong, Toast.LENGTH_LONG)
-					.show();
+			SKToast.makeText(context, R.string.namepasswrong,Toast.LENGTH_SHORT).show();
 			if (null != dlg) {
 				dlg.dismiss();
 			}
@@ -838,23 +904,28 @@ public class GlobalPopWindow {
 	 */
 	public void showDialog(boolean isShow, String message) {
 
-		if (isShow) {
-			dlg = new AlertDialog.Builder(SKSceneManage.getInstance()
-					.getActivity()).create();
-			dlg.show();
-			LinearLayout layout = (LinearLayout) myActivity.getLayoutInflater()
-					.inflate(R.layout.hold_alert, null);
-			if (null != message) {
-				TextView textView = (TextView) layout
-						.findViewById(R.id.hold_title);
-				textView.setText(message);
-			}
-			dlg.getWindow().setContentView(layout);
-		} else {
-			if (dlg != null) {
-				dlg.dismiss();
-			}
+		try {
+			if (isShow) {
+				dlg = new AlertDialog.Builder(SKSceneManage.getInstance()
+						.getActivity()).create();
+				dlg.show();
+				LinearLayout layout = (LinearLayout) myActivity.getLayoutInflater()
+						.inflate(R.layout.hold_alert, null);
+				if (null != message) {
+					TextView textView = (TextView) layout
+							.findViewById(R.id.hold_title);
+					textView.setText(message);
+				}
+				dlg.getWindow().setContentView(layout);
+			} else {
+				if (dlg != null) {
+					dlg.dismiss();
+				}
 
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e("GlobalPopWindow", "ak showDialog error! ");
 		}
 	}
 

@@ -1,8 +1,9 @@
 package com.android.Samkoonhmi.model;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Vector;
 
-import android.R.integer;
+import android.util.Log;
 
 import com.android.Samkoonhmi.macro.corba.Bcd16Holder;
 import com.android.Samkoonhmi.macro.corba.Bcd16SeqHolder;
@@ -47,19 +48,27 @@ public class CallbackItem {
 	//是否是UNICODE编码
 	public boolean isUnicode;
 	//是否已经回调
-	private boolean hasCallback;
+	private boolean hasCallback=false;
 	//监视地址
 	private AddrProp mAddrProp;
 	//是否已经注册
 	private boolean isRegister;
 	//长度
 	private int nAddrLen=1;//默认1
-	//宏指令参数
-	public PHolder   mPHolder=null;
 	//注册控件类型
 	public short nType=0;//0-代表，采集，报警，1-代表宏指令
 	//地址变化
 	private boolean bChange=true;
+	//如果地址比较宏指令没有变化，再写入2次，因为读取需要时间，比较有误差
+	public int nWriteCount;
+	//是否产生上升沿
+	private boolean isOffToOn;
+	//地址引用
+	public PHolder mPholder;
+	//读写权限
+	public int nRW;
+	//回调次数，屏蔽掉第一次
+	private int nIndex=0;
 
 	/**
 	 * 地址监视
@@ -73,7 +82,12 @@ public class CallbackItem {
 			}
 			change(nStatusValue);
 			bChange=true;
-			hasCallback=true;
+			if (nIndex==0) {
+				nIndex++;
+			}else {
+				hasCallback=true;
+			}
+			
 		}
 	};
 	
@@ -108,7 +122,7 @@ public class CallbackItem {
 			bInit=false;
 			int temp=mAddrProp.nAddrValue+nOffsetValue;
 			if (temp<0) {
-				SKPlcNoticThread.getInstance().destoryCallback(callBack);
+				SKPlcNoticThread.getInstance().destoryCallback(callBack,nSceneId);
 				Vector<Byte> nValue=new Vector<Byte>();
 				nValue.add((byte)0);
 				change(nValue);
@@ -130,8 +144,8 @@ public class CallbackItem {
 				mNewAddr.nAddrValue=temp;
 			}
 			
-			SKPlcNoticThread.getInstance().destoryCallback(callBack);
-			SKPlcNoticThread.getInstance().addNoticProp(mNewAddr, callBack, false);
+			SKPlcNoticThread.getInstance().destoryCallback(callBack,nSceneId);
+			SKPlcNoticThread.getInstance().addNoticProp(mNewAddr, callBack, false,nSceneId,true);
 			
 			if (mAddrProp.eConnectType>1) {
 				SKSceneManage.getInstance().updateSceneReadAddrs(nSceneId, mNewAddr);
@@ -144,16 +158,13 @@ public class CallbackItem {
 	/**
 	 * 监视地址值发生变化
 	 */
-	public boolean []mBDatas=null;//宏指令批量boolean类型
-	public short []mSDatas=null;//宏指令批量short类型
-	public int []mIDatas=null;//宏指令批量int类型
-	public long []mLDatas=null;//宏指令批量long类型
-	public float []mFDatas=null;//宏指令批量float类型
-	
+	private boolean bInitData=true;
 	private Vector<Integer> mIDataList=null;
 	private Vector<Short> mSDataList=null;
 	private Vector<Long> mLDataList=null;
 	private Vector<Float> mFDataList=null;
+	private boolean bLastState;
+	public int nAddrId=0;
 	private void change(Vector<Byte> nStatusValue){
 		
 		switch (eDataType) {
@@ -162,34 +173,47 @@ public class CallbackItem {
 			if (nAddrLen==1) {
 				nIValue=nStatusValue.get(0);
 				nFValue=nIValue;
-				if(nFValue==0)
-				{
+				if(nFValue==0){
 					nBValue = false;
 				}else{
 					nBValue = true;
 				}
-				if (nType==1&&mPHolder!=null) {
-					BoolHolder temp=(BoolHolder)mPHolder;
-					temp.v=nBValue;
+				if ((!bLastState)&&nBValue) {
+					//off-->on 上升沿产生
+					isOffToOn=true;
 				}
+				bLastState=nBValue;
+				if (mPholder!=null) {
+					//脚本地址值
+					BoolHolder mHolder=(BoolHolder)mPholder;
+					mHolder.nLastV=nBValue;
+					if (nRW==0||nRW==2) {
+						mHolder.v=nBValue;
+					}
+				}
+				//Log.d("CallbackItem", "nBValue="+nBValue);
 			}else {
 				//批量
 				if (nAddrLen==nStatusValue.size()) {
-					if (nType==1&&mPHolder!=null) {
-						BoolSeqHolder temps=(BoolSeqHolder)mPHolder;
-						if (temps.v==null) {
-							temps.v=new boolean[nAddrLen];
-						}
-						if (mBDatas==null) {
-							mBDatas=new boolean[nAddrLen];
-						}
-						for (int i = 0; i < temps.v.length; i++) {
-							if(nStatusValue.get(i)==1){
-								temps.v[i]=true;
-								mBDatas[i]=true;
-							}else {
-								temps.v[i]=false;
-								mBDatas[i]=false;
+					if (nType==1) {
+						if (mPholder!=null) {
+							BoolSeqHolder tmpBSPH=(BoolSeqHolder)mPholder;
+							if (tmpBSPH.v==null) {
+								tmpBSPH.v=new boolean[nAddrLen];
+							}
+							if (tmpBSPH.nLastV==null) {
+								tmpBSPH.nLastV=new boolean[nAddrLen];
+							}
+							for (int i = 0; i < nAddrLen; i++) {
+								int value=nStatusValue.get(i);
+								boolean result=false;
+								if (value==1) {
+									result=true;
+								}
+								tmpBSPH.nLastV[i]=result;
+								if (nRW==0||nRW==2){
+									tmpBSPH.v[i]=result;
+								}
 							}
 						}
 					}
@@ -209,24 +233,34 @@ public class CallbackItem {
 				if (nAddrLen==1) {
 					nIValue=mSDataList.get(0);
 					nFValue=nIValue;
-					if (nType==1&&mPHolder!=null) {
-						ShortHolder temp=(ShortHolder)mPHolder;
-						temp.v=(short)nIValue;
-					}
 					
+					if (mPholder!=null) {
+						//脚本地址值
+						ShortHolder mHolder=(ShortHolder)mPholder;	
+						mHolder.nLastV=(short)nIValue;
+						if (nRW==0||nRW==2) {
+							mHolder.v=(short)nIValue;
+						}
+					}
 				}else {
 					if (mSDataList.size()==nAddrLen) {
-						if (nType==1&&mPHolder!=null) {
-							ShortSeqHolder temps=(ShortSeqHolder)mPHolder;
-							if (temps.v==null) {
-								temps.v=new short[nAddrLen];
-							}
-							if(mSDatas==null){
-								mSDatas=new short[nAddrLen];
-							}
-							for (int i = 0; i < temps.v.length; i++) {
-								temps.v[i]=mSDataList.get(i);
-								mSDatas[i]=mSDataList.get(i);
+						if (nType==1) {
+							if (mPholder!=null) {
+								//脚本地址值
+								ShortSeqHolder tmpSSEQPH=(ShortSeqHolder)mPholder;
+								if (tmpSSEQPH.v==null) {
+									tmpSSEQPH.v=new short[nAddrLen];
+								}
+								if (tmpSSEQPH.nLastV==null) {
+									tmpSSEQPH.nLastV=new short[nAddrLen];
+								}
+								for (int j = 0; j < nAddrLen; j++) {
+									tmpSSEQPH.nLastV[j]=mSDataList.get(j);
+									if (nRW==0||nRW==2){
+										tmpSSEQPH.v[j]=mSDataList.get(j);
+									}
+								}
+								
 							}
 						}
 						
@@ -247,28 +281,36 @@ public class CallbackItem {
 				if (nAddrLen==1) {
 					nIValue=mIDataList.get(0);
 					nFValue=nIValue;
-					if (nType==1&&mPHolder!=null) {
-						UShortHolder temp=(UShortHolder)mPHolder;
-						temp.v=(short)nIValue;
+					if (mPholder!=null) {
+						//脚本地址值
+						UShortHolder mHolder=(UShortHolder)mPholder;
+						mHolder.nLastV=nIValue;
+						if (nRW==0||nRW==2) {
+							mHolder.v=nIValue;
+						}
 					}
 				}else {
 					//批量
 					if (nAddrLen==mIDataList.size()) {
-						if (nType==1&&mPHolder!=null) {
-							if (nType==1&&mPHolder!=null) {
-								UShortSeqHolder temps=(UShortSeqHolder)mPHolder;
-								if (temps.v==null) {
-									temps.v=new int[nAddrLen];
+						if (nType==1) {
+							if (mPholder!=null) {
+								//脚本地址值
+								UShortSeqHolder tmpUSSEQPH=(UShortSeqHolder)mPholder;
+								//地址值有变化
+								if (tmpUSSEQPH.v==null) {
+									tmpUSSEQPH.v=new int[nAddrLen];
 								}
-								if (mIDatas==null) {
-									mIDatas=new int[nAddrLen];
+								if (tmpUSSEQPH.nLastV==null) {
+									tmpUSSEQPH.nLastV=new int[nAddrLen];
 								}
-								for (int i = 0; i < temps.v.length; i++) {
-									temps.v[i]=mIDataList.get(i);
-									mIDatas[i]=mIDataList.get(i);
+								for (int j = 0; j < nAddrLen; j++) {
+									tmpUSSEQPH.nLastV[j]=mIDataList.get(j);
+									if (nRW==0||nRW==2) {
+										tmpUSSEQPH.v[j]=mIDataList.get(j);
+									}
 								}
+								
 							}
-							
 						}
 					}
 				}
@@ -287,24 +329,35 @@ public class CallbackItem {
 				if (nAddrLen==1) {
 					nIValue=mIDataList.get(0);
 					nFValue=nIValue;
-					if (nType==1&&mPHolder!=null) {
-						IntHolder temp=(IntHolder)mPHolder;
-						temp.v=nIValue;
+					if (mPholder!=null) {
+						//脚本地址值
+						IntHolder mHolder=(IntHolder)mPholder;
+						mHolder.nLastV=nIValue;
+						if (nRW==0||nRW==2) {
+							mHolder.v=nIValue;
+						}
 					}
 				}else {
 					//批量
 					if (mIDataList.size()==nAddrLen/2) {
-						if (nType==1&&mPHolder!=null) {
-							IntSeqHolder temps=(IntSeqHolder)mPHolder;
-							if (temps.v==null) {
-								temps.v=new int[nAddrLen/2];
-							}
-							if (mIDatas==null) {
-								mIDatas=new int[nAddrLen/2];
-							}
-							for (int i = 0; i < nAddrLen/2; i++) {
-								temps.v[i]=mIDataList.get(i);
-								mIDatas[i]=mIDataList.get(i);
+						if (nType==1) {
+							if (mPholder!=null) {
+								//脚本地址值
+								IntSeqHolder tmpISPH=(IntSeqHolder)mPholder;
+								//地址值有变化
+								if (tmpISPH.v==null) {
+									tmpISPH.v=new int[nAddrLen/2];
+								}
+								if (tmpISPH.nLastV==null) {
+									tmpISPH.nLastV=new int[nAddrLen/2];
+								}
+								for (int j = 0; j < nAddrLen/2; j++) {
+									tmpISPH.nLastV[j]=mIDataList.get(j);
+									if (nRW==0||nRW==2) {
+										tmpISPH.v[j]=mIDataList.get(j);
+									}
+								}
+								
 							}
 						}
 					}
@@ -323,24 +376,37 @@ public class CallbackItem {
 				if (nAddrLen==1) {
 					nLValue=mLDataList.get(0);
 					nFValue=nLValue;
-					if (nType==1&&mPHolder!=null) {
-						UIntHolder temp=(UIntHolder)mPHolder;
-						temp.v=nLValue;
+					
+					if (mPholder!=null) {
+						//脚本地址值
+						UIntHolder mHolder=(UIntHolder)mPholder;
+						mHolder.nLastV=nLValue;
+						if (nRW==0||nRW==2) {
+							mHolder.v=nLValue;
+						}
 					}
+					
 				}else {
 					//批量
 					if (mLDataList.size()==nAddrLen/2) {
-						if (nType==1&&mPHolder!=null) {
-							UIntSeqHolder temps=(UIntSeqHolder)mPHolder;
-							if (temps.v==null) {
-								temps.v=new long[nAddrLen/2];
-							}
-							if (mLDatas==null) {
-								mLDatas=new long[nAddrLen/2];
-							}
-							for (int i = 0; i < nAddrLen/2; i++) {
-								temps.v[i]=mLDataList.get(i);
-								mLDatas[i]=mLDataList.get(i);
+						if (nType==1) {
+							if (mPholder!=null) {
+								//脚本地址值
+								//地址值有变化
+								UIntSeqHolder tmpUISPH = (UIntSeqHolder)mPholder;
+								if (tmpUISPH.v==null) {
+									tmpUISPH.v=new long[nAddrLen/2];
+								}
+								if (tmpUISPH.nLastV==null) {
+									tmpUISPH.nLastV=new long[nAddrLen/2];
+								}
+								for (int j = 0; j < nAddrLen/2; j++) {
+									tmpUISPH.nLastV[j]=mLDataList.get(j);
+									if (nRW==0||nRW==2) {
+										tmpUISPH.v[j]=mLDataList.get(j);
+									}
+								}
+								
 							}
 						}
 					}
@@ -359,26 +425,55 @@ public class CallbackItem {
 			result = PlcRegCmnStcTools.bytesToUShorts(nStatusValue, mIDataList);
 			if (result) {
 				if (nAddrLen==1) {
-					nIValue=mIDataList.get(0);
-					nFValue=nIValue;
-					if (nType==1&&mPHolder!=null) {
-						Bcd16Holder temp=(Bcd16Holder)mPHolder;
-						temp.v=(short)nIValue;
+					String s=DataTypeFormat.intToBcdStr((long) mIDataList.get(0), false);
+					if (s!=null&&!s.equals("ERROR")) {
+						try {
+							nIValue=Integer.valueOf(s);
+							nFValue=nIValue;
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
 					}
+					if (mPholder!=null) {
+						//脚本地址值
+						Bcd16Holder mHolder=(Bcd16Holder)mPholder;
+						mHolder.nLastV=nIValue;
+						if (nRW==0||nRW==2) {
+							mHolder.v=nIValue;
+						}
+					}
+					
 				}else {
 					//批量
 					if (mIDataList.size()==nAddrLen) {
-						if (nType==1&&mPHolder!=null) {
-							Bcd16SeqHolder temps=(Bcd16SeqHolder)mPHolder;
-							if (temps.v==null) {
-								temps.v=new int[nAddrLen];
-							}
-							if (mIDatas==null) {
-								mIDatas=new int[nAddrLen];
-							}
-							for (int i = 0; i < temps.v.length; i++) {
-								temps.v[i]=mIDataList.get(i);
-								mIDatas[i]=mIDataList.get(i);
+						if (nType==1) {
+							if (mPholder!=null) {
+								//脚本地址值
+								//地址值有变化
+								Bcd16SeqHolder tmpBCD16SEQPH = (Bcd16SeqHolder)mPholder;
+								if (tmpBCD16SEQPH.v==null) {
+									tmpBCD16SEQPH.v=new int[nAddrLen];
+								}
+								if (tmpBCD16SEQPH.nLastV==null) {
+									tmpBCD16SEQPH.nLastV=new int[nAddrLen];
+								}
+								for (int j = 0; j < nAddrLen; j++) {
+									int nV=0;
+									String s=DataTypeFormat.intToBcdStr((long) mIDataList.get(j), false);
+									if (s!=null&&!s.equals("ERROR")) {
+										try {
+											nV=Integer.valueOf(s);
+										} catch (Exception e) {
+											e.printStackTrace();
+										}
+									}
+									tmpBCD16SEQPH.nLastV[j]=nV;
+									if (nRW==0||nRW==2) {
+										tmpBCD16SEQPH.v[j]=nV;
+									}
+									
+								}
+								
 							}
 						}
 					}
@@ -396,26 +491,53 @@ public class CallbackItem {
 			result = PlcRegCmnStcTools.bytesToUInts(nStatusValue, mLDataList);
 			if (result) {
 				if (nAddrLen==1) {
-					nLValue=mLDataList.get(0);
-					nFValue=nLValue;
-					if (nType==1&&mPHolder!=null) {
-						Bcd32Holder temp=(Bcd32Holder)mPHolder;
-						temp.v=nLValue;
+					String s=DataTypeFormat.intToBcdStr((long) mLDataList.get(0), false);
+					if (s!=null&&!s.equals("ERROR")) {
+						try {
+							nLValue=Integer.valueOf(s);
+							nFValue=nLValue;
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					}
+					if (mPholder!=null) {
+						//脚本地址值
+						Bcd32Holder mHolder=(Bcd32Holder)mPholder;
+						mHolder.nLastV=nLValue;
+						if (nRW==0||nRW==2) {
+							mHolder.v=nLValue;
+						}
 					}
 				}else {
 					//批量
 					if (mLDataList.size()==nAddrLen/2) {
-						if (nType==1&&mPHolder!=null) {
-							Bcd32SeqHolder temps=(Bcd32SeqHolder)mPHolder;
-							if (temps.v==null) {
-								temps.v=new long[nAddrLen/2];
-							}
-							if (mLDatas==null) {
-								mLDatas=new long[nAddrLen/2];
-							}
-							for (int i = 0; i < nAddrLen/2; i++) {
-								temps.v[i]=mLDataList.get(i);
-								mLDatas[i]=mLDataList.get(i);
+						if (nType==1) {
+							if (mPholder!=null) {
+								//脚本地址值
+								Bcd32SeqHolder tmpBcd32SeqPH = (Bcd32SeqHolder)mPholder;
+								if (tmpBcd32SeqPH.v==null) {
+									tmpBcd32SeqPH.v=new long[nAddrLen/2];
+								}
+								if (tmpBcd32SeqPH.nLastV==null) {
+									tmpBcd32SeqPH.nLastV=new long[nAddrLen/2];
+								}
+								
+								for (int j = 0; j < nAddrLen/2; j++) {
+									int nV=0;
+									String s=DataTypeFormat.intToBcdStr((long) mLDataList.get(j), false);
+									if (s!=null&&!s.equals("ERROR")) {
+										try {
+											nV=Integer.valueOf(s);
+										} catch (Exception e) {
+											e.printStackTrace();
+										}
+									}
+									tmpBcd32SeqPH.nLastV[j]=nV;
+									if (nRW==0||nRW==2) {
+										tmpBcd32SeqPH.v[j]=nV;
+									}
+								}
+								
 							}
 						}
 					}
@@ -434,25 +556,35 @@ public class CallbackItem {
 			if (result) {
 				if (nAddrLen==1) {
 					nFValue=mFDataList.get(0);
-					if (nType==1&&mPHolder!=null){
-						FloatHolder temp=(FloatHolder)mPHolder;
-						temp.v=nFValue;
+					if (mPholder!=null) {
+						//脚本地址值
+						FloatHolder mHolder=(FloatHolder)mPholder;
+						mHolder.nLastV=nFValue;
+						if (nRW==0||nRW==2) {
+							mHolder.v=nFValue;
+						}
 					}
-					
 				}else {
 					//批量
 					if (mFDataList.size()==nAddrLen/2) {
-						if (nType==1&&mPHolder!=null) {
-							FloatSeqHolder temps=(FloatSeqHolder)mPHolder;
-							if (temps.v==null) {
-								temps.v=new float[nAddrLen/2];
-							}
-							if (mFDatas==null) {
-								mFDatas=new float[nAddrLen/2];
-							}
-							for (int i = 0; i < nAddrLen/2; i++) {
-								temps.v[i]=mFDataList.get(i);
-								mFDatas[i]=mFDataList.get(i);
+						if (nType==1) {
+							if (mPholder!=null) {
+								//脚本地址值
+								FloatSeqHolder tmpFSPH = (FloatSeqHolder)mPholder;
+								//地址值有变化
+								if (tmpFSPH.v==null) {
+									tmpFSPH.v=new float[nAddrLen/2];
+								}
+								if (tmpFSPH.nLastV==null) {
+									tmpFSPH.nLastV=new float[nAddrLen/2];
+								}
+								for (int j = 0; j < nAddrLen/2; j++) {
+									tmpFSPH.nLastV[j]=mFDataList.get(j);
+									if (nRW==0||nRW==2) {
+										tmpFSPH.v[j]=mFDataList.get(j);
+									}
+								}
+								
 							}
 						}
 					}
@@ -460,89 +592,79 @@ public class CallbackItem {
 				
 			}
 			break;
-		case OTC_16:
-			// 16位8进制
-			if (mIDataList==null) {
-				mIDataList=new Vector<Integer>();
-			}else {
-				mIDataList.clear();
-			}
-			result = PlcRegCmnStcTools.bytesToUShorts(nStatusValue,
-					mIDataList);
-			if (result && 0 != mIDataList.size()) {
-				String	temp = DataTypeFormat
-						.intToOctStr(mIDataList.get(0));
-			    nIValue = Integer.valueOf(temp);
-			  
-			}
-			break;
-		case OTC_32: 
-			// 32位的8进制
-			if (mLDataList==null) {
-				mLDataList=new Vector<Long>();
-			}else {
-				mLDataList.clear();
-			}
-			result = PlcRegCmnStcTools
-					.bytesToUInts(nStatusValue, mLDataList);
-			if (result && 0 != mLDataList.size()) {
-				String temp = DataTypeFormat
-						.intToOctStr(mLDataList.get(0));
-				nLValue = Long.valueOf(temp);
-				
-			}
-			break;
-		case HEX_16: 
-			// 16位16进制
-			if (mIDataList==null) {
-				mIDataList=new Vector<Integer>();
-			}else {
-				mIDataList.clear();
-			}
-			result = PlcRegCmnStcTools.bytesToUShorts(nStatusValue,
-					mIDataList);
-			if (result && 0 != mIDataList.size()) {
-				String temp  = DataTypeFormat
-						.intToHexStr(mIDataList.get(0));
-                nIValue =  Integer.valueOf(temp);
-				
-			}
-			break;
-		case HEX_32: 
-			// 32位16进制
-			if (mLDataList==null) {
-				mLDataList=new Vector<Long>();
-			}else {
-				mLDataList.clear();
-			}
-			result = PlcRegCmnStcTools
-					.bytesToUInts(nStatusValue, mLDataList);
-			if (result && 0 != mLDataList.size()) {
-				String temp = DataTypeFormat
-						.intToHexStr((long) mLDataList.get(0));
-				nLValue = Long.valueOf(temp);
-				
-			}
-			break;
 		case ASCII_STRING:
 			if (isUnicode) {
-				byte[] byteValue = new byte[nStatusValue.size() + 2];
-				byteValue[0] = -1;
-				byteValue[1] = -2;
-				for (int i = 0; i < nStatusValue.size(); i++) {
-					byteValue[i + 2] = nStatusValue.get(i);
+				// 若为Unicode编码
+				int act_len = 0;
+				for (act_len = 0; act_len < (nStatusValue.size() - 2); act_len += 2) {
+					if ((nStatusValue.get(act_len) == 0)
+							&& (nStatusValue.get(act_len) == 0)) {
+						break;
+					}
 				}
-				sValue = converCodeShow(byteValue);
+
+				if (act_len != 0) {
+					if (act_len >= nStatusValue.size()) {
+						act_len = nStatusValue.size();
+					}
+
+					// 将获得的字符码转存到字节数组中
+					byte[] bytearray = new byte[act_len + 2];
+
+					// 添加unicode标记
+					bytearray[0] = -1;
+					bytearray[1] = -2;
+
+					if (bytearray.length > 2) {
+						for (int j = 0, i = 2; j < act_len; j++) {
+							bytearray[i] = nStatusValue.get(j);
+							i++;
+						}
+					}
+
+					try {
+						// 新建unicode字符串
+						sValue = new String(bytearray, "UNICODE");
+					} catch (UnsupportedEncodingException e) {
+						e.printStackTrace();
+					}
+				}
+				
 			} else {
-				byte[] byteValue = new byte[nStatusValue.size()];
-				for (int i = 0; i < nStatusValue.size(); i++) {
-					byteValue[i] = nStatusValue.get(i);
+				int ascii_act_len = 0;
+				for (ascii_act_len = 0; ascii_act_len < nStatusValue.size(); ascii_act_len++) {
+					if (nStatusValue.get(ascii_act_len) == 0) {
+						break;
+					}
 				}
-				sValue = converCodeShow(byteValue);
+				if (ascii_act_len != 0) {
+					if (ascii_act_len >= nStatusValue.size()) {
+						ascii_act_len = nStatusValue.size();
+					}
+
+					// 将获得的字符码转存到字节数组中
+					byte[] bytearray = new byte[ascii_act_len];
+
+					for (int j = 0, i = 0; j < ascii_act_len; j++) {
+						bytearray[i] = nStatusValue.get(j);
+						i++;
+					}
+					try {
+						// 新建ASCII字符串
+						sValue = new String(bytearray, "US-ASCII");
+					} catch (UnsupportedEncodingException e) {
+						e.printStackTrace();
+					}
+				}
+				
 			}
-			if (nType==1&&mPHolder!=null) {
-				StringHolder temp=(StringHolder)mPHolder;
-				temp.v=sValue;
+			if (mPholder!=null) {
+				//脚本地址值
+				StringHolder mHolder=(StringHolder)mPholder;
+				mHolder.nLastV=sValue;
+				if (nRW==0||nRW==2) {
+					mHolder.v=sValue;
+				}
 			}
 			break;
 		}
@@ -553,15 +675,16 @@ public class CallbackItem {
 	 * 注册通知
 	 * @param addr-需要监视地址
 	 * @param bBitAddr-true,表示位; bBitAddr-false,表示字
+	 * @param sid-场景id 0-全局
 	 */
-	public void onRegister(AddrProp addr, boolean bBitAddr){
+	public void onRegister(AddrProp addr, boolean bBitAddr,int sid){
 		if (addr==null) {
 			return;
 		}
 		hasCallback=false;
 		this.mAddrProp=addr;
 		isRegister=true;
-		SKPlcNoticThread.getInstance().addNoticProp(addr, callBack, bBitAddr);
+		SKPlcNoticThread.getInstance().addNoticProp(addr, callBack, bBitAddr,sid,true);
 	}
 	
 	/**
@@ -574,15 +697,16 @@ public class CallbackItem {
 		}
 		hasCallback=false;
 		isRegister=true;
-		SKPlcNoticThread.getInstance().addNoticProp(mAddrProp, callBack, bBitAddr);
+		SKPlcNoticThread.getInstance().addNoticProp(mAddrProp, callBack, bBitAddr,0,true);
 	}
 	
 	/**
 	 * 删除绑定
+	 * @param sid-画面id,0代表全局变量
 	 */
-	public void unRegister(){
+	public void unRegister(int sid){
 		hasCallback=false;
-		SKPlcNoticThread.getInstance().destoryCallback(callBack);
+		SKPlcNoticThread.getInstance().destoryCallback(callBack,sid);
 		isRegister=false;
 	}
 
@@ -597,14 +721,15 @@ public class CallbackItem {
 		}
 		nSceneId=sid;
 		bInit=true;
-		SKPlcNoticThread.getInstance().addNoticProp(addr, addrOffset, false);
+		SKPlcNoticThread.getInstance().addNoticProp(addr, addrOffset, false,nSceneId,true);
 	}
 	
 	/**
 	 * 删除地址偏移回调
+	 * @param sid-画面id,0代表全局变量
 	 */
-	public void unRegisterAddrOffset(){
-		SKPlcNoticThread.getInstance().destoryCallback(addrOffset);
+	public void unRegisterAddrOffset(int sid){
+		SKPlcNoticThread.getInstance().destoryCallback(addrOffset,sid);
 	}
 	
 	/**
@@ -632,21 +757,41 @@ public class CallbackItem {
 	public int getnIValue() {
 		return nIValue;
 	}
+	
+	public void setnIValue(int value){
+		this.nIValue=value;
+	}
 
 	public float getnFValue() {
 		return nFValue;
 	}
+	
+	public void setnFValue(float value){
+		this.nFValue=value;
+	}
 
 	public long getnLValue() {
 		return nLValue;
+	}
+	
+	public void setnLValue(long value){
+		this.nLValue=value;
 	}
 
 	public String getsValue() {
 		return sValue;
 	}
 	
+	public void setsValue(String value){
+		this.sValue=value;
+	}
+	
 	public boolean hasCallback() {
 		return hasCallback;
+	}
+	
+	public void setCallback(boolean b) {
+		this.hasCallback=b;;
 	}
 	
 	public boolean isRegister() {
@@ -655,6 +800,10 @@ public class CallbackItem {
 
 	public boolean isnBValue() {
 		return nBValue;
+	}
+	
+	public void setBValue(boolean v){
+		nBValue=v;
 	}
 	
 	public void setnAddrLen(int nAddrLen){
@@ -668,4 +817,21 @@ public class CallbackItem {
 	public void setbChange(boolean bChange) {
 		this.bChange = bChange;
 	}
+	
+	public boolean isbInitData() {
+		return bInitData;
+	}
+
+	public void setbInitData(boolean bInitData) {
+		this.bInitData = bInitData;
+	}
+	
+	public boolean isOffToOn() {
+		return isOffToOn;
+	}
+
+	public void setOffToOn(boolean isOffToOn) {
+		this.isOffToOn = isOffToOn;
+	}
+
 }

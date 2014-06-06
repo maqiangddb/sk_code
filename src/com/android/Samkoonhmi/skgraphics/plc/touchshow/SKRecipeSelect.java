@@ -3,6 +3,8 @@ package com.android.Samkoonhmi.skgraphics.plc.touchshow;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Observable;
+import java.util.Observer;
 import java.util.Vector;
 
 import com.android.Samkoonhmi.R;
@@ -14,12 +16,13 @@ import com.android.Samkoonhmi.graphicsdrawframe.RectItem;
 import com.android.Samkoonhmi.graphicsdrawframe.TextItem;
 import com.android.Samkoonhmi.macro.MacroManager;
 import com.android.Samkoonhmi.model.CurrentRecipe;
+import com.android.Samkoonhmi.model.IItem;
+import com.android.Samkoonhmi.model.RecipeOGprop;
 import com.android.Samkoonhmi.model.RecipeOprop;
 import com.android.Samkoonhmi.model.RecipeSelectInfo;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.StaticTextModel;
 import com.android.Samkoonhmi.model.SystemInfo;
-import com.android.Samkoonhmi.model.skglobalcmn.RecipeDataProp;
 import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
 import com.android.Samkoonhmi.skenum.ADDRTYPE;
 import com.android.Samkoonhmi.skenum.CSS_TYPE;
@@ -36,6 +39,7 @@ import com.android.Samkoonhmi.util.ImageFileTool;
 import com.android.Samkoonhmi.util.MSERV;
 import com.android.Samkoonhmi.util.SKLanguage;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -46,6 +50,7 @@ import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -67,7 +72,7 @@ import android.widget.Toast;
  * @author 瞿丽平
  * 
  */
-public class SKRecipeSelect extends SKGraphCmnTouch {
+public class SKRecipeSelect extends SKGraphCmnTouch implements IItem {
 	private RecipeSelectInfo info;
 	private boolean flag = true;
 	private Paint mPaint;
@@ -93,7 +98,6 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 	private StaticTextModel text;
 	private TextItem textItem;
 	private RectItem rectItems;
-	private RectItem borderReceItem;
 	private FoldLineItem foldLineItem;
 	private SKItems items;
 	private int itemId;
@@ -129,18 +133,7 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 		sysBiz = new SystemInfoBiz();
 		this.info = info;
 		setState();
-	}
-
-	private void init() {
-		if (null == info) {
-			return;
-		}
-		// boxHeight = 200;
-		if (SKSceneManage.getInstance().getCurrentInfo() != null) {
-			screenHeight = SKSceneManage.getInstance().getCurrentInfo()
-					.getnSceneHeight();
-		}
-
+		
 		// 触控权限地址
 		if (null != info.getTouchInfo()) {
 			if (info.getTouchInfo().getTouchAddrProp() != null) {
@@ -158,6 +151,47 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 			if (info.getShowInfo().isbShowByUser()) {
 				showByUser = true;
 			}
+		}
+				
+		if (touchByAddr) {
+			// Log.d("plc", "SKRecipeSelect 注册触控通知");
+			ADDRTYPE addrType = info.getTouchInfo().geteCtlAddrType();
+			if (addrType == ADDRTYPE.BITADDR) {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						info.getTouchInfo().getTouchAddrProp(), touchCall,
+						true, sceneId);
+			} else {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						info.getTouchInfo().getTouchAddrProp(), touchCall,
+						false,sceneId);
+			}
+		}
+		
+		if (showByAddr) {
+			// Log.d("plc", "SKRecipeSelect 注册显现通知");''
+			ADDRTYPE addrType = info.getShowInfo().geteAddrType();
+			if (addrType == ADDRTYPE.BITADDR) {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						info.getShowInfo().getShowAddrProp(), showCall, true,
+						sceneId);
+			} else {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						info.getShowInfo().getShowAddrProp(), showCall, false,
+						sceneId);
+			}
+
+		}
+
+	}
+
+	private void init() {
+		if (null == info) {
+			return;
+		}
+		// boxHeight = 200;
+		if (SKSceneManage.getInstance().getCurrentInfo() != null) {
+			screenHeight = SKSceneManage.getInstance().getCurrentInfo()
+					.getnSceneHeight();
 		}
 
 		initFlag = true;
@@ -186,12 +220,6 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 		rectBoder.top = info.getnStartPosY();
 		rectBoder.bottom = info.getnStartPosY() + info.getnHeight();
 
-		borderReceItem = new RectItem(myRect);
-		borderReceItem.setAlpha(255);
-		borderReceItem.setLineAlpha(255);
-		borderReceItem.setBackColor(Color.TRANSPARENT);
-		borderReceItem.setLineColor(Color.rgb(183, 211, 252));
-
 		// 文本属性
 		text = new StaticTextModel();
 		text.setM_eTextAlign(TEXT_PIC_ALIGN.LEFT);
@@ -201,21 +229,19 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 		text.setStartX(info.getnStartPosX());
 		text.setStartY(info.getnStartPosY());
 		if (info.geteShowType() == RECIPESELECT_TYPE.COMBOX) {
-			text.setRectHeight(rectBoder.height());
-			text.setRectWidth(rectBoder.width());
+			text.setStartX(info.getnStartPosX()+1);
+			text.setStartY(info.getnStartPosY()+1);
+			text.setRectHeight(rectBoder.height()-2);
+			text.setRectWidth(rectBoder.width()-1);
 		} else {
-			text.setRectWidth(myRect.width());
-		}
+			text.setRectWidth(myRect.width()-1);
+		} 
 		if (info.geteShowType() == RECIPESELECT_TYPE.ARRAYLIST) {
 			text.setLineColor(Color.BLACK);
 			text.setLineWidth(1);
 		} else {
 			text.setLineColor(Color.rgb(183, 211, 252));
-			if (info.getnTransparent() == 0) {
-				text.setLineWidth(0);
-			} else {
-				text.setLineWidth(1);
-			}
+			text.setLineWidth(1);
 		}
 		text.setM_sFontFamly(info.getsFontFamily());
 		text.setM_alphaPadding(info.getnTransparent());
@@ -231,15 +257,15 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 		rectBox = new Rect();
 		rectBox.left = rectBoder.right;
 		rectBox.right = rectBoder.right + rect2Width;
-		rectBox.top = rectBoder.top - 1;
-		rectBox.bottom = rectBoder.bottom + 1;
+		rectBox.top = rectBoder.top ;
+		rectBox.bottom = rectBoder.bottom ;
 
 		// 显示下拉三角的矩形对象
 		rectItems = new RectItem(rectBox);
 		rectItems.setLineColor(Color.rgb(183, 211, 252));
 		rectItems.setStyle(CSS_TYPE.CSS_SOLIDCOLOR);
 		rectItems.setBackColor(Color.rgb(183, 211, 252));
-		rectItems.setLineWidth(2);
+		rectItems.setLineWidth(1);
 		rectItems.setAlpha(info.getnTransparent());
 
 		// 下拉三角的点集合
@@ -277,13 +303,14 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 			// if (null == dataList) {
 			reflesh = false;
 			dataList = new ArrayList<RecipeOprop>();
-			RecipeDataProp.recipeOGprop oGprop = RecipeDataCentre.getInstance()
+			RecipeOGprop oGprop = RecipeDataCentre.getInstance()
 					.getOGRecipeData(info.getsShowRecipeId());
 			if (null != oGprop) {
 				dataList = oGprop.getmRecipePropList();
 			}
-
+			
 			if (null != dataList) {
+				//Log.d("RecipeSelect", "size="+dataList.size());
 				if (dataList.size() > 0) {
 					// 系统当前配方
 					CurrentRecipe current = SystemInfo.getCurrentRecipe();
@@ -309,12 +336,7 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 					}
 					if (null != names) {
 						if (!names.isEmpty()) {
-							if (SystemInfo.getCurrentLanguageId() < names
-									.size()) {
-								showFirstName = names;
-							} else {
-								showFirstName = null;
-							}
+							showFirstName = names;
 						} else {
 							showFirstName = null;
 						}
@@ -345,7 +367,7 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 		@Override
 		public void currRecipeUpdate() {
 			// TODO Auto-generated method stub
-			showFirstName = null;
+//			showFirstName = null;
 			if (null != dataList) {
 				if (!dataList.isEmpty()) {
 					for (int i = 0; i < dataList.size(); i++) {
@@ -482,7 +504,7 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 								if (info.getTouchInfo().isbTimeoutCancel() == true
 										&& info.getTouchInfo().getnPressTime() > 0) {
 									delayTime = 2000 + info.getTouchInfo()
-											.getnPressTime() * 1000;
+											.getnPressTime() * 100;
 								} else {
 									delayTime = 2000;
 								}
@@ -495,7 +517,7 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 								if (info.getTouchInfo().isbTimeoutCancel() == true
 										&& info.getTouchInfo().getnPressTime() > 0) {
 									delayTime = info.getTouchInfo()
-											.getnPressTime() * 1000 + 2000;
+											.getnPressTime() * 100 + 2000;
 								} else {
 									delayTime = 0 + 2000;
 								}
@@ -584,9 +606,8 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 	private RecipectSearchWindow searchWindow;
 
 	private boolean onDoublicClick(int x, int y, MotionEvent event) {
-		if(info.geteShowType() == RECIPESELECT_TYPE.COMBOX)
-		{
-			//不处理下拉框样式的双击弹出搜索框
+		if (info.geteShowType() == RECIPESELECT_TYPE.COMBOX) {
+			// 不处理下拉框样式的双击弹出搜索框
 			return false;
 		}
 		boolean result = false;
@@ -614,7 +635,8 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 					nClickCount++;
 					if (nClickCount >= 2) {
 						if (valid) {
-							searchWindow = new RecipectSearchWindow(dataList,info.getsShowRecipeId());
+							searchWindow = new RecipectSearchWindow(dataList,
+									info.getsShowRecipeId());
 							searchWindow.initPopupWindow();
 							searchWindow.showPopupWindow();
 							nClickCount = 0;
@@ -630,7 +652,8 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 			nClickCount++;
 			if (nClickCount >= 2) {
 				if (valid) {
-					searchWindow = new RecipectSearchWindow(dataList,info.getsShowRecipeId());
+					searchWindow = new RecipectSearchWindow(dataList,
+							info.getsShowRecipeId());
 					searchWindow.initPopupWindow();
 					searchWindow.showPopupWindow();
 					nClickCount = 0;
@@ -665,6 +688,7 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 					}
 				}
 				SKSceneManage.getInstance().onRefresh(items);
+				
 				// 选择完，执行操作通知
 				noticeAddr(info.getTouchInfo(), true);
 				if (true == info.isbUseMacro()) {
@@ -672,6 +696,8 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 					MacroManager.getInstance(null).Request(MSERV.CALLCM,
 							(short) info.getnMacroId());
 				}
+				//发送广播
+				notifiSelect();
 
 			}
 		}
@@ -806,7 +832,7 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 					if (!dataList.isEmpty()) {
 						for (int j = 0; j < dataList.size(); j++) {
 							if (j == position) {
-
+								
 								// 重新给选中的值赋给矩形显示框
 								showFirstName = dataList.get(j)
 										.getsRecipeName();
@@ -821,6 +847,9 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 											(short) info.getnMacroId());
 								}
 								SKSceneManage.getInstance().onRefresh(items);
+								
+								//发送广播
+								notifiSelect();
 							}
 						}
 					}
@@ -882,6 +911,8 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 		adapter = new RecipeSelectAdapter(SKSceneManage.getInstance().mContext,
 				dataList, info);
 		listView.setAdapter(adapter);
+		int index = getCurrentReciIndex(dataList);
+		listView.setSelection(index);
 		if (null != searchText) {
 			searchText.setText("");
 			updateList("");
@@ -893,7 +924,7 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 			showType = SKSceneManage.getInstance().getCurrentInfo().geteType();
 		}
 
-		if (showType == SHOW_TYPE.FLOATING) {
+		if (showType == SHOW_TYPE.FLOATING && SKSceneManage.getInstance().getCurrentInfo().isbShowTitle()) {
 			// 窗口
 			if (i >= boxHeight) {
 				mPopupWindow.showAtLocation(SKSceneManage.getInstance()
@@ -909,13 +940,13 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 			// 画面
 			if (i >= boxHeight) {
 				mPopupWindow.showAtLocation(SKSceneManage.getInstance()
-						.getCurrentScene(), Gravity.NO_GRAVITY, myRect.left,
-						myRect.top + info.getnHeight());
+						.getCurrentScene(), Gravity.NO_GRAVITY,
+						myRect.left + 1, myRect.top + info.getnHeight());
 			} else {
 
 				mPopupWindow.showAtLocation(SKSceneManage.getInstance()
-						.getCurrentScene(), Gravity.NO_GRAVITY, myRect.left,
-						myRect.top - boxHeight);
+						.getCurrentScene(), Gravity.NO_GRAVITY,
+						myRect.left + 1, myRect.top - boxHeight);
 
 			}
 		}
@@ -968,36 +999,13 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 	 */
 	private void registAddr() {
 
-		if (touchByAddr) {
-			// Log.d("plc", "SKRecipeSelect 注册触控通知");
-			ADDRTYPE addrType = info.getTouchInfo().geteCtlAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance()
-						.addNoticProp(info.getTouchInfo().getTouchAddrProp(),
-								touchCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getTouchInfo().getTouchAddrProp(), touchCall,
-						false);
-			}
-		}
-		if (showByAddr) {
-			// Log.d("plc", "SKRecipeSelect 注册显现通知");''
-			ADDRTYPE addrType = info.getShowInfo().geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getShowInfo().getShowAddrProp(), showCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getShowInfo().getShowAddrProp(), showCall, false);
-			}
-
-		}
-
 		// 注册配方数据通知接口
 		RecipeDataCentre.getInstance().msgRegisterUpdate(ICallBackDataList);
 		// 注册多语言切换接口
-		SKLanguage.getInstance().getBinder().onRegister(languageICallback);
+		if (SystemInfo.getLanguageNumber()>1) {
+			SKLanguage.getInstance().getBinder().onRegister(languageICallback);
+		}
+		
 	}
 
 	/**
@@ -1059,7 +1067,7 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 			drawList(paint, canvas, selectIndex);
 		}
 		// 不可触控加上锁图标
-		if (!isTouchFlag) {
+		if (!isTouchFlag && SystemInfo.isbLockIcon()) {
 			if (mLockBitmap == null) {
 				if (SKSceneManage.getInstance().mContext != null)
 					mLockBitmap = ImageFileTool.getBitmap(R.drawable.lock,
@@ -1080,9 +1088,6 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 	 * @param canvas
 	 */
 	private void drawCombox(Paint paint, Canvas canvas) {
-
-		// 画矩形边框
-		borderReceItem.draw(paint, canvas);
 		// 画文本
 		drawTextValue(paint, canvas);
 
@@ -1101,7 +1106,11 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 	private void drawTextValue(Paint paint, Canvas canvas) {
 		String showText = " ";
 		if (null != showFirstName) {
-			showText = showFirstName.get(SystemInfo.getCurrentLanguageId());
+			if(showFirstName.size()>SystemInfo.getCurrentLanguageId()){
+				showText = showFirstName.get(SystemInfo.getCurrentLanguageId());
+			}else{
+				showText = showFirstName.get(0);
+			}
 		}
 		text.setM_sTextStr(showText);
 		textItem.draw(canvas);
@@ -1222,10 +1231,7 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 		}
 
 		RecipeDataCentre.getInstance().msgDestoryCallback(ICallBackDataList);
-		// initFlag = true;
-		// 销毁注册地址
-		SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		SKPlcNoticThread.getInstance().destoryCallback(touchCall);
+
 	}
 
 	@Override
@@ -1258,5 +1264,435 @@ public class SKRecipeSelect extends SKGraphCmnTouch {
 		}
 		adapter.notifyDataSetChanged();
 	}
+	
+	private void notifiSelect(){
+		if (SKRecipeShow.mObservers != null && SKRecipeShow.mObservers.size() > 0) {
+			SelectObser observable = new SelectObser();
+			for(int i = 0; i < SKRecipeShow.mObservers.size(); i++){
+				observable.addObserver(SKRecipeShow.mObservers.get(i));
+			}
 
+			observable.notifyChanges();
+		}
+	}
+	
+	class SelectObser extends Observable{
+		
+		public void notifyChanges(){
+			setChanged();
+			notifyObservers(-1);
+		}
+	}
+
+	/**
+	 * 获取当前配方在集合中的索引
+	 * 
+	 * @param list
+	 * @return
+	 */
+	private int getCurrentReciIndex(List<RecipeOprop> list) {
+		int returnIndex = 0;
+		int currentReciId = SystemInfo.getCurrentRecipe().getCurrentRecipeId();
+		if (null != list) {
+			for (int i = 0; i < list.size(); i++) {
+				RecipeOprop reci = list.get(i);
+				int j = reci.getnRecipeId();
+				if (currentReciId == j) {
+					returnIndex = i;
+					break;
+				}
+			}
+		}
+		return returnIndex;
+	}
+
+	/**
+	 * 脚本对外接口
+	 */
+	@Override
+	public IItem getIItem() {
+		// TODO Auto-generated method stub
+		return this;
+	}
+
+
+	@Override
+	public int getItemLeft(int id) {
+		// TODO Auto-generated method stub
+		if (info!=null) {
+			return info.getnStartPosX();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO Auto-generated method stub
+		if (info!=null) {
+			return info.getnStartPosY();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO Auto-generated method stub
+		if (info!=null) {
+			return info.getnWidth();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO Auto-generated method stub
+		if (info!=null) {
+			return info.getnHeight();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO Auto-generated method stub
+		//nCurrentState;
+		if (info!=null) {
+			return getColor(info.getnBackColor());
+		}
+		return null;
+	}
+	
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO Auto-generated method stub
+		return isShowFlag;
+	}
+
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO Auto-generated method stub
+		return isTouchFlag;
+	}
+
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO Auto-generated method stub
+		
+		if (info != null) {
+			if (x == info.getnStartPosX()) {
+				return true;
+			}
+			if (x < 0|| x > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			info.setnStartPosX(x);
+			int l=items.rect.left;
+			items.rect.left=x;
+			items.rect.right=x-l+items.rect.right;
+			items.mMoveRect=new Rect();
+			
+			//外边框
+			rectBoder.left=info.getnStartPosX();
+			rectBoder.right = info.getnStartPosX() + info.getnWidth() - rect2Width;
+			
+			//文本显示区域
+			text.setStartX(info.getnStartPosX());
+			
+			//显示三角形区域
+			rectBox.left = rectBoder.right;
+			rectBox.right = rectBoder.right + rect2Width;
+			
+			//三角形
+			for (int i = 0; i < pointList.size(); i++) {
+				pointList.get(i).x=pointList.get(i).x+x-l;
+			}
+			
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (y == info.getnStartPosY()) {
+				return true;
+			}
+			if (y < 0|| y > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			info.setnStartPosY(y);
+			int t = items.rect.top;
+			items.rect.top = y;
+			items.rect.bottom = y - t + items.rect.bottom;
+			items.mMoveRect=new Rect();
+			
+			//外边框
+			rectBoder.top = info.getnStartPosY();
+			rectBoder.bottom = info.getnStartPosY() + info.getnHeight();
+			
+			//文本显示区域
+			text.setStartY(info.getnStartPosY());
+			
+			//显示三角形区域
+			rectBox.top = rectBoder.top ;
+			rectBox.bottom = rectBoder.bottom ;
+			
+			//三角形
+			for (int i = 0; i < pointList.size(); i++) {
+				pointList.get(i).y=pointList.get(i).y+y-t;
+			}
+			
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (w == info.getnWidth()) {
+				return true;
+			}
+			if (w < 0|| w > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			info.setnWidth((short)w);
+			items.rect.right = w - items.rect.width() + items.rect.right;
+			items.mMoveRect=new Rect();
+			
+			myRect.right=w-myRect.width()+myRect.right;
+			rect2Width = myRect.width() * 6 / 27;
+			
+			//外边框
+			rectBoder.right = info.getnStartPosX() + info.getnWidth() - rect2Width;
+			
+			//文本显示区域
+			text.setRectWidth(rectBoder.width()-1);
+			
+			//显示三角形区域
+			rectBox.left = rectBoder.right;
+			rectBox.right = rectBoder.right + rect2Width;
+			
+			// 下拉三角的点集合
+			int leftPX = rectBox.left + rect2Width * 1 / 4;
+			int leftPY = myRect.top + myRect.height() * 7 / 18;
+			int rightPX = rectBox.left + rect2Width * 3 / 4;
+			int rightPY = leftPY;
+			int buttomX = rectBox.left + rect2Width / 2;
+			int buttomY = rectBox.top + rectBox.height() * 11 / 18;
+			pointList.clear();
+			pointList.add(new Point(leftPX, leftPY));
+			pointList.add(new Point(buttomX, buttomY));
+			pointList.add(new Point(rightPX, rightPY));
+			
+			mPopupWindow=null;
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (h == info.getnHeight()) {
+				return true;
+			}
+			if (h < 0|| h > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			int temp=info.getnHeight();
+			info.setnHeight((short)h);
+			items.rect.bottom = h - items.rect.height() + items.rect.bottom;
+			items.mMoveRect=new Rect();
+			
+			//外边框
+			rectBoder.bottom = info.getnStartPosY() + info.getnHeight();
+			
+			//文本显示区域
+			text.setRectHeight(rectBoder.height()-2);
+			
+			//显示三角形区域
+			rectBox.bottom = rectBoder.bottom ;
+			
+			//三角形
+			for (int i = 0; i < pointList.size(); i++) {
+				pointList.get(i).y=pointList.get(i).y+(h-temp)/2;
+			}
+			
+			mPopupWindow=null;
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (info!=null) {
+			int color=Color.rgb(r, g, b);
+			if (color==info.getnBackColor()) {
+				return true;
+			}
+			info.setnBackColor(color);
+			textItem.resetColor(color, 2);
+			listView.setBackgroundColor(info.getnBackColor());
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v==isShowFlag) {
+			return true;
+		}
+		isShowFlag=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v==isTouchFlag) {
+			return true;
+		}
+		isTouchFlag=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+	
+	/**
+	 * 获取RGB颜色
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
+	}
 }

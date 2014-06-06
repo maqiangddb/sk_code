@@ -12,10 +12,13 @@ import com.android.Samkoonhmi.model.PassWordInfo;
 import com.android.Samkoonhmi.model.PlcAttributeInfo;
 import com.android.Samkoonhmi.model.PlcConnectionInfo;
 import com.android.Samkoonhmi.model.SystemInfo;
+import com.android.Samkoonhmi.skenum.HMIMODEL;
 import com.android.Samkoonhmi.skenum.IntToEnum;
 import com.android.Samkoonhmi.skenum.LIGHTENESS;
+import com.android.Samkoonhmi.skenum.PRINT_MODEL;
 import com.android.Samkoonhmi.skglobalcmn.RecipeDataCentre;
 import com.android.Samkoonhmi.skglobalcmn.SkGlobalData;
+import com.android.Samkoonhmi.util.SystemParam;
 
 public class SystemInfoBiz extends DataBase {
 	private SKDataBaseInterface db;
@@ -50,16 +53,19 @@ public class SystemInfoBiz extends DataBase {
 				SystemInfo.setnBrightness(light);
 				SystemInfo.setnFlickRate(cursor.getInt(cursor
 						.getColumnIndex("nFlickRate")));
-				SystemInfo.setNkChangeScreenAddr(AddrPropBiz.selectById(cursor.getInt(cursor
-						.getColumnIndex("kChangeScreenAddr"))));
-				SystemInfo.setNkRecipeIndexAddr(AddrPropBiz.selectById(cursor.getInt(cursor
-						.getColumnIndex("kRecipeIndexAddr"))));
-				SystemInfo.setNkWriteLanguageAddr(AddrPropBiz.selectById(cursor.getInt(cursor
-						.getColumnIndex("kWriteLanguageAddr"))));
-				SystemInfo.setNkWriteScreenAddr(AddrPropBiz.selectById(cursor.getInt(cursor
-						.getColumnIndex("kWriteScreenAddr"))));
+				SystemInfo.setNkChangeScreenAddr(AddrPropBiz.selectById(cursor
+						.getInt(cursor.getColumnIndex("kChangeScreenAddr"))));
+				SystemInfo.setNkRecipeIndexAddr(AddrPropBiz.selectById(cursor
+						.getInt(cursor.getColumnIndex("kRecipeIndexAddr"))));
+				SystemInfo.setNkWriteLanguageAddr(AddrPropBiz.selectById(cursor
+						.getInt(cursor.getColumnIndex("kWriteLanguageAddr"))));
+				SystemInfo.setNkWriteScreenAddr(AddrPropBiz.selectById(cursor
+						.getInt(cursor.getColumnIndex("kWriteScreenAddr"))));
 				SystemInfo.setnModel(cursor.getString(cursor
 						.getColumnIndex("nModel")));
+				//将读取到的model值截取存入，区分mid 和 ak
+				HMIMODEL hmimodel = getModel(SystemInfo.getnModel());
+				SystemInfo.setModel(hmimodel);
 				SystemInfo.setsScreenIndex(cursor.getString(cursor
 						.getColumnIndex("sScreenIndex")));
 				SystemInfo.setnScreenTime(cursor.getInt(cursor
@@ -68,15 +74,15 @@ public class SystemInfoBiz extends DataBase {
 						.getColumnIndex("nSetBoolParam")));
 				SystemInfo.setsStartScreen(cursor.getString(cursor
 						.getColumnIndex("sStartScreen")));
-//				SystemInfo.setsProtectValue(cursor.getString(cursor
-//						.getColumnIndex("sProtectValue")));
+				// SystemInfo.setsProtectValue(cursor.getString(cursor
+				// .getColumnIndex("sProtectValue")));
 				SystemInfo.setsUploadPassword(cursor.getString(cursor
 						.getColumnIndex("sUploadPassword")));
-				List<PlcConnectionInfo> plcConnectionList = getPlcConnectionInfo(cursor);
+				List<PlcConnectionInfo> plcConnectionList = getPlcConnectionInfo();
 				if (null != plcConnectionList) {
 					SystemInfo.setPlcConnectionList(plcConnectionList);
 				}
-				List<LanguageInfo> languageList = getLanguageInfo(cursor);
+				List<LanguageInfo> languageList = getLanguageInfo();
 				if (null == languageList) {
 					SystemInfo.setLanguageList(null);
 					SystemInfo.setLanguageNumber(0);
@@ -84,7 +90,7 @@ public class SystemInfoBiz extends DataBase {
 					SystemInfo.setLanguageList(languageList);
 					SystemInfo.setLanguageNumber(languageList.size());
 				}
-				List<PassWordInfo> passList = getPasswordInfo(cursor);
+				List<PassWordInfo> passList = getPasswordInfo();
 				if (null != passList) {
 					SystemInfo.setPassWord(passList);
 				}
@@ -93,14 +99,25 @@ public class SystemInfoBiz extends DataBase {
 						.getColumnIndex("nLanguageIndex")));
 				int recipeGroupId = cursor.getInt(cursor
 						.getColumnIndex("nRecipeGroupId"));
+				if (recipeGroupId<0) {
+					recipeGroupId=0;
+				}
 				int recipeId = cursor.getInt(cursor
 						.getColumnIndex("nRecipeIndex"));
-				RecipeDataCentre.getInstance().setCurrRecipe(recipeGroupId, recipeId);
-				int id=DBTool.getInstance().getmSceneBiz().getSceneId(cursor.getInt(cursor
-						.getColumnIndex("nInitScreenId")));
-				SystemInfo.setCurrentScenceId(id); 
+				if (recipeId<0) {
+					recipeId=0;
+				}
+				RecipeDataCentre.getInstance().setCurrRecipe(recipeGroupId,
+						recipeId);
+				int id = DBTool
+						.getInstance()
+						.getmSceneBiz()
+						.getSceneId(
+								cursor.getInt(cursor
+										.getColumnIndex("nInitScreenId")));
+				SystemInfo.setCurrentScenceId(id);
 				SystemInfo.setInitSceneId(cursor.getInt(cursor
-						.getColumnIndex("nInitScreenId")));//拿到的是序号
+						.getColumnIndex("nInitScreenId")));// 拿到的是序号
 				int addId = cursor.getInt(cursor.getColumnIndex("nstartLB"));
 				SystemInfo.setnstartLB(addId);
 				SystemInfo.setnlengthLB(cursor.getInt(cursor
@@ -115,15 +132,34 @@ public class SystemInfoBiz extends DataBase {
 					bBit = cursor.getString(cursor.getColumnIndex("bBitScene"))
 							.equals("true") ? true : false;
 					SystemInfo.setbBitScene(bBit);
-				} 
+				}
 				if (bBit) {
 					SystemInfo.setBitSceneList(getBitSceneList());
 				}
-				SystemInfo.setbSimulator(cursor.getShort(cursor.getColumnIndex("bSimulator")));
+				SystemInfo.setbSimulator(cursor.getShort(cursor
+						.getColumnIndex("bSimulator")));
+				boolean bIcon = false;
+				if (null != cursor
+						.getString(cursor.getColumnIndex("bLockIcon"))) {
+					bIcon = cursor
+							.getString(cursor.getColumnIndex("bLockIcon"))
+							.equals("true") ? true : false;
+					SystemInfo.setbLockIcon(bIcon);
+				}
+				//是否启用了监控密码
+				if ((SystemParam.LONG_INSPECT & SystemInfo.getnSetBoolParam()) == SystemParam.LONG_INSPECT) {
+					SystemInfo.setStrMonitor(cursor.getString(cursor
+							.getColumnIndex("strMonitor")));
+				}
+				SystemInfo.setnMonitorPort(cursor.getInt(cursor.getColumnIndex("nMonitorPort")));
+				SystemInfo.setStrHmiName(cursor.getString(cursor
+						.getColumnIndex("strHmiName")));
+				SystemInfo.setmPrintModel(getPrintModel(cursor.getInt(cursor.getColumnIndex("nPrinterType"))));
+
 			}
 		}
 		close(cursor);
-	
+
 	}
 
 	private List<BitSceneModle> getBitSceneList() {
@@ -146,6 +182,13 @@ public class SystemInfoBiz extends DataBase {
 							cursor.getColumnIndex("bReset")).equals("true") ? true
 							: false);
 				}
+				String sClose=cursor.getString(cursor.getColumnIndex("bClose"));
+				boolean bClose=false;
+				if (sClose!=null) {
+					bClose=sClose.equals("true")?true:false;
+				}
+				bit.setbClose(bClose);
+				
 				list.add(bit);
 			}
 			close(cursor);
@@ -159,8 +202,8 @@ public class SystemInfoBiz extends DataBase {
 	 * 
 	 * @return
 	 */
-	private List<PassWordInfo> getPasswordInfo(Cursor cursor) {
-		cursor = db.getDatabaseBySql("select * from hmiProtect", null);
+	private List<PassWordInfo> getPasswordInfo() {
+		Cursor cursor = db.getDatabaseBySql("select * from hmiProtect", null);
 		List<PassWordInfo> list = null;
 		if (null != cursor) {
 			list = new ArrayList<PassWordInfo>();
@@ -171,14 +214,15 @@ public class SystemInfoBiz extends DataBase {
 						.getColumnIndex("sPwdStr")));
 				info.setsTimeLimit(cursor.getString(cursor
 						.getColumnIndex("sTimeLimit")));
-				info.setsTimeOut(cursor.getString(cursor.getColumnIndex("sTimeOut")));
-				if(null !=cursor.getString(cursor.getColumnIndex("bIsUse")))
-				{
-				boolean boo = cursor.getString(cursor.getColumnIndex("bIsUse"))
-						.equals("true") ? true : false;
-				info.setUser(boo);
+				info.setsTimeOut(cursor.getString(cursor
+						.getColumnIndex("sTimeOut")));
+				if (null != cursor.getString(cursor.getColumnIndex("bIsUse"))) {
+					boolean boo = cursor.getString(
+							cursor.getColumnIndex("bIsUse")).equals("true") ? true
+							: false;
+					info.setUser(boo);
 				}
-				
+
 				list.add(info);
 			}
 			close(cursor);
@@ -191,9 +235,9 @@ public class SystemInfoBiz extends DataBase {
 	 * 
 	 * @return
 	 */
-	private List<LanguageInfo> getLanguageInfo(Cursor cursor) {
+	private List<LanguageInfo> getLanguageInfo() {
 		List<LanguageInfo> listInfo = null;
-		cursor = db.getDatabaseBySql("select * from languageList", null);
+		Cursor cursor = db.getDatabaseBySql("select * from languageList", null);
 		if (null != cursor) {
 			listInfo = new ArrayList<LanguageInfo>();
 			while (cursor.moveToNext()) {
@@ -213,23 +257,23 @@ public class SystemInfoBiz extends DataBase {
 	 * 
 	 * @return
 	 */
-	private List<PlcConnectionInfo> getPlcConnectionInfo(Cursor cursor) {
+	private List<PlcConnectionInfo> getPlcConnectionInfo() {
 
 		List<PlcConnectionInfo> plcInfo = null;
-		cursor = db.getDatabaseBySql("select * from plcConnectProp order by eConnectPort", null);
+		Cursor cursor = db.getDatabaseBySql(
+				"select * from plcConnectProp order by eConnectPort", null);
 		if (null != cursor) {
 			plcInfo = new ArrayList<PlcConnectionInfo>();
 
 			int nConnectId = 0;
 			while (cursor.moveToNext()) {
 				PlcConnectionInfo info = new PlcConnectionInfo();
-				if(null !=cursor.getString(
-						cursor.getColumnIndex("bUseRelationPort")))
-				{
-					
-				info.setbUseRelationPort(cursor.getString(
-						cursor.getColumnIndex("bUseRelationPort")).equals(
-						"true") ? true : false);
+				if (null != cursor.getString(cursor
+						.getColumnIndex("bUseRelationPort"))) {
+
+					info.setbUseRelationPort(cursor.getString(
+							cursor.getColumnIndex("bUseRelationPort")).equals(
+							"true") ? true : false);
 				}
 				info.seteConnectPort(cursor.getShort(cursor
 						.getColumnIndex("eConnectPort")));
@@ -241,46 +285,41 @@ public class SystemInfoBiz extends DataBase {
 				info.setnBaudRate(baudRate);
 				info.setnCheckType(cursor.getInt(cursor
 						.getColumnIndex("nCheckType")));
-				
-				nConnectId = cursor.getInt(cursor
-						.getColumnIndex("nConnectId"));
+
+				nConnectId = cursor.getInt(cursor.getColumnIndex("nConnectId"));
 				info.setnConnectId(nConnectId);
 				info.setnDataBits(cursor.getShort(cursor
 						.getColumnIndex("nDataBits")));
-				
+
 				info.setnScreenNo(cursor.getShort(cursor
 						.getColumnIndex("nScreenNo")));
 				info.setnStopBit((short) (cursor.getShort(cursor
 						.getColumnIndex("nStopBit")) + 1));
-				
-				/*添加是否是主屏*/
-				short nTmpValue = cursor.getShort(cursor.getColumnIndex("bMasterScreen"));
-				if(nTmpValue == 1)
-				{
+
+				/* 添加是否是主屏 */
+				short nTmpValue = cursor.getShort(cursor
+						.getColumnIndex("bMasterScreen"));
+				if (nTmpValue == 1) {
 					info.setbMasterScreen(true);
-				}
-				else 
-				{
+				} else {
 					info.setbMasterScreen(false);
 				}
-				
-				/*添加是否连接从屏口*/
-				nTmpValue = cursor.getShort(cursor.getColumnIndex("bConnectScreenPort"));
-				if(nTmpValue == 1)
-				{
+
+				/* 添加是否连接从屏口 */
+				nTmpValue = cursor.getShort(cursor
+						.getColumnIndex("bConnectScreenPort"));
+				if (nTmpValue == 1) {
 					info.setbConnectScreenPort(true);
-				}
-				else 
-				{
+				} else {
 					info.setbConnectScreenPort(false);
 				}
-				
-				/*连接从屏口的数量*/
-				nTmpValue = cursor.getShort(cursor.getColumnIndex("nSlaveScreenNum"));
+
+				/* 连接从屏口的数量 */
+				nTmpValue = cursor.getShort(cursor
+						.getColumnIndex("nSlaveScreenNum"));
 				info.setnSlaveScreenNum(nTmpValue);
-				
-				List<PlcAttributeInfo> plcAttributeList = getPlcAttributeInfo(
-						cursor, nConnectId);
+
+				List<PlcAttributeInfo> plcAttributeList = getPlcAttributeInfo(nConnectId);
 				if (null != plcAttributeList && !plcAttributeList.isEmpty()) {
 					info.setPlcAttributeList(plcAttributeList);
 				}
@@ -294,23 +333,25 @@ public class SystemInfoBiz extends DataBase {
 
 		return plcInfo;
 	}
+
 	/**
-	 *  查找com 和以太网的信息的信息 3 com1 4 com2 8以太网
+	 * 查找com 和以太网的信息的信息 3 com1 4 com2 8以太网
+	 * 
 	 * @return
 	 */
-	public PlcConnectionInfo findComInfo(int eConnectPort)
-	{
-		PlcConnectionInfo info= null;
-		Cursor cursor = db.getDatabaseBySql("select * from plcConnectProp where eConnectPort=?",new String []{eConnectPort+""});
+	public PlcConnectionInfo findComInfo(int eConnectPort) {
+		PlcConnectionInfo info = null;
+		Cursor cursor = db.getDatabaseBySql(
+				"select * from plcConnectProp where eConnectPort=?",
+				new String[] { eConnectPort + "" });
 		if (null != cursor) {
 			while (cursor.moveToNext()) {
-				 info = new PlcConnectionInfo();
-				if(null !=cursor.getString(
-						cursor.getColumnIndex("bUseRelationPort")))
-				{
-				info.setbUseRelationPort(cursor.getString(
-						cursor.getColumnIndex("bUseRelationPort")).equals(
-						"true") ? true : false);
+				info = new PlcConnectionInfo();
+				if (null != cursor.getString(cursor
+						.getColumnIndex("bUseRelationPort"))) {
+					info.setbUseRelationPort(cursor.getString(
+							cursor.getColumnIndex("bUseRelationPort")).equals(
+							"true") ? true : false);
 				}
 				info.seteConnectPort(cursor.getShort(cursor
 						.getColumnIndex("eConnectPort")));
@@ -338,19 +379,17 @@ public class SystemInfoBiz extends DataBase {
 
 		return info;
 	}
-	
+
 	/**
 	 * 获取屏号
+	 * 
 	 * @return
 	 */
-	public int getSceenNum()
-	{
+	public int getSceenNum() {
 		List<PlcConnectionInfo> list = SystemInfo.getPlcConnectionList();
 		int sceenNum = 1;
-		if(null != list)
-		{
-			if(list.size()>0)
-			{
+		if (null != list) {
+			if (list.size() > 0) {
 				PlcConnectionInfo info = list.get(0);
 				sceenNum = info.getnScreenNo();
 			}
@@ -363,9 +402,9 @@ public class SystemInfoBiz extends DataBase {
 	 * 
 	 * @return
 	 */
-	private List<PlcAttributeInfo> getPlcAttributeInfo(Cursor cursor, int nIndex) {
+	private List<PlcAttributeInfo> getPlcAttributeInfo( int nIndex) {
 		List<PlcAttributeInfo> attributeInfo = null;
-		cursor = db.getDatabaseBySql(
+		Cursor cursor = db.getDatabaseBySql(
 				"select * from protocolProp where nConnectIndex = " + nIndex,
 				null);
 		if (null != cursor) {
@@ -394,10 +433,11 @@ public class SystemInfoBiz extends DataBase {
 						.getColumnIndex("nNetPortNum")));
 				info.setsIpAddr(cursor.getString(cursor
 						.getColumnIndex("sIpAddr")));
-				if(null != cursor.getString(cursor
-						.getColumnIndex("bIsNetTcp"))){
-					info.setIsNetTcp(cursor.getString(cursor
-						.getColumnIndex("bIsNetTcp")).equals("true")? false : true);
+				if (null != cursor
+						.getString(cursor.getColumnIndex("bIsNetTcp"))) {
+					info.setIsNetTcp(cursor.getString(
+							cursor.getColumnIndex("bIsNetTcp")).equals("true") ? false
+							: true);
 				}
 				attributeInfo.add(info);
 			}
@@ -444,7 +484,7 @@ public class SystemInfoBiz extends DataBase {
 		values.put("bIsUse", "true");
 		String[] whereColoum = new String[] { "" + id };
 		// String sql = "update  hmiProtect set bIsuse = 'true' where id = 1";
-		int i = db.updateByUserDef("hmiProtect", values,"id=?",whereColoum);
+		int i = db.updateByUserDef("hmiProtect", values, "id=?", whereColoum);
 		if (i > 0) {
 			return true;
 		} else {
@@ -492,6 +532,7 @@ public class SystemInfoBiz extends DataBase {
 			return false;
 		}
 	}
+
 	/**
 	 * 按钮修改屏保时间 写入数据库
 	 * 
@@ -534,6 +575,7 @@ public class SystemInfoBiz extends DataBase {
 			return false;
 		}
 	}
+
 	/**
 	 * 修改初始画面号
 	 * 
@@ -548,14 +590,16 @@ public class SystemInfoBiz extends DataBase {
 		values.put("nInitScreenId", sceneId);
 		int i = db.updateByUserDef("systemProp", values, null, null);
 		if (i > 0) {
-			 Log.d("update", "修改初始画面号成功");
+			Log.d("update", "修改初始画面号成功");
 			return true;
 		} else {
 			return false;
 		}
 	}
+
 	/**
 	 * 修改屏保亮度
+	 * 
 	 * @param value
 	 * @return
 	 */
@@ -567,14 +611,16 @@ public class SystemInfoBiz extends DataBase {
 		values.put("nBrightness", value);
 		int i = db.updateByUserDef("systemProp", values, null, null);
 		if (i > 0) {
-			
+
 			return true;
 		} else {
 			return false;
 		}
 	}
+
 	/**
 	 * 修改待机方式
+	 * 
 	 * @param value
 	 * @return
 	 */
@@ -586,18 +632,21 @@ public class SystemInfoBiz extends DataBase {
 		values.put("bScreensaver", value);
 		int i = db.updateByUserDef("systemProp", values, null, null);
 		if (i > 0) {
-			
+
 			return true;
 		} else {
 			return false;
 		}
 	}
+
 	/**
 	 * 修改连接参数
+	 * 
 	 * @param value
 	 * @return
 	 */
-	public boolean updateConnectParaToDataBase(short eConnectPort,int baud,int check,int stop,int dataLen) {
+	public boolean updateConnectParaToDataBase(short eConnectPort, int baud,
+			int check, int stop, int dataLen) {
 		if (null == db) {
 			db = SkGlobalData.getProjectDatabase();
 		}
@@ -605,16 +654,45 @@ public class SystemInfoBiz extends DataBase {
 		values.put("nBaudRate", baud);
 		values.put("nDataBits", dataLen);
 		values.put("nCheckType", check);
-		values.put("nStopBit", (stop-1));
-		String [] whereStr = new String[]{eConnectPort+""};
-		int i = db.updateByUserDef("plcConnectProp", values, "eConnectPort = ?", whereStr);
+		values.put("nStopBit", (stop - 1));
+		String[] whereStr = new String[] { eConnectPort + "" };
+		int i = db.updateByUserDef("plcConnectProp", values,
+				"eConnectPort = ?", whereStr);
 		boolean b = false;
-		if(i<0)
-		{
+		if (i < 0) {
 			b = false;
-		}else{
+		} else {
 			b = true;
 		}
 		return b;
+	}
+	private HMIMODEL getModel (String model){
+		String temp = "";
+		if(null != model && !"".equals(model)){
+			if(model.indexOf("-")!=-1){
+				String [] temps = model.split("-");
+				temp = temps[0];
+			}
+		}
+	    if(temp.equals("AK")){
+	    	return HMIMODEL.AK;
+	    }else if(temp.equals("AKMID")){
+	    	return HMIMODEL.MID;
+	    }else {
+	    	return HMIMODEL.UNKNOWN;
+	    }
+	}
+	
+	/**
+	 * 获取打印机型号
+	 */
+	private PRINT_MODEL getPrintModel(int id){
+		PRINT_MODEL model=PRINT_MODEL.WHE19;
+		if (id==1) {
+			model=PRINT_MODEL.WHE19;
+		}else if (id==2) {
+			model=PRINT_MODEL.WHA5;
+		}
+		return model;
 	}
 }

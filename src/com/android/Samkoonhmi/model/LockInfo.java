@@ -1,4 +1,7 @@
 package com.android.Samkoonhmi.model;
+
+import com.android.Samkoonhmi.skwindow.SKSceneManage;
+
 /**
  * 记录锁屏参数，除初始化读取数据库，其他时候使用这个类的信息
  * 写数据库同时修改这个类的信息
@@ -12,6 +15,9 @@ public class LockInfo {
 	private static String info="";//提示信息
 	
 	public static void SetbIsLock(boolean lock){
+		
+		//设置锁屏标示
+		SKSceneManage.getInstance().setbHmiLock(lock);
 		bIsLock = lock;
 	}
 	

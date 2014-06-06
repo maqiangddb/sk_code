@@ -51,7 +51,26 @@ public class AcillInputInfo {
 	private int nBoardX;//	自定义键盘起点X	Int
 	private int nBoardY;//	自定义键盘起点Y	int
 	private boolean bAutoChangeBit;// 位地址控制键盘弹出 是否自动复位
+	public boolean isInputIsShow() {
+		return inputIsShow;
+	}
 
+	public void setInputIsShow(boolean inputIsShow) {
+		this.inputIsShow = inputIsShow;
+	}
+
+	public AddrProp getInputAddr() {
+		return inputAddr;
+	}
+
+	public void setInputAddr(AddrProp inputAddr) {
+		this.inputAddr = inputAddr;
+	}
+
+	private boolean inputIsShow;//输入跟显示地址是否一致
+	private AddrProp inputAddr;//输入地址
+
+	
 	public AddrProp getmOffSetAddress() {
 		return mOffSetAddress;
 	}

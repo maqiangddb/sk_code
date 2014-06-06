@@ -4,6 +4,7 @@ import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
@@ -15,15 +16,16 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Vector;
 
+import android.R.integer;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteStatement;
-import android.nfc.tech.MifareClassic;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
-
 import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.SKSaveThread.AlamSaveProp;
 import com.android.Samkoonhmi.model.SystemInfo;
@@ -36,10 +38,14 @@ import com.android.Samkoonhmi.model.alarm.AlarmMessageInfo;
 import com.android.Samkoonhmi.model.alarm.AlarmSlipInfo;
 import com.android.Samkoonhmi.skenum.ARRAY_ORDER;
 import com.android.Samkoonhmi.skenum.ConditionType;
+import com.android.Samkoonhmi.skenum.DATE_FORMAT;
 import com.android.Samkoonhmi.skenum.IntToEnum;
+import com.android.Samkoonhmi.skenum.TIME_FORMAT;
 import com.android.Samkoonhmi.skglobalcmn.SkGlobalData;
+import com.android.Samkoonhmi.skwindow.AKHintDialog;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
 import com.android.Samkoonhmi.skwindow.SKToast;
+import com.android.Samkoonhmi.util.DateStringUtil;
 
 /**
  * 报警模块
@@ -614,6 +620,274 @@ public class AlarmBiz extends DataBase {
 		return list;
 	}
 	
+	private String getAlarmFileTitle()
+	{
+		ArrayList<String> title=new ArrayList<String>();
+		if (db!=null) {
+			Cursor cursor = null;
+			String sql = "select * from alarmTitle where nLanguageIndex=? limit 1";
+			cursor = db.getDatabaseBySql(sql, new String[] { SystemInfo.getCurrentLanguageId()+ ""});
+			if (cursor!=null) {
+				while (cursor.moveToNext()) {
+					title.add(cursor.getString(cursor.getColumnIndex("sDate")));
+					title.add(cursor.getString(cursor.getColumnIndex("sTime")));
+					title.add(cursor.getString(cursor.getColumnIndex("sMessage")));
+					title.add(cursor.getString(cursor.getColumnIndex("sClearDate")));
+					title.add(cursor.getString(cursor.getColumnIndex("sClearTime")));
+					
+				}
+			}
+			close(cursor);
+		}
+		
+		String emailTitle = null;
+		if (title.size() > 0) {
+			emailTitle = title.get(0) + "," + title.get(1) + "," + title.get(2) + "," + title.get(3) + "," + title.get(4);
+		}
+		title.clear();
+		title = null;
+
+		return emailTitle;
+		
+	}
+	
+	
+	/**
+	 * 
+	 * @param groupId 组ID
+	 * @param groupName 组名称
+	 * @param peroid - 间隔时间  向前推 以小时为单位
+	 */
+	public void writeAlarmToFiles(int groupId, String groupName, int peroid){
+		// 报警时间   报警消除 报警状态   报警消息
+		
+		//保存路径
+		String path ="/data/data/com.android.Samkoonhmi/files/email_files/" ;
+		String filePath = path + "alarm_"+groupId+ ".csv";//防止文件名是中文的情况
+		//查询条件
+		String sqlString ="select * from dataAlarm where nGroupId = " + groupId;
+		if(peroid > 0){
+			long startTime = System.currentTimeMillis() - peroid*60*60*1000;
+			sqlString = sqlString + " and nDateTime >= " + startTime  ;
+		}
+		
+		Cursor cursor = SkGlobalData.getAlarmDatabase().getDatabaseBySql(sqlString, null);
+		if (cursor != null && cursor.getColumnCount() > 0) {
+			File outpFile = new File(filePath);
+			if (outpFile.exists()) {//首先进行删除
+				outpFile.delete();
+			}
+			File pathFile = new File(path);
+			if (!pathFile.exists()) {//创建目录
+				pathFile.mkdirs();
+			}
+			outpFile = new File(filePath);
+			if (!outpFile.exists()) {//创建导出文件
+				try {
+					outpFile.createNewFile();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			if (!outpFile.exists())
+			{
+				close(cursor);
+				 return ;
+			}
+			
+			try {
+				DataOutputStream outputStream = new DataOutputStream(new FileOutputStream(outpFile));
+				BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(outputStream, "GBK"));
+				//文件头
+				String  title = getAlarmFileTitle();
+				if (TextUtils.isEmpty(title)) {
+					title="报警日期,报警时间,报警消息,报警消除日期,报警消除时间";
+				}
+				bufferedWriter.write(title);
+				
+				String content;
+				/**
+				 * 获取当前语言报警文本
+				 */
+				HashMap<Integer, HashMap<Integer, String>> mGText=null;
+				if (mAlarmText.containsKey(SystemInfo.getCurrentLanguageId())) {
+					mGText=mAlarmText.get(SystemInfo.getCurrentLanguageId());
+				}else {
+					mGText=mAlarmText.get(0);
+				}
+				while (cursor.moveToNext()) {
+					int alarmIndex = cursor.getInt(cursor.getColumnIndex("nAlarmIndex"));
+					long bornTime = cursor.getLong(cursor.getColumnIndex("nDateTime"));
+					long clearTime = cursor.getLong(cursor.getColumnIndex("nClearDT"));
+					
+					String nBornDate, nBornTime, nClearDate,nClearTime,nMessage;
+					nMessage = mGText.get(groupId).get(alarmIndex);
+					if (bornTime > 0) {//报警时间
+						Date date = new Date(bornTime);
+						nBornDate = DateStringUtil.convertDate(DATE_FORMAT.YYYYMMDD_SLASH, date);
+						nBornTime = DateStringUtil.converTime(TIME_FORMAT.HHMM_COLON, date);
+					}
+					else {
+						nBornDate ="--";
+						nBornTime ="--";
+					}
+					if (clearTime > 0) {//报警消除时间
+						Date date = new Date(clearTime);
+						nClearDate = DateStringUtil.convertDate(DATE_FORMAT.YYYYMMDD_SLASH, date);
+						nClearTime = DateStringUtil.converTime(TIME_FORMAT.HHMM_COLON, date);
+					}
+					else {
+						nClearDate ="--";
+						nClearTime ="--";
+					}
+					
+					//写入数据
+					content = nBornDate + "," + nBornTime + "," + nMessage + ","+nClearDate+ ","+ nClearTime;
+					bufferedWriter.newLine();
+					bufferedWriter.write(content);
+				}
+				
+				close(cursor);
+				
+				//
+				bufferedWriter.flush();
+				outputStream.close();
+				bufferedWriter.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				
+				return;
+			}
+			
+			/*休眠2秒钟，等文件写入成功*/
+			try {
+				Thread.sleep(2000);  
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			return ;
+		}
+		
+	}
+	
+	public void writeAlarmToFiles(int groupId, String groupName, long startTime, long endtime){
+		// 报警时间   报警消除 报警状态   报警消息
+		
+		//保存路径
+		String path ="/data/data/com.android.Samkoonhmi/files/email_files/" ;
+		String filePath = path + "alarm_"+groupId+ ".csv";//防止文件名是中文的情况
+		//查询条件
+		String sqlString ="select * from dataAlarm where nGroupId = " + groupId;
+		if (startTime > 0 && endtime > 0) {
+			sqlString = sqlString + " and (nDateTime >= " + startTime + " and nDateTime <= " + endtime + ")";
+		}
+		else if (startTime > 0) {
+			sqlString = sqlString + " and nDateTime >=" + startTime;
+		}
+		else if (endtime > 0) {
+			sqlString = sqlString + " and nDateTime <= " + endtime;
+		}
+		Cursor cursor = SkGlobalData.getAlarmDatabase().getDatabaseBySql(sqlString, null);
+		if (cursor != null && cursor.getColumnCount() > 0) {
+			File outpFile = new File(filePath);
+			if (outpFile.exists()) {//首先进行删除
+				outpFile.delete();
+			}
+			File pathFile = new File(path);
+			if (!pathFile.exists()) {//创建目录
+				pathFile.mkdirs();
+			}
+			outpFile = new File(filePath);
+			if (!outpFile.exists()) {//创建导出文件
+				try {
+					outpFile.createNewFile();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			if (!outpFile.exists())
+			{
+				close(cursor);
+				 return ;
+			}
+			
+			try {
+				DataOutputStream outputStream = new DataOutputStream(new FileOutputStream(outpFile));
+				BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(outputStream, "GBK"));
+				//文件头
+				String  title = getAlarmFileTitle();
+				if (TextUtils.isEmpty(title)) {
+					title="报警日期,报警时间,报警消息,报警消除日期,报警消除时间";
+				}
+				bufferedWriter.write(title);
+				
+				String content;
+				/**
+				 * 获取当前语言报警文本
+				 */
+				HashMap<Integer, HashMap<Integer, String>> mGText=null;
+				if (mAlarmText.containsKey(SystemInfo.getCurrentLanguageId())) {
+					mGText=mAlarmText.get(SystemInfo.getCurrentLanguageId());
+				}else {
+					mGText=mAlarmText.get(0);
+				}
+				while (cursor.moveToNext()) {
+					int alarmIndex = cursor.getInt(cursor.getColumnIndex("nAlarmIndex"));
+					long bornTime = cursor.getLong(cursor.getColumnIndex("nDateTime"));
+					long clearTime = cursor.getLong(cursor.getColumnIndex("nClearDT"));
+					
+					String nBornDate, nBornTime, nClearDate,nClearTime,nMessage;
+					nMessage = mGText.get(groupId).get(alarmIndex);
+					if (bornTime > 0) {//报警时间
+						Date date = new Date(bornTime);
+						nBornDate = DateStringUtil.convertDate(DATE_FORMAT.YYYYMMDD_SLASH, date);
+						nBornTime = DateStringUtil.converTime(TIME_FORMAT.HHMM_COLON, date);
+					}
+					else {
+						nBornDate ="--";
+						nBornTime ="--";
+					}
+					if (clearTime > 0) {//报警消除时间
+						Date date = new Date(clearTime);
+						nClearDate = DateStringUtil.convertDate(DATE_FORMAT.YYYYMMDD_SLASH, date);
+						nClearTime = DateStringUtil.converTime(TIME_FORMAT.HHMM_COLON, date);
+					}
+					else {
+						nClearDate ="--";
+						nClearTime ="--";
+					}
+					
+					//写入数据
+					content = nBornDate + "," + nBornTime + "," + nMessage + ","+nClearDate+ ","+ nClearTime;
+					bufferedWriter.newLine();
+					bufferedWriter.write(content);
+				}
+				
+				close(cursor);
+				
+				//
+				bufferedWriter.flush();
+				outputStream.close();
+				bufferedWriter.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				
+				return;
+			}
+			
+			/*休眠2秒钟，等文件写入成功*/
+			try {
+				Thread.sleep(2000);  
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			return ;
+		}
+		
+	}
+	
 	public void setAlarmText(){
 		mAlarmText.clear();
 		if (db!=null) {
@@ -767,6 +1041,23 @@ public class AlarmBiz extends DataBase {
 					b = cursor.getShort(cursor.getColumnIndex("bAddtoDB")) == 0 ? false:true;
 					mInfo.setbAddtoDB(b);
 					
+					b = cursor.getShort(cursor.getColumnIndex("bPrint")) == 0 ? false:true;
+					if (!b) {
+						mInfo.setPrintState(0);
+					}
+					else {
+						int state = 1;
+						b =  cursor.getShort(cursor.getColumnIndex("bPrintDate")) == 0 ? false:true;
+						if (b) {
+							state += 2;
+						}
+						b =  cursor.getShort(cursor.getColumnIndex("bPrintTime")) == 0 ? false:true;
+						if (b) {
+							state += 4;
+						}
+						mInfo.setPrintState(state);
+					}
+					
 					alarmExist(mInfo,data);
 					map.put(mInfo.getnAlarmIndex(), mInfo);
 				}
@@ -837,16 +1128,70 @@ public class AlarmBiz extends DataBase {
 			if (info != null && info.getnClear() == 0 && TextUtils.isEmpty(info.getsMessage())) {
 				String select = "select sMessage from alarmMessage where nGroupId=? and nAlarmIndex=?";
 				Cursor cursor = db.getDatabaseBySql(select, new String[] { info.getnGroupId()+ "",info.getnAlarmIndex()+"" });
-				if (cursor != null) {
-					cursor.moveToFirst();
-					info.setsMessage(cursor.getString(cursor.getColumnIndex("sMessage")));
+				if (cursor != null ) {
+					if (cursor.moveToFirst()) {
+						info.setsMessage(cursor.getString(cursor.getColumnIndex("sMessage")));
+					}
+					
 					close(cursor);
 				}
 			}
 			
 		}
-		
 	}
+	
+//	/**
+//	 * 
+//	 * @param groupId- 报警组iD
+//	 * @param alarmIndex- 报警ID
+//	 * @return 报警消息
+//	 */
+//	private String getAlarmMessage(int groupId, int alarmIndex){
+//		String message = "";
+//		String select = "select sMessage from alarmMessage where nGroupId=? and nAlarmIndex=?";
+//		Cursor cursor = db.getDatabaseBySql(select, new String[] { groupId+ "", alarmIndex+"" });
+//		if (cursor != null) {
+//			cursor.moveToFirst();
+//			message = cursor.getString(cursor.getColumnIndex("sMessage"));
+//			close(cursor);
+//		}
+//
+//		return message;
+//	}
+	
+	public void updateAlarmDate(Vector<AlarmDataInfo> group){
+		if (group == null || group.size() == 0) {
+			return ;
+		}
+		// 添加message
+		for(AlarmDataInfo info:group){
+			if (info != null && info.getnClear() == 0 && TextUtils.isEmpty(info.getsMessage())) {
+				String select = "select sMessage from alarmMessage where nGroupId=? and nAlarmIndex=?";
+				Cursor cursor = db.getDatabaseBySql(select, new String[] { info.getnGroupId()+ "",info.getnAlarmIndex()+"" });
+				if (cursor != null ) {
+					if (cursor.moveToFirst()) {
+						info.setsMessage(cursor.getString(cursor.getColumnIndex("sMessage")));
+					}
+					close(cursor);
+				}
+			}
+		}
+		
+		for(AlarmDataInfo info :group){
+			if (info != null) {
+				String select = "select bAddtoDB from alarm where nGroupId=? and nAlarmIndex=?";
+				Cursor cursor = db.getDatabaseBySql(select, new String[] { info.getnGroupId()+ "",info.getnAlarmIndex()+"" });
+				if (cursor != null ) {
+					if (cursor.moveToFirst()) {
+						boolean b = cursor.getShort(cursor.getColumnIndex("bAddtoDB")) == 0 ? false:true;
+						info.setbAddtoDB(b); 
+					}
+					close(cursor);
+				}
+			}
+		}
+	}
+	
 	
 
 	/**
@@ -1021,6 +1366,38 @@ public class AlarmBiz extends DataBase {
 		return list;
 	}
 	
+	
+	/**
+	 * - 进行校正 报警信息的 语言
+	 * @param slist
+	 */
+	public ArrayList<AlarmDataInfo>  modifyLanguage(ArrayList<AlarmDataInfo> slist){
+		if(slist == null || slist.size() == 0){
+			return slist;
+		}
+		
+		HashMap<Integer, HashMap<Integer, String>> mGText=null;
+		if (mAlarmText.containsKey(SystemInfo.getCurrentLanguageId())) {
+			mGText=mAlarmText.get(SystemInfo.getCurrentLanguageId());
+		}else {
+			mGText=mAlarmText.get(0);
+		}
+		if(mGText == null){
+			return slist;
+		}
+		
+		ArrayList<AlarmDataInfo> list = new ArrayList<AlarmDataInfo>();
+		for(int i = 0; i < slist.size(); i++){
+			AlarmDataInfo info = slist.get(i);
+			info.setsMessage(mGText.get(info.getnGroupId()).get(info.getnAlarmIndex())+"");
+			
+			list.add(info);
+		}
+		
+		return list;
+		
+	}
+	
 	public ArrayList<AlarmDataInfo> selectAllMsg(long start,long end,int top,int count){
 		
 		String sql="";
@@ -1034,6 +1411,19 @@ public class AlarmBiz extends DataBase {
 		
 		return selectDataListBySql(sql, null);
 		
+	}
+	
+	/**
+     * 获取报警数据
+     * @param aName-报警组名称
+     * @param nTop-起始序号
+     * @param num-获取行数
+     * @param sTime-开始时间 ，格式为 “2013-11-24 22:12:00”
+     * @param eTime-结束时间，格式为“2013-11-25 12:00:00”
+     */
+    public ArrayList<String[]> getAlarmData(String aName,int nTop,int num,String sTime,String eTime){
+		ArrayList<String[]> data=null;
+		return data;
 	}
 	
 	/**
@@ -1134,7 +1524,6 @@ public class AlarmBiz extends DataBase {
 	public synchronized int saveAlarmData(HashMap<Integer, Vector<AlarmDataInfo>> data,boolean clear,int type, ArrayList<Integer> group){
 		int count=0;
 		int changeCount = 0;
-		long start=System.currentTimeMillis();
 		SKDataBaseInterface dataDB = SkGlobalData.getAlarmDatabase();
 		if (dataDB!=null) {
 			try {
@@ -1197,7 +1586,7 @@ public class AlarmBiz extends DataBase {
 				
 		
 				dataDB.commitTransaction();
-				dataDB.endTransaction();//结束事务。
+				//dataDB.endTransaction();//结束事务。
 				
 				if (type==1) {
 					//确定报警
@@ -1214,6 +1603,7 @@ public class AlarmBiz extends DataBase {
 					
 					
 				}else if (type==2) {
+					//清除报警
 					int num = 0;
 					if (group != null) {
 						changeCount = num = dataDB.deleteByUserDef("dataAlarm", "nClear=0 and nGroupId in ("+arry2String(group)+")",null);
@@ -1249,13 +1639,18 @@ public class AlarmBiz extends DataBase {
 						SKToast.makeText(SKSceneManage.getInstance().mContext, msg,
 								Toast.LENGTH_SHORT).show();
 					}
+				}else if (type == 4  && group != null) {
+					//进行删除单个报警
+					int gid = group.get(0);
+					int aid = group.get(1);
+					changeCount=dataDB.deleteByUserDef("dataAlarm", "(nClear=1 or nClear=2 )and nGroupId ="+gid + " and nAlarmIndex = " + aid , null);
 				}
 				
 			} catch (Exception e) {
-				dataDB.commitTransaction();//提交事务
-				dataDB.endTransaction();//结束事务。
 				e.printStackTrace();
 				Log.e("AlarmBiz", "save alarm data fail!");
+			}finally{
+				dataDB.endTransaction();//结束事务。
 			}
 		}
 		return changeCount ;
@@ -1319,7 +1714,6 @@ public class AlarmBiz extends DataBase {
 					AlamSaveProp val = entry.getValue();
 					dataDB.deleteByUserDef("dataAlarm", "nGroupId=? and nAlarmIndex=? and nDateTime=?", 
 							new String[]{val.nGroupId+"",val.nIndex+"",val.nAlamTime+""});
-				
 					ContentValues values = new ContentValues();
 					values.put("nGroupId", val.nGroupId);
 					values.put("nAlarmIndex", val.nIndex);
@@ -1343,174 +1737,201 @@ public class AlarmBiz extends DataBase {
 	/**
 	 * 存储路径
 	 */
+	private boolean bWrite;
+	private AKHintDialog dialog;
 	public boolean exportData(String path){
-		boolean reuslt=false;
 		
-		Calendar c = Calendar.getInstance();
-		String time=c.get(Calendar.YEAR)+"-"+(c.get(Calendar.MONTH)+1)+"-"+c.get(Calendar.DAY_OF_MONTH)
-				+"_"+c.get(Calendar.HOUR)+"-"+c.get(Calendar.MINUTE)+"-"+c.get(Calendar.SECOND);
-		
-		String folderName="ak_alarm";
-		String fileName="alarm_"+time;
-		String name="";
-		
-		File folerFile=new File(path+folderName);
-		if (!folerFile.exists()) {
-			folerFile.mkdir();
+		if (bWrite) {
+			return false;
 		}
+		bWrite = true;
+		boolean reuslt = false;
 		
-		name=path+folderName+"/"+fileName+".csv";
-		File file=new File(name);
-//		if (file.exists()) {
-//			file.delete();
-//		}
-		
-		//标题
-		ArrayList<String> title=new ArrayList<String>();
-		if (db!=null) {
-			Cursor cursor = null;
-			String sql = "select id,sTime,sDate,sClearDate,sClearTime,sMessage from alarmTitle where nLanguageIndex=? limit 1";
-			cursor = db.getDatabaseBySql(sql, new String[] { SystemInfo.getCurrentLanguageId()+ ""});
-			if (cursor!=null) {
-				while (cursor.moveToNext()) {
-					title.add(cursor.getString(cursor.getColumnIndex("id")));
-					title.add(cursor.getString(cursor.getColumnIndex("sTime")));
-					title.add(cursor.getString(cursor.getColumnIndex("sDate")));
-					title.add(cursor.getString(cursor.getColumnIndex("sClearDate")));
-					title.add(cursor.getString(cursor.getColumnIndex("sClearTime")));
-					title.add(cursor.getString(cursor.getColumnIndex("sMessage")));
-				}
-			}
-			close(cursor);
-		}
-		if (title.size()<6) {
-			title.clear();
-			title.add("id");
-			title.add("时间");
-			title.add("日期");
-			title.add("消除日期");
-			title.add("消除时间");
-			title.add("消息");
-		}
-		
-		//保存标题信息
-		try{
-            
-			DataOutputStream fileWriteHand = new DataOutputStream(new FileOutputStream(file));
-			BufferedWriter writeBuffer = new BufferedWriter(new OutputStreamWriter(fileWriteHand,"GBK"));
+		try {
 
-			/*先写标题*/
+			Context context = SKSceneManage.getInstance().mContext;
+			if (context != null) {
+				dialog = new AKHintDialog(context);
+				dialog.showPopWindow("正在导出数据...");
+			}
+
+			Calendar c = Calendar.getInstance();
+			String time = c.get(Calendar.YEAR) + "-"
+					+ (c.get(Calendar.MONTH) + 1) + "-"
+					+ c.get(Calendar.DAY_OF_MONTH) + "_" + c.get(Calendar.HOUR)
+					+ "-" + c.get(Calendar.MINUTE) + "-"
+					+ c.get(Calendar.SECOND);
+
+			String folderName = "ak_alarm";
+			String fileName = "alarm_" + time;
+			String name = "";
+
+			File folerFile = new File(path + folderName);
+			if (!folerFile.exists()) {
+				folerFile.mkdir();
+			}
+
+			name = path + folderName + "/" + fileName + ".csv";
+			File file = new File(name);
+
+			// 标题
+			ArrayList<String> title = new ArrayList<String>();
+			if (db != null) {
+				Cursor cursor = null;
+				String sql = "select id,sTime,sDate,sClearDate,sClearTime,sMessage from alarmTitle where nLanguageIndex=? limit 1";
+				cursor = db
+						.getDatabaseBySql(
+								sql,
+								new String[] { SystemInfo
+										.getCurrentLanguageId() + "" });
+				if (cursor != null) {
+					while (cursor.moveToNext()) {
+						title.add(cursor.getString(cursor.getColumnIndex("id")));
+						title.add(cursor.getString(cursor
+								.getColumnIndex("sTime")));
+						title.add(cursor.getString(cursor
+								.getColumnIndex("sDate")));
+						title.add(cursor.getString(cursor
+								.getColumnIndex("sClearDate")));
+						title.add(cursor.getString(cursor
+								.getColumnIndex("sClearTime")));
+						title.add(cursor.getString(cursor
+								.getColumnIndex("sMessage")));
+					}
+				}
+				close(cursor);
+			}
+			if (title.size() < 6) {
+				title.clear();
+				title.add("id");
+				title.add("时间");
+				title.add("日期");
+				title.add("消除日期");
+				title.add("消除时间");
+				title.add("消息");
+			}
+
+			// 保存标题信息
+
+			DataOutputStream fileWriteHand = new DataOutputStream(
+					new FileOutputStream(file));
+			BufferedWriter writeBuffer = new BufferedWriter(
+					new OutputStreamWriter(fileWriteHand, "GBK"));
+
+			/* 先写标题 */
 			writeBuffer.newLine();
 			String sTitle = "";
 			for (int i = 0; i < title.size(); i++) {
-				if (i<title.size()-1) {
-					sTitle+=title.get(i)+",";
-				}else{
-					sTitle+=title.get(i);
+				if (i < title.size() - 1) {
+					sTitle += title.get(i) + ",";
+				} else {
+					sTitle += title.get(i);
 				}
 			}
 			writeBuffer.write(sTitle);
-			
-			
+
 			/**
 			 * 获取当前语言报警文本
 			 */
-			HashMap<Integer, HashMap<Integer, String>> mGText=null;
+			HashMap<Integer, HashMap<Integer, String>> mGText = null;
 			if (mAlarmText.containsKey(SystemInfo.getCurrentLanguageId())) {
-				mGText=mAlarmText.get(SystemInfo.getCurrentLanguageId());
-			}else {
-				mGText=mAlarmText.get(0);
+				mGText = mAlarmText.get(SystemInfo.getCurrentLanguageId());
+			} else {
+				mGText = mAlarmText.get(0);
 			}
-			
-			 
-			SimpleDateFormat mDateFormat=new SimpleDateFormat("yyyy-MM-dd");
-			SimpleDateFormat mTimeFormat=new SimpleDateFormat("HH:mm:ss");
-			
-			//写数据
+
+			SimpleDateFormat mDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+			SimpleDateFormat mTimeFormat = new SimpleDateFormat("HH:mm:ss");
+
+			// 写数据
 			SKDataBaseInterface dataDB = SkGlobalData.getAlarmDatabase();
-			if (dataDB!=null) {
+			if (dataDB != null) {
 				String sql = "";
 				sql = "select * from  dataAlarm ";
 				Cursor cursor = null;
 				cursor = dataDB.getDatabaseBySql(sql, null);
-				int id=0;
-				if(cursor!=null){
-					String data="";
-					String sDate="";
-					String sTime="";
+				int id = 0;
+				if (cursor != null) {
+					String data = "";
+					String sDate = "";
+					String sTime = "";
 					int gid;
 					int aid;
 					while (cursor.moveToNext()) {
-						/*写一行数据*/
-						data="";
+						/* 写一行数据 */
+						data = "";
 						id++;
-						data+=id+",";
-						gid=cursor.getInt(1);
-						aid=cursor.getInt(2);
-						
-						long date=cursor.getLong(cursor.getColumnIndex("nDateTime"));
-						Date date2=new Date(date);
-						sDate=mDateFormat.format(date2);
-						sTime=mTimeFormat.format(date2);
-						if (sTime==null) {
-							data+=" , ";
-						}else{
-							data+=sTime+",";
+						data += id + ",";
+						gid = cursor.getInt(1);
+						aid = cursor.getInt(2);
+
+						long date = cursor.getLong(cursor
+								.getColumnIndex("nDateTime"));
+						Date date2 = new Date(date);
+						sDate = mDateFormat.format(date2);
+						sTime = mTimeFormat.format(date2);
+						if (sTime == null) {
+							data += " , ";
+						} else {
+							data += sTime + ",";
 						}
-						if (sDate==null) {
-							data+=" ,";
-						}else {
-							data+=sDate+",";
+						if (sDate == null) {
+							data += " ,";
+						} else {
+							data += sDate + ",";
 						}
-						
-						
-						long cdate=cursor.getLong(cursor.getColumnIndex("nClearDT"));
-						if (cdate==0) {
-							//未消除的
-							sDate="--";
-							sTime="--";
-						}else {
-							//已经消除的
-							Date date3=new Date(cdate);
-							sDate=mDateFormat.format(date3);
-							sTime=mTimeFormat.format(date3);
+
+						long cdate = cursor.getLong(cursor
+								.getColumnIndex("nClearDT"));
+						if (cdate == 0) {
+							// 未消除的
+							sDate = "--";
+							sTime = "--";
+						} else {
+							// 已经消除的
+							Date date3 = new Date(cdate);
+							sDate = mDateFormat.format(date3);
+							sTime = mTimeFormat.format(date3);
 						}
-						
-						
-						if (sDate==null) {
-							data+=" ,";
-						}else {
-							data+=sDate+",";
+
+						if (sDate == null) {
+							data += " ,";
+						} else {
+							data += sDate + ",";
 						}
-						
-						if (sTime==null) {
-							data+=" ,";
-						}else{
-							data+=sTime+",";
+
+						if (sTime == null) {
+							data += " ,";
+						} else {
+							data += sTime + ",";
 						}
-						
-						if (mGText!=null) {
-							data+=mGText.get(gid).get(aid)+"";
-						}else {
-							data+=" ";
+
+						if (mGText != null) {
+							data += mGText.get(gid).get(aid) + "";
+						} else {
+							data += " ";
 						}
-						
+
 						writeBuffer.newLine();
 						writeBuffer.write(data);
 					}
 				}
 				close(cursor);
 			}
-
+			
+			writeBuffer.flush();
 			writeBuffer.close();
 			fileWriteHand.close();
-			
-			reuslt=true;
-		}catch (Exception e) {
+
+			reuslt = true;
+		} catch (Exception e) {
 			e.printStackTrace();
-			return false;
+		} finally {
+			bWrite = false;
+			if (dialog != null) {
+				dialog.hidePopWindow();
+			}
 		}
-		
 		return reuslt;
 	}
 	

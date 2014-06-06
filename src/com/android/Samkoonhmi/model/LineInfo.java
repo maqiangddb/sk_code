@@ -35,6 +35,16 @@ public class LineInfo {
 	private int nWidth;
 	private int nHeight;
 	private Vector<PointF> fPointList;
+	private ShowInfo showInfo;
+	
+
+	public ShowInfo getShowInfo() {
+		return showInfo;
+	}
+
+	public void setShowInfo(ShowInfo showInfo) {
+		this.showInfo = showInfo;
+	}
 
 	public LineInfo() {
 		super();

@@ -1,19 +1,16 @@
 package com.android.Samkoonhmi.adapter;
 
-import java.security.interfaces.DSAKey;
 import java.util.ArrayList;
 import java.util.List;
 
-import android.R.integer;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
-import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.TextView;
+
 import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.model.sk_historytrends.CollectItem;
 
@@ -36,15 +33,12 @@ public class CollectAdapter extends ArrayAdapter<CollectItem> {
 	}
 
 	public long getItemId(int position) {
-		index=position;
 		return position;
 	}
 
-	private int index=0;
 	public View getView(int position, View convertView, ViewGroup parent) {
 		HolerView holerView = null;
 
-		index=position;
 		if (null == convertView) {
 			holerView = new HolerView();
 			// 获取listViewItem的布局
@@ -53,34 +47,29 @@ public class CollectAdapter extends ArrayAdapter<CollectItem> {
 					.findViewById(R.id.item_id);
 			holerView.sName = (TextView) convertView
 					.findViewById(R.id.item_content);
+			holerView.mCheckBox.setOnClickListener(mListener);
 			convertView.setTag(holerView);
 		} else {
 			holerView = (HolerView) convertView.getTag();
 		}
 		if (null != data) {
 			holerView.mCheckBox.setChecked(data.get(position).isCheck);
-			holerView.mCheckBox.setTag(data.get(position).nGId);
+			holerView.mCheckBox.setTag(position);
 			holerView.sName.setText(data.get(position).sGName);
-			//holerView.sName.setTag(data.get(position).nGId);
-		
 		}
-		holerView.mCheckBox.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			
-			@Override
-			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-				CheckBox cbx=(CheckBox)buttonView;
-				String temp=cbx.getTag().toString();
-				if (temp!=null&&(!temp.equals(""))) {
-					int index=Integer.valueOf(temp);
-					if (index<data.size()) {
-						data.get(index).isCheck=isChecked;
-					}
-				}
-			}
-		});
 		
 		return convertView;
 	}
+	
+	private android.view.View.OnClickListener mListener = new View.OnClickListener() {
+		
+		@Override
+		public void onClick(View v) {
+			// TODO Auto-generated method stub
+			int tag = (Integer) v.getTag();
+			data.get(tag).isCheck= !data.get(tag).isCheck;
+		}
+	};
 
 	public class HolerView {
 		public CheckBox mCheckBox;

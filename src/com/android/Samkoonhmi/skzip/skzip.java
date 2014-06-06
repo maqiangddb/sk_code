@@ -3,18 +3,10 @@
 import java.io.File;
 import java.io.FileOutputStream;
 
-import com.android.Samkoonhmi.model.SystemInfo;
-import com.android.Samkoonhmi.plccommunicate.CmnPortManage;
-import com.android.Samkoonhmi.skenum.CONNECT_TYPE;
-import com.android.Samkoonhmi.skwindow.SKToast;
-import com.android.Samkoonhmi.util.SavaInfo;
+import com.android.Samkoonhmi.system.SystemVariable;
 
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.Looper;
-import android.os.Message;
+import android.content.SharedPreferences;
 import android.util.Log;
-import android.widget.Toast;
 
 public class skzip {
 
@@ -114,11 +106,11 @@ public class skzip {
 				bb.delete();
 			}
 
-			File gg = new File(
-					"/data/data/com.android.Samkoonhmi/shared_prefs/hmiprotct.xml");
+			File gg = new File("/data/data/com.android.Samkoonhmi/shared_prefs/hmiprotct.xml");
 			if (gg.exists()) {
 				gg.delete();
 			}
+			
 
 			// 删除图片
 			File dd = new File("/data/data/com.android.Samkoonhmi/pictures");
@@ -137,16 +129,18 @@ public class skzip {
 			
 			if (ee.exists()) {
 				ee.delete();
-				File ll = new File("/data/data/com.android.Samkoonhmi/usranipro");
-				if (ll.exists()) {
-					ll.delete();
-				}
+			}
+			
+			File ll = new File("/data/data/com.android.Samkoonhmi/usranipro");
+			if (!ll.exists()) {
+				ll.mkdir();
 			}
 			
 
 			String sAkPath = "/data/data/com.android.Samkoonhmi/";
 			String sLauncherPath = "/data/data/com.samkoon.sklauncher/";
 			String outPathString = "";
+			String sSumsungFile = "/data/sumsung.phone";
 
 			android.util.Log.v("skzip", "UnZipFolder(String, String)");
 			java.util.zip.ZipInputStream inZip = new java.util.zip.ZipInputStream(
@@ -161,6 +155,12 @@ public class skzip {
 			File emufile = new File(sLauncherPath);
 			if (!emufile.exists()) {
 				isEmu=true;
+			}
+			
+			boolean isSamsungPhone=false;//是不是三星手机
+			File samsungfile = new File(sSumsungFile);
+			if(samsungfile.exists()){
+				isSamsungPhone = true;
 			}
 			
 			while ((zipEntry = inZip.getNextEntry()) != null) {
@@ -190,7 +190,11 @@ public class skzip {
 					FileOutputStream out = null;// =new FileOutputStream(file);
 					if (newfolder != "") {
 						if (newfolder.equals("armeabi") || newfolder.equals("x86")) {
-							outPathString = sAkPath + "lib/";
+							if(isSamsungPhone){
+								outPathString = SystemVariable.sSumsungDriverLibPath;
+							}else{
+								outPathString = sAkPath + "lib/";
+							}
 						} else if (newfolder.equals("resource")) {
 							outPathString = sAkPath + "pictures/";
 						}else if (newfolder.equals("soar")) {
@@ -261,11 +265,9 @@ public class skzip {
 			}
 			
 			inZip.close();
-
-			File file = new File("/data/data/com.android.Samkoonhmi/samkoonhmi.akz");
-			if (file.exists()) {
-				file.delete();
-			}
+//			runCommand("sync");
+			Log.e("Samkoon","unzip finish!");
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 			Log.e("AKZIP", "ak zip error!!!");
@@ -279,7 +281,17 @@ public class skzip {
 			if (dir.exists()) {
 				dir.delete();
 			}
-			SavaInfo.setState(2);
+			
+			File libFile=new File("/data/data/com.android.Samkoonhmi/lib");
+			if (libFile.exists()) {
+				libFile.delete();
+				Log.d("SKZIP", "ak lib error!!!");
+			}
+		}finally{
+			File file = new File("/data/data/com.android.Samkoonhmi/samkoonhmi.akz");
+			if (file.exists()) {
+				file.delete();
+			}
 		}
 		
 		// end of func
@@ -391,7 +403,7 @@ public class skzip {
 				file.mkdir();
 			}
 		} catch (Exception e) {
-
+			e.printStackTrace();
 		}
 	}
 
@@ -448,5 +460,26 @@ public class skzip {
 		File myFilePath = new File(path);
 		myFilePath.delete(); // 删除空文件夹
 	}
-
+	
+	private static String com="";
+	private static boolean runCommand(String command) {
+		
+		com=command;
+		Process process = null;
+		try {
+			process = Runtime.getRuntime().exec("su");
+			process = Runtime.getRuntime().exec(com);
+			process.waitFor();
+			Log.d("AKFileUpdate", "command:"+com);
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e("AKFileUpdate", "run "+com+" error!");
+		}finally{
+			if (process!=null) {
+				process.destroy();
+			}
+		} 
+		
+		return true;
+	}
 }

@@ -33,6 +33,7 @@ public class InitMacroItem extends BaseMacroItem{
 			Log.e("InitMacroItem","InitMacroItem: mIMI is null");
 			return;
 		}
+		
 		setBMI(mIMI);
 	}
 
@@ -60,6 +61,8 @@ public class InitMacroItem extends BaseMacroItem{
 		
 		//参数设置
 		ParamTool.setParam(mParamList, mPHMap, false,mIMI.getnSid());
+		//添加到参数列表
+		//ParamHelper.addAddrList(mParamList);
 	}
 
 	/**
@@ -70,10 +73,12 @@ public class InitMacroItem extends BaseMacroItem{
 	}
 
 	@Override
-	public void run() {
+	public synchronized void run() {
 		if(mDebug){
 			Log.i(mTag,"run: try to call pullParams");
 		}
+		
+		
 		//每次都需同步地址控件的数据到本地缓存
 		ParamHelper.pullParams(mParamList, mPHMap);				
 		
@@ -97,7 +102,7 @@ public class InitMacroItem extends BaseMacroItem{
 			Log.i(mTag,"run: try to call pushParams");
 		}
 		//将参数推送到地址空间
-		ParamHelper.pushParams(mParamList, mPHMap);	
+		//ParamHelper.pushParams(mParamList, mPHMap);	
 		
 	}
 

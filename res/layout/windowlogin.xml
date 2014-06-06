@@ -58,25 +58,29 @@
             android:layout_width="fill_parent"
             android:layout_height="45dip"
             android:layout_gravity="center"
-            android:layout_marginTop="10dip"
+            android:layout_marginTop="20dip"
+            android:layout_marginLeft="20dip"
+            android:layout_marginRight="20dip"
             android:gravity="center"
             android:orientation="horizontal" >
 
             <Button
                 android:id="@+id/login"
-                android:layout_width="110dip"
+                android:layout_width="fill_parent"
                 android:layout_height="45dip"
                 android:layout_margin="0dip"
                 android:background="@drawable/login_btn_window"
                 android:padding="0dip"
+                android:layout_weight="1"
                 android:text="@string/login"
                 android:textColor="@color/white" />
 
             <Button
                 android:id="@+id/cancel"
-                android:layout_width="110dip"
+                android:layout_width="fill_parent"
                 android:layout_height="45dip"
                 android:layout_marginLeft="0dip"
+                android:layout_weight="1"
                 android:background="@drawable/login_btn_right_window"
                 android:paddingLeft="0dip"
                 android:text="@string/cancel"

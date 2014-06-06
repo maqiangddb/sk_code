@@ -3,51 +3,40 @@ package com.android.Samkoonhmi.skwindow;
 import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.skwindow.EidtUserView.CHANG_TYPE;
 import com.android.Samkoonhmi.skwindow.EidtUserView.IClickListener;
+
 import android.app.Activity;
-import android.app.Dialog;
-import android.os.Bundle;
-import android.view.Window;
-import android.view.WindowManager;
+import android.content.Context;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.PopupWindow;
 import android.widget.ViewFlipper;
 
-/**
- * 添加用户对话框
- * 
- * @author 刘伟江 创建时间 2012-7-14
- */
-public class SKEditUserDialog extends Dialog implements IClickListener {
-
-	private Window window = null;
+public class SKEditUserDialog implements IClickListener {
+	private PopupWindow window;
+	private LayoutInflater inflater;
+	private View view;
 	private ViewFlipper flipper;
-	private Activity activity;
 	private EidtUserView eView;
 	private AddUserView aView;
 	private int nWidth;
 	private int nHeigth;
 	public boolean show;
-
-	public SKEditUserDialog(Activity activity) {
-		super(activity);
-		this.activity = activity;
-		show=false;
-		nWidth=800;
-		nHeigth=480;
-	}
-
-	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		requestWindowFeature(Window.FEATURE_NO_TITLE);
-		setContentView(R.layout.edit_user_viewgroup);
+	private Context mcontext;
+	
+	public SKEditUserDialog(Context context,Activity activity){
+		mcontext = context;
+		getViewMeasure();
 		eView=new EidtUserView(activity, this);
 		aView=new AddUserView(activity, this);
-		
-		getViewMeasure();
-		flipper = (ViewFlipper) findViewById(R.id.user_view_flipper);
+		inflater = LayoutInflater.from(context);
+		view = inflater.inflate(R.layout.edit_user_viewgroup, null);
+		flipper = (ViewFlipper) view.findViewById(R.id.user_view_flipper);
 		flipper.addView(eView.addView(R.layout.eidt_user_view,nWidth,nHeigth));
 		flipper.addView(aView.addView(R.layout.add_user_view,nWidth,nHeigth));
+		window = new PopupWindow(view,nWidth,nHeigth);
 	}
-
+	
 	private void getViewMeasure(){
 		int width=SKSceneManage.nSceneWidth;
 		int height=SKSceneManage.nSceneHeight;
@@ -69,51 +58,39 @@ public class SKEditUserDialog extends Dialog implements IClickListener {
 		}
 	}
 	
-	public void showDialog() {
-		if (show) {
-			return;
-		}
-		show=true;
-		window = getWindow();
-		window.setWindowAnimations(R.style.PopupAnimation);
-		WindowManager.LayoutParams lp = window.getAttributes();
-		//lp.width = 600;
-		//lp.height = 300;
-		window.setAttributes(lp);
-		show();
+	public boolean isShow(){
+		return show;
 	}
 	
-	/**
-	 * 加载当前用户权限
-	 * 当dialog 不是创建时调用
-	 */
-	public void loadData(){
-		if (aView!=null) {
-			aView.updateData();
+	public void show(){
+		if(window==null){
+			return;
 		}
-		if (eView!=null) {
-			eView.updateData();
+		View parent = SKSceneManage.getInstance().getCurrentScene();
+		if(parent == null){
+			return;
 		}
+		window.setFocusable(true);
+		window.update();
+		window.showAtLocation(parent, Gravity.CENTER, 0, 0);
+		show=true;
 	}
 
 	@Override
 	public void onExit() {
-		dismiss();
 		show=false;
-	}
-	
-	@Override
-	public void dismiss() {
-		super.dismiss();
-		show=false;
+		if(window==null){
+			return;
+		}
+		window.dismiss();
 	}
 
 	@Override
-	public void onPre(CHANG_TYPE type,boolean result) {
+	public void onPre(CHANG_TYPE type, boolean result) {
 		// 切换到编辑界面
 		if (flipper != null) {
-			flipper.setInAnimation(activity, R.anim.dialog_left_enter);
-			flipper.setOutAnimation(activity, R.anim.dialog_left_out);
+			flipper.setInAnimation(mcontext, R.anim.dialog_left_enter);
+			flipper.setOutAnimation(mcontext, R.anim.dialog_left_out);
 			flipper.showPrevious();
 			//从编辑界面进入添加or更新界面
 			if (type==CHANG_TYPE.EDIT_TO_ADD||type==CHANG_TYPE.EDIT_TO_UPDATE) {
@@ -130,11 +107,11 @@ public class SKEditUserDialog extends Dialog implements IClickListener {
 	}
 
 	@Override
-	public void onNext(CHANG_TYPE type,boolean result) {
+	public void onNext(CHANG_TYPE type, boolean result) {
 		// 切换到添加or更新用户界面
 		if (flipper != null) {
-			flipper.setInAnimation(activity, R.anim.dialog_right_enter);
-			flipper.setOutAnimation(activity, R.anim.dialog_right_out);
+			flipper.setInAnimation(mcontext, R.anim.dialog_right_enter);
+			flipper.setOutAnimation(mcontext, R.anim.dialog_right_out);
 			flipper.showPrevious();
 			//从编辑界面进入添加or更新界面
 			if (type==CHANG_TYPE.EDIT_TO_ADD||type==CHANG_TYPE.EDIT_TO_UPDATE) {
@@ -149,5 +126,4 @@ public class SKEditUserDialog extends Dialog implements IClickListener {
 			}
 		}
 	}
-
 }

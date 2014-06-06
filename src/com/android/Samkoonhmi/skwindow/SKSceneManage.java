@@ -1,5 +1,7 @@
 package com.android.Samkoonhmi.skwindow;
+
 import java.io.File;
+import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,8 +13,9 @@ import com.android.Samkoonhmi.SKThread;
 import com.android.Samkoonhmi.SKTimer;
 import com.android.Samkoonhmi.SKTrendsThread;
 import com.android.Samkoonhmi.macro.MacroManager;
+import com.android.Samkoonhmi.macro.corba.IAKDraw;
+import com.android.Samkoonhmi.macro.corba.IListener;
 import com.android.Samkoonhmi.model.SKItems;
-import com.android.Samkoonhmi.activity.LoginActivity;
 import com.android.Samkoonhmi.activity.TimeBroadCast;
 import com.android.Samkoonhmi.activity.SKSceneMenu;
 import com.android.Samkoonhmi.databaseinterface.DBTool;
@@ -22,6 +25,7 @@ import com.android.Samkoonhmi.model.AnimationViewerInfo;
 import com.android.Samkoonhmi.model.CalibrationModel;
 import com.android.Samkoonhmi.model.ComboBoxInfo;
 import com.android.Samkoonhmi.model.DateTimeShowInfo;
+import com.android.Samkoonhmi.model.DragdownboxItemInfo;
 import com.android.Samkoonhmi.model.DynamicCircleInfo;
 import com.android.Samkoonhmi.model.DynamicRectInfo;
 import com.android.Samkoonhmi.model.FlowBlockModel;
@@ -34,6 +38,7 @@ import com.android.Samkoonhmi.model.LineInfo;
 import com.android.Samkoonhmi.model.MessageBoardInfo;
 import com.android.Samkoonhmi.model.MessageInfo;
 import com.android.Samkoonhmi.model.NumberDisplayInfo;
+import com.android.Samkoonhmi.model.PriorLoadInfo;
 import com.android.Samkoonhmi.model.RecipeSelectInfo;
 import com.android.Samkoonhmi.model.RecipeShowInfo;
 import com.android.Samkoonhmi.model.ScenceInfo;
@@ -43,6 +48,7 @@ import com.android.Samkoonhmi.model.SliderModel;
 import com.android.Samkoonhmi.model.StaticTextModel;
 import com.android.Samkoonhmi.model.SystemInfo;
 import com.android.Samkoonhmi.model.TableModel;
+import com.android.Samkoonhmi.model.XYCurveInfo;
 import com.android.Samkoonhmi.model.alarm.AlarmContolInfo;
 import com.android.Samkoonhmi.model.alarm.AlarmHisShowInfo;
 import com.android.Samkoonhmi.model.alarm.AlarmSlipInfo;
@@ -53,7 +59,9 @@ import com.android.Samkoonhmi.plccommunicate.PlcRegCmnStcTools;
 import com.android.Samkoonhmi.plccommunicate.ProtocolInterfaces;
 import com.android.Samkoonhmi.plccommunicate.SKCommThread;
 import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
+import com.android.Samkoonhmi.print.AKPrint;
 import com.android.Samkoonhmi.skenum.GOTO_TYPE;
+import com.android.Samkoonhmi.skenum.HMIMODEL;
 import com.android.Samkoonhmi.skenum.LINE_CLASS;
 import com.android.Samkoonhmi.skenum.SHAP_CLASS;
 import com.android.Samkoonhmi.skenum.WINDOW_TYPE;
@@ -74,6 +82,7 @@ import com.android.Samkoonhmi.skgraphics.noplc.SKRoundRect;
 import com.android.Samkoonhmi.skgraphics.noplc.SKSector;
 import com.android.Samkoonhmi.skgraphics.noplc.SKTable;
 import com.android.Samkoonhmi.skgraphics.noplc.SKTimeShow;
+import com.android.Samkoonhmi.skgraphics.plc.show.AKXYCurve;
 import com.android.Samkoonhmi.skgraphics.plc.show.SKAnimation;
 import com.android.Samkoonhmi.skgraphics.plc.show.SKDynamicAlarmSlip;
 import com.android.Samkoonhmi.skgraphics.plc.show.SKDynamicCircle;
@@ -89,6 +98,7 @@ import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKAlarmContol;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKButton;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKComboImgbox;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKCombobox;
+import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKDragDownBox;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKFunSwitch;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKHistoryAlarmShow;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKHistoryShow;
@@ -99,12 +109,16 @@ import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKNumInputDisplay;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKRecipeSelect;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKRecipeShow;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKSlide2;
+import com.android.Samkoonhmi.skwindow.SKSwitchOperDialog.IOperCall;
+import com.android.Samkoonhmi.skwindow.SKSwitchOperDialog.IOperCall.CALLTYPE;
 import com.android.Samkoonhmi.system.StorageStateManager;
-import com.android.Samkoonhmi.system.SystemControl;
 import com.android.Samkoonhmi.system.SystemVariable;
+import com.android.Samkoonhmi.system.address.SystemAddress;
 import com.android.Samkoonhmi.util.AddrProp;
 import com.android.Samkoonhmi.util.AlarmGroup;
 import com.android.Samkoonhmi.util.AlarmSaveThread;
+import com.android.Samkoonhmi.util.BatteryBroadcast;
+import com.android.Samkoonhmi.util.ContextUtl;
 import com.android.Samkoonhmi.util.GlobalPopWindow;
 import com.android.Samkoonhmi.util.ITEM_TABLE_TYPE;
 import com.android.Samkoonhmi.util.ImageFileTool;
@@ -117,22 +131,24 @@ import com.android.Samkoonhmi.util.SystemBroadcast;
 import com.android.Samkoonhmi.util.SystemParam;
 import com.android.Samkoonhmi.util.TASK;
 import android.app.Activity;
+import android.app.Service;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Vibrator;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.widget.Toast;
 
 /**
  * 场景管理
- * 
  * @author 刘伟江
  * @version v 1.0.0.1 创建时间 2012-6-8
  */
-
 public class SKSceneManage {
 	private static final String TAG = "SKSceneManage";
 	private static final int TIME_OUT = 3;
@@ -142,6 +158,9 @@ public class SKSceneManage {
 	private static final int SET_LIGHT=8;
 	private static final int SHOW_LONGIN=9;//显示切换用户界面
 	private static final int RESET=10;//
+	private static final int LOCK_WINDOW=11;
+	private static final int GOTO_WINDOW=12;
+	private static final int BEEP=13;//蜂鸣器
 	// 切换动画
 	int animation[] = new int[12];
 	// 每个画面控件集合
@@ -156,6 +175,11 @@ public class SKSceneManage {
 	private ISKSceneUpdate mBaseIUpdate;
 	// 底部场景id，
 	private int nBaseSceneId;
+	public int getnBaseSceneId() {
+		return nBaseSceneId;
+	}
+
+
 	// 当前画面Id，可能是底部，也可能是窗口
 	public int nSceneId;
 	// 最大画面编号
@@ -187,8 +211,12 @@ public class SKSceneManage {
 	private ArrayList<Integer> mWindowIdList;// 窗口id
 	private ArrayList<SceneNumInfo> mSceneNums;// 场景序号
 	private ArrayList<Integer> mLoadScene;// 需要加载的画面信息
+	private ArrayList<PriorLoadInfo> mPriorLoad;//需要优先加载的画面信息
 	public boolean bLoginSuccess;//是否登录成功
 	private GlobalPopWindow lockWindow;
+	private boolean bHmiLock;//人机界面已经被锁定不能跳转画面
+	private boolean bWindowFocus;//窗口焦点是否可见
+
 	// 单例
 	private static SKSceneManage sInstance = null;
 	public synchronized static SKSceneManage getInstance() {
@@ -201,12 +229,14 @@ public class SKSceneManage {
 	private SKSceneManage() {
 		this.nSceneMaxNum = 0;
 		this.sTaskName = "";
+		this.bHmiLock=false;
 		flag = true;
 		mSceneItemMap = new HashMap<Integer, List<ItemInfo>>();
 		mSceneViewMap = new HashMap<Integer, SKScene>();
 		mSceneIdList = new ArrayList<Integer>();
 		mWindowIdList = new ArrayList<Integer>();
 		mSceneNums = new ArrayList<SceneNumInfo>();
+		mPriorLoad=new ArrayList<PriorLoadInfo>();
 		countTime = 0;
 		nFirstItemSize = 0;
 		animation[0] = R.anim.dialog_left_enter;
@@ -217,7 +247,6 @@ public class SKSceneManage {
 		animation[5] = R.anim.dialog_left_out;
 		animation[6] = R.anim.dialog_right_enter;
 		animation[7] = R.anim.dialog_right_out;
-
 		animation[8] = R.anim.rotate_enter;
 		animation[9] = R.anim.rotate_out;
 		animation[10] = R.anim.translate_enter;
@@ -227,7 +256,7 @@ public class SKSceneManage {
 
 	/**
 	 * 执行场景宏指令
-	 * */
+	 */
 	public void execSceneMacros() {
 
 		ScenceInfo curSceneInfo =getScenceInfo(nSceneId);// 获得当前场景数据实体
@@ -298,17 +327,17 @@ public class SKSceneManage {
 				SKScene scene = new SKScene(mContext, activity,
 						getScenceInfo(nSceneId));
 				mSceneViewMap.put(nSceneId, scene);
+				//Log.d(TAG, "new view ........."+nSceneId);
 			}
+			
 			if (!mSceneItemMap.containsKey(nSceneId)) {
 				//画面控件不存在，加载画面信息，并回调刷新
 				LoadInfo info=new LoadInfo();
 				info.nSid=nSceneId;
 				info.call=true;
-				
-				if (sTaskName.equals("")) {
-					sTaskName=SKThread.getInstance().getBinder().onRegisterForScene(call);
-				}
-				SKThread.getInstance().getBinder().onTask(MODULE.SCENE, TASK.SCENE_AND_ITEM, sTaskName, info);
+				//Log.d(TAG, "no item for scene sid="+nSceneId);
+				mHandler.removeMessages(LOAD_SCENE_ITEM);
+				mHandler.obtainMessage(LOAD_SCENE_ITEM, info).sendToTarget();
 				
 			}
 			initScene(getScenceInfo(nSceneId), nSceneId);
@@ -334,10 +363,8 @@ public class SKSceneManage {
 					LoadInfo linfo=new LoadInfo();
 					linfo.nSid=nSceneId;
 					linfo.call=true;
-					if (sTaskName.equals("")) {
-						sTaskName=SKThread.getInstance().getBinder().onRegisterForScene(call);
-					}
-					SKThread.getInstance().getBinder().onTask(MODULE.SCENE, TASK.SCENE_AND_ITEM, sTaskName, linfo);
+					mHandler.removeMessages(LOAD_SCENE_ITEM);
+					mHandler.obtainMessage(LOAD_SCENE_ITEM, linfo).sendToTarget();
 				}
 				
 				if (eType == SHOW_TYPE.DEFAULT) {
@@ -371,17 +398,17 @@ public class SKSceneManage {
 	 */
 	public void loadItem(LoadInfo info){
 		
-		
 		if(info==null){
 			return;
 		}
 		
-		//Log.d(TAG, "ak load item sid:"+info.nSid);
+		//Log.d(TAG, "load item sid = "+info.nSid);
 		
 		List<ItemInfo> items = new ArrayList<ItemInfo>();
 		ArrayList<Integer> list=null;
 		if (mSceneTypeMap!=null) {
 			if (mSceneTypeMap.containsKey(info.nSid)) {
+				
 				//画面上拥有的控件类型
 				list=mSceneTypeMap.get(info.nSid);
 				if (list!=null) {
@@ -389,7 +416,19 @@ public class SKSceneManage {
 						switch (list.get(i)) {
 						case ITEM_TABLE_TYPE.SWITCH: // 开关
 						{
-							ArrayList<ButtonInfo> bList=DBTool.getInstance().getmButtonBiz().selectBySid(info.nSid);
+							ArrayList<PriorLoadInfo> mList=new ArrayList<PriorLoadInfo>();
+							ArrayList<ButtonInfo> bList=DBTool.getInstance().getmButtonBiz().selectBySid(info.nSid,mList);
+							if (mList.size()>0) {
+								//设置加载画面
+								for (int j = 0; j < mSceneInfoMap.size(); j++) {
+									ScenceInfo sInfo=mSceneInfoMap.get(j);
+									if (sInfo.getnSceneId()==info.nSid) {
+										sInfo.setmLoadScene(mList);
+										break;
+									}
+								}
+							}
+							//Log.d(TAG, "data bt="+(System.currentTimeMillis()-bt));
 							if (bList!=null) {
 								for (int j = 0; j < bList.size(); j++) {
 									ItemInfo item=new ItemInfo();
@@ -557,7 +596,9 @@ public class SKSceneManage {
 						}
 						case ITEM_TABLE_TYPE.STATIE_TEXT: // 静态文本
 						{
+							//long time=System.currentTimeMillis();
 							ArrayList<StaticTextModel> aList=DBTool.getInstance().getmStaticTextBiz().getStaticText(info.nSid);
+							//long end=System.currentTimeMillis()-time;
 							if (aList!=null) {
 								for (int j = 0; j < aList.size(); j++) {
 									ItemInfo item=new ItemInfo();
@@ -568,6 +609,7 @@ public class SKSceneManage {
 									items.add(item);
 								}
 							}
+							//Log.d("DataBase", "STATIE_TEXT time="+end+",all="+(System.currentTimeMillis()-time));
 							break;
 						}
 						case ITEM_TABLE_TYPE.ASCII: // ascii显示
@@ -933,7 +975,36 @@ public class SKSceneManage {
 							}
 							break;
 						}
-						
+						case ITEM_TABLE_TYPE.DRAGDOWN_BOX://下拉框
+						{
+							ArrayList<DragdownboxItemInfo> dList=DBTool.getInstance().getmDragdownBoxBiz().selectDragdownInfo(info.nSid);
+							if (dList!=null) {
+								for (int j = 0; j < dList.size(); j++) {
+									ItemInfo item=new ItemInfo();
+									SKDragDownBox mDragdownBox = new SKDragDownBox(dList.get(j).getId(),
+											info.nSid,dList.get(j));
+									item.nItemId= dList.get(j).getId();
+									item.mItem=mDragdownBox;
+									items.add(item);
+								}
+							}
+							break;
+						}
+						case ITEM_TABLE_TYPE.XY_CURVE:{
+							//XY曲线
+							ArrayList<XYCurveInfo> dList=DBTool.getInstance().getmXYCurveBiz().select(info.nSid);
+							if (dList!=null) {
+								for (int j = 0; j < dList.size(); j++) {
+									ItemInfo item=new ItemInfo();
+									AKXYCurve curve=new AKXYCurve(dList.get(j).getnItemId(), info.nSid, dList.get(j));
+									item.nItemId= dList.get(j).getnItemId();
+									item.mItem=curve;
+									items.add(item);
+								}
+							}
+							break;
+						}
+							
 						}
 					
 					}
@@ -941,27 +1012,28 @@ public class SKSceneManage {
 			}
 		}
 		
+		//long time=System.currentTimeMillis()-start;
+		//Log.d(TAG, "load all time="+time+",bt="+bt+",gt="+gt+", sid="+info.nSid);
+		//Log.d(TAG, "load all time="+allTime+",time="+time+",sid="+info.nSid+",tB="+tB+",tS="+tS+",tT="+tT);
+	
 		/**
 		 * 程序第一次启动时
 		 * 加载启动画面
 		 */
+		
+		boolean result=true;
 		if (firstLoad) {
-			if (info.nSid == SystemInfo.getCurrentScenceId()) {
-				if (list == null || list.size() == 0) {
-					mHandler.sendEmptyMessage(ON_GO_SCENE);// 进入场景
-				} else {
-					mHandler.sendEmptyMessageDelayed(LOAD_OUT_TIME, 10000);// 进入超时判断
-					SKPlcNoticThread.getInstance().start();
-					// 如果有控件则，进行初始化,在onRefresh（），判断是否已经初始化完毕
-					for (int j = 0; j < items.size(); j++) {
-						ItemInfo item=items.get(j);
-						if (info!=null) {
-							SKGraphics sk = item.mItem;
-							sk.realseMemeory();
-							sk.initGraphics();
-						}
-					}
+			ScenceInfo sInfo=getCurrentInfo();
+			if (sInfo!=null) {
+				priorLoadScene(sInfo);
+			}
+			if (mPriorLoad.size()>0) {
+				if(mPriorLoad.get(0).nSid==SystemInfo.getInitSceneId()){
+					result=false;
 				}
+			}
+			if (result) {
+				mHandler.sendEmptyMessage(ON_GO_SCENE);
 			}
 		}
 
@@ -982,38 +1054,70 @@ public class SKSceneManage {
 						scene.setmSkGraphicsList(mSceneItemMap.get(nSceneId));
 					}
 					scene.drawGraphics();
+					
+					//加载当前画面上，需要跳转的画面信息
+					ScenceInfo sInfo=getCurrentInfo();
+					if (sInfo!=null) {
+						priorLoadScene(sInfo);
+					}
 				}
 			}
 		}
+		
+		if (mPriorLoad.size() > 0||mLoadScene.size() > 0) {
+			if (result) {
+				mHandler.sendEmptyMessageDelayed(LOAD_SCENE_ITEM, 500);
+			}else {
+				mHandler.sendEmptyMessage(LOAD_SCENE_ITEM);
+			}
+			
+		}
 	}
+	
+	//加载当前画面，需要跳转的画面信息
+	private void priorLoadScene(ScenceInfo info){
+		ArrayList<PriorLoadInfo> mList=info.getmLoadScene();
+		if (mList!=null&&mList.size()>0) {
+			//清空之前
+			mPriorLoad.clear();
+			for (int i = 0; i < mList.size(); i++) {
+				mPriorLoad.add(mList.get(i));
+			}
+			mList.clear();
+		}
+	}
+	
 	
 	/**
 	 * 加载画面和控件信息
 	 */
 	private void initInfo(){
+		
+		long time=System.currentTimeMillis();
 		mSceneInfoMap=DBTool.getInstance().getmSceneBiz().getAllSceneInfo();
 		mSceneTypeMap=DBTool.getInstance().getmSceneBiz().getSceneType();
 		mSceneIdList = DBTool.getInstance().getmSceneBiz().getAllSceneId();// 获取所有画面id
 		mWindowIdList = DBTool.getInstance().getmSceneBiz().getWindowId();// 获取窗口的id集合
 		mSceneNums = DBTool.getInstance().getmSceneBiz().getSceneNum();// 获取画面序号
 		nSceneMaxNum = DBTool.getInstance().getmSceneBiz().getSceneMaxNum();
+		SKWindowManage.getInstance(mContext).loadWindow(mSceneInfoMap);
 		SKKeyPopupWindow.getKeyBroadId();//获取该工程的所有键盘id;
-		//nBeforSceneId=-1;
-		
 		
 		mLoadScene = new ArrayList<Integer>();
-		if (mSceneIdList != null) {
-			for (int i = 0; i < mSceneIdList.size(); i++) {
-				mLoadScene.add(mSceneIdList.get(i));
-			}
-		}
+		
 		if (mWindowIdList != null) {
 			for (int i = 0; i < mWindowIdList.size(); i++) {
 				mLoadScene.add(mWindowIdList.get(i));
 			}
 		}
 		
-		SKWindowManage.getInstance(mContext).loadWindowList();
+		if (mSceneIdList != null) {
+			for (int i = 0; i < mSceneIdList.size(); i++) {
+				mLoadScene.add(mSceneIdList.get(i));
+			}
+		}
+		
+		Log.d("DataBase", "init Info time="+(System.currentTimeMillis()-time));
 
 	}
 
@@ -1027,6 +1131,7 @@ public class SKSceneManage {
 			if (mSceneItemMap.containsKey(sceneId)) {
 				scene.setmSkGraphicsList(mSceneItemMap.get(sceneId));
 			}
+			
 			if (iSceneUpdate != null) {
 				iSceneUpdate.onUpdateView(scene);
 			}
@@ -1040,8 +1145,14 @@ public class SKSceneManage {
 
 			/* 重新添加场景的地址 */
 			setOneSceneReadAddrs(sceneId);
+			
+			//添加刷新画面
+			SKPlcNoticThread.getInstance().addRefreshId(sceneId);
 
 			execSceneMacros();
+			
+			//加载当前画面上，需要跳转的画面信息
+			priorLoadScene(info);
 		}
 	}
 
@@ -1049,51 +1160,112 @@ public class SKSceneManage {
 	/**
 	 * 控件刷新
 	 */
-	private int count = 0;
-	private HashMap<Integer, Integer> mInitList = new HashMap<Integer, Integer>();
-	public void onRefresh(SKItems item) {
+	private SKScene mRefreshScene=null;
+	private int nRefreshId;
+	public synchronized void onRefresh(SKItems item) {
 		if (item == null) {
 			return;
 		}
 
-		/**
-		 * 第一次加载，也就是从登陆界面，预加载启动画面 如果加载完毕，则从登陆界面跳转到场景
-		 */
-		if (firstLoad && nFirstItemSize > 0) {
-			if (!mInitList.containsKey(item.itemId)) {
-				mInitList.put(item.itemId, item.itemId);
-			} else {
-				return;
-			}
-			count++;
-			
-			if (count >= nFirstItemSize) {
-				count = 0;
-				firstLoad = false;
-				mInitList.clear();
-				// 清除一下绑定，再进场景
-				if (SKTimer.flag) {
-					SKTimer.getInstance().destroy();
-				}
-				SKProgress.onResume = false;
-				if (SKTimer.flag) {
-					SKTimer.getInstance().clear();
-				}
-				//SKThread.getInstance().destory();
-				SKLanguage.getInstance().destory();
-				SKTrendsThread.getInstance().destory();
-				// SKPlcNoticThread.getInstance().stop();
-				mHandler.sendEmptyMessage(ON_GO_SCENE);
-			}
-		}
 		if (!firstLoad) {
-			SKScene scene = mSceneViewMap.get(item.sceneId);
-			if (scene != null) {
-				scene.onRefresh(item);
+			if (mRefreshScene==null) {
+				mRefreshScene=mSceneViewMap.get(item.sceneId);
+				nRefreshId=item.sceneId;
+			}else {
+				if (item.sceneId!=nRefreshId) {
+					mRefreshScene=mSceneViewMap.get(item.sceneId);
+					nRefreshId=item.sceneId;
+				}
+			}
+			if (mRefreshScene != null) {
+				mRefreshScene.onRefresh(item);
 			}
 		}
 	}
+	
+	//对外点击事件
+	private IListener mIListener=null;
+	public void setIListener(IListener mIListener){
+		if (mIListener==null) {
+			return ;
+		}
+		this.mIListener=mIListener;
+	}
+	
+	/**
+	 * 对外接口
+	 * 点击事件
+	 */
+	private Vibrator vibrator;
+	public boolean onTouch(MotionEvent event){
+		
+		if (mIListener==null) {
+			return false;
+		}
+		if (vibrator==null) {
+			vibrator = (Vibrator) ContextUtl.getInstance()
+					.getSystemService(Service.VIBRATOR_SERVICE);
+		}
+		if (event.getAction()==MotionEvent.ACTION_DOWN) {
+			vibrator.vibrate(150/* new long[]{1000,50,1000,50}, 0 */);
+		}
+	
+		mIListener.onTouchEvent(event);
+		return true;
+	}
 
+	/**
+	 * 对外接口
+	 * 刷新界面
+	 */
+	public void refresh(){
+		if (mSceneViewMap.containsKey(nSceneId)) {
+			//刷新界面
+			mSceneViewMap.get(nSceneId).refresh();
+		}
+	}
+	
+	/**
+	 * 对外接口
+	 * 回调绘制
+	 */
+	public void setIAKDraw(IAKDraw idraw){
+		if (mSceneViewMap.containsKey(nSceneId)) {
+			//回调绘制
+			mSceneViewMap.get(nSceneId).setIAKDraw(idraw);
+		}
+	}
+	
+	/**
+	 * 对外接口
+	 * 设置背景图片
+	 */
+	public void setBackground(Bitmap bitmap){
+		if (mSceneViewMap.containsKey(nSceneId)) {
+			mSceneViewMap.get(nSceneId).setBackground(bitmap);
+		}
+	}
+	
+	/**
+	 * 获取当前背景
+	 */
+	public Bitmap getSceneView(){
+		if (mSceneViewMap.containsKey(nSceneId)) {
+			return mSceneViewMap.get(nSceneId).getSceneView();
+		}
+		return null;
+	}
+	
+	/**
+	 * 对外接口
+	 * 设置背景颜色
+	 */
+	public void setBackground(int color){
+		if (mSceneViewMap.containsKey(nSceneId)) {
+			mSceneViewMap.get(nSceneId).setBackground(color);
+		}
+	}
+	
 	/**
 	 * 滑动切换画面
 	 */
@@ -1187,8 +1359,7 @@ public class SKSceneManage {
 					if (hasScene(info.getnTowardRIghtId())) {
 						removeSKcene(nSceneId, 0);// 删除旧的数据
 						info.setnBeforeSId(nSceneId);//记录进入当前场景的场景id
-						nSceneId = info.getnTowardRIghtId(); // 把新的id，赋值给当前nSceneId
-						gotoWindow(3, 0, true, info.getnSlideStyle(),GOTO_TYPE.SIDE);
+						gotoWindow(3, info.getnTowardRIghtId(), true, info.getnSlideStyle(),GOTO_TYPE.SIDE);
 					}
 				}
 			} else {
@@ -1198,8 +1369,7 @@ public class SKSceneManage {
 					if (hasScene(sid)) {
 						removeSKcene(nSceneId, 0);// 删除旧的数据
 						info.setnBeforeSId(nSceneId);//记录进入当前场景的场景id
-						nSceneId = sid; // 把新的id，赋值给当前nSceneId
-						gotoWindow(3, 0, true, info.getnSlideStyle(),GOTO_TYPE.SIDE);
+						gotoWindow(3, sid, true, info.getnSlideStyle(),GOTO_TYPE.SIDE);
 					}else {
 						SKToast.makeText(mContext, R.string.secen_hint_start,
 								Toast.LENGTH_SHORT).show();
@@ -1226,16 +1396,13 @@ public class SKSceneManage {
 				// 没启动滑动
 				return;
 			}
+			
 			if (info.getnTowardLeftId() > 0) {
 				if (info.getnTowardLeftId() != nSceneId) {
 					if (hasScene(info.getnTowardLeftId())) {
 						removeSKcene(nSceneId, 0);// 删除旧的数据
-						//nBeforSceneId=nSceneId;//更新之前画面序号
 						setBeforeSceneId(nSceneId, info.getnTowardLeftId());
-						nSceneId = info.getnTowardLeftId(); // 把新的id，赋值给当前nSceneId
-						//isStarting = true;
-						//startScene(info.getnSlideStyle(), false);
-						gotoWindow(3, 0, false, info.getnSlideStyle(),GOTO_TYPE.SIDE);
+						gotoWindow(3, info.getnTowardLeftId(), false, info.getnSlideStyle(),GOTO_TYPE.SIDE);
 					}
 				}
 			} else {
@@ -1244,12 +1411,8 @@ public class SKSceneManage {
 					int sid = getGotoSceneId(nSceneId,2);
 					if (hasScene(sid)) {
 						removeSKcene(nSceneId, 0);
-						//nBeforSceneId=nSceneId;//更新之前画面序号
 						setBeforeSceneId(nSceneId, sid);
-						nSceneId = sid;
-						//isStarting = true;
-						//startScene(info.getnSlideStyle(), false);
-						gotoWindow(3, 0, false, info.getnSlideStyle(),GOTO_TYPE.SIDE);
+						gotoWindow(3, sid, false, info.getnSlideStyle(),GOTO_TYPE.SIDE);
 					}else{
 						SKToast.makeText(mContext, R.string.secen_hint_end,
 								Toast.LENGTH_SHORT).show();
@@ -1386,9 +1549,14 @@ public class SKSceneManage {
 		}
 		return has;
 	}
+	
+	public ArrayList<Integer> getWindowList(){
+		return mWindowIdList;
+	}
 
 	/**
-	 * 根据画面id获取画面序号
+	 * 根据画面序号获取画面id
+	 *
 	 */
 	public int getSceneByNum(int num) {
 		if (mSceneNums == null) {
@@ -1403,9 +1571,39 @@ public class SKSceneManage {
 		}
 		return 0;
 	}
+	
+	/**
+	 * 根据表id获取场景id
+	 */
+	public int getSidById(SHOW_TYPE type,int id){
+		
+		if (mSceneNums != null) {
+			for (int i = 0; i < mSceneNums.size(); i++) {
+			    SceneNumInfo info=mSceneNums.get(i);
+				if (info.getId() == id&&info.geteType()==type) {
+					return info.getSid();
+				}
+			}
+		}
+		return -1;
+	}
+	
+	public SceneNumInfo getSceneInfoBySid(int sid) {
+		if (mSceneNums == null) {
+			mSceneNums = DBTool.getInstance().getmSceneBiz().getSceneNum();// 获取画面序号
+		}
+		if (mSceneNums != null) {
+			for (int i = 0; i < mSceneNums.size(); i++) {
+				if (mSceneNums.get(i).getSid() == sid) {
+					return mSceneNums.get(i);
+				}
+			}
+		}
+		return null;
+	}
 
 	/**
-	 * 根据画面序号获取画面id
+	 *  根据画面id获取画面序号
 	 */
 	public int getSceneBySid(int sid) {
 		if (mSceneNums == null) {
@@ -1415,6 +1613,26 @@ public class SKSceneManage {
 			for (int i = 0; i < mSceneNums.size(); i++) {
 				if (mSceneNums.get(i).getSid() == sid) {
 					return mSceneNums.get(i).getNum();
+				}
+			}
+		}
+		return 0;
+	}
+	
+	/**
+	 * 根据画面名称获取画面id
+	 */
+	public int getSceneIdByName(String name) {
+		if(name==null||name.equals("")){
+			return 0;
+		}
+		if (mSceneNums == null) {
+			mSceneNums = DBTool.getInstance().getmSceneBiz().getSceneNum();// 获取画面序号
+		}
+		if (mSceneNums != null) {
+			for (int i = 0; i < mSceneNums.size(); i++) {
+				if (mSceneNums.get(i).getName().equals(name)) {
+					return mSceneNums.get(i).getSid();
 				}
 			}
 		}
@@ -1431,15 +1649,36 @@ public class SKSceneManage {
 	 */
 	public synchronized void gotoWindow(int type,int id,boolean record,int enterType,GOTO_TYPE eType){
 		
-		//Log.d(TAG, "isStarting="+isStarting+",type="+type);
+		if(bHmiLock){
+			//机器已经被锁定，不可跳转画面
+			return;
+		}
 		
 		if (isStarting) {
 			return;
 		}
 		
+		GotoInfo info=new GotoInfo();
+		info.type=type;
+		info.id=id;
+		info.record=record;
+		info.enterType=enterType;
+		info.eType=eType;
+		
+		mHandler.removeMessages(GOTO_WINDOW);
+		mHandler.obtainMessage(GOTO_WINDOW, info).sendToTarget();
+	}
+	
+	/**
+	 * 窗口跳转
+	 */
+	private void window(int type,int id,boolean record,int enterType,GOTO_TYPE eType){
+		
 		if(type==4){
 			//关闭窗口
-			SKWindowManage.getInstance(mContext).closeWindow(eType==GOTO_TYPE.ALARM?0:1);
+			if (id==SKWindowManage.getInstance(mContext).nWindowId) {
+				SKWindowManage.getInstance(mContext).closeWindow(eType==GOTO_TYPE.ALARM?0:1);
+			}
 			return;
 		}else if (type==0) {
 			if (id == nSceneId) {
@@ -1453,6 +1692,16 @@ public class SKSceneManage {
 		
 		//跳转之前关闭窗口
 		SKWindowManage.getInstance(mContext).closeWindow(eType==GOTO_TYPE.ALARM?0:1);
+		//跳转之前屏保画面
+		if (outTimePop!=null) {
+			outTimePop.closePopWindow();
+		}
+		
+		//关闭打印提示窗口
+		AKPrint.getInstance().closeAKPrintWindow();
+		
+		//关闭登录界面
+		closeLoginPop();
 		
 		isStarting = true;
 		
@@ -1463,28 +1712,7 @@ public class SKSceneManage {
 				setBeforeSceneId(nSceneId, id);
 			}
 			if (hasScene(id)) {
-				SKProgress.hide();// 隐藏等待框
-				if (mSceneViewMap.containsKey(nBaseSceneId)) {
-					mSceneViewMap.get(nBaseSceneId).clearData();// 清空数据
-					mSceneViewMap.remove(nBaseSceneId);
-				}
-
-				/**
-				 * 切换注销用户
-				 */
-				if (containsKey(nBaseSceneId)) {
-					ScenceInfo info = getScenceInfo(nBaseSceneId);
-					if (info != null) {
-						if (info.isbLogout()) {
-							// 注销用户
-							ParameterSet.getInstance().outTimeLogout();
-							// SKSceneManage.getInstance().updateState();
-						}
-					}
-				}
-				SKProgress.hide();// 画面切换隐藏等待圈
-
-				unBinder(nSceneId);
+				removeSKcene(nSceneId, 0);
 				if (iSceneUpdate != null) {
 					nSceneId = id;
 					nBaseSceneId = nSceneId;// 画面ID 不是窗口
@@ -1501,7 +1729,7 @@ public class SKSceneManage {
 				SKProgress.hide();// 隐藏等待框
 				if (mSceneViewMap.containsKey(nBaseSceneId)) {
 					mSceneViewMap.get(nBaseSceneId).clearData();// 清空数据
-					mSceneViewMap.remove(nBaseSceneId);
+					//mSceneViewMap.remove(nBaseSceneId);
 				}
 
 				SKProgress.hide();// 画面切换隐藏等待圈
@@ -1513,8 +1741,10 @@ public class SKSceneManage {
 			}
 		}else if (type==3) {
 			//启动画面
+			nSceneId=id;
 			startScene(enterType,record);
 		}
+		
 	}
 	
 	/**
@@ -1524,7 +1754,7 @@ public class SKSceneManage {
 	public synchronized void refreshScreen() {
 		gotoWindow(2,0,false,0,GOTO_TYPE.SYSTEM);
 	}
-
+	
 	/**
 	 * 预先加载启动画面控件
 	 */
@@ -1538,11 +1768,17 @@ public class SKSceneManage {
 			LoadInfo info=new LoadInfo();
 			info.nSid=nSceneId;
 			info.call=false;
-			if (sTaskName.equals("")) {
-				sTaskName=SKThread.getInstance().getBinder().onRegisterForScene(call);
-			}
+			//超时设置
+			mHandler.sendEmptyMessageDelayed(LOAD_OUT_TIME, 30000);
+			sTaskName=SKThread.getInstance().getBinder().onRegisterForScene(call);
 			SKThread.getInstance().getBinder().onTask(MODULE.SCENE, TASK.SCENE_AND_ITEM, sTaskName, info);
 			
+		}else {
+			Log.d(TAG, "loadSceneItem ,but info exist ...");
+			//已经存在，直接跳转
+			if (iGotoCallback != null) {
+				iGotoCallback.onGoto();// 启动画面没有控件，从登陆界面跳转到显示场景
+			}
 		}
 	}
 
@@ -1602,19 +1838,28 @@ public class SKSceneManage {
 				if (iGotoCallback != null) {
 					iGotoCallback.onGoto();// 启动画面没有控件，从登陆界面跳转到显示场景
 				}
-				//加载画面信息
-				mHandler.sendEmptyMessageDelayed(LOAD_SCENE_ITEM, 500);
 				break;
 			case LOAD_OUT_TIME:
 				// 超时跳转
 				if (firstLoad) {
 					// 超时了
-					Log.d("SKScene", "LOAD_OUT_TIME");
+					Log.d(TAG, "LOAD_OUT_TIME");
+					mHandler.removeMessages(ON_GO_SCENE);
 					mHandler.sendEmptyMessage(ON_GO_SCENE);
 				}
 				break;
 			case LOAD_SCENE_ITEM:
-				loadSceneAndItem();
+				if (msg.obj==null) {
+					loadSceneAndItem();
+				}else{
+					LoadInfo info=(LoadInfo)msg.obj;
+					if (info!=null) {
+						if (sTaskName.equals("")) {
+							sTaskName=SKThread.getInstance().getBinder().onRegisterForScene(call);
+						}
+						SKThread.getInstance().getBinder().onTask(MODULE.SCENE, TASK.SCENE_AND_ITEM, sTaskName, info);
+					}
+				}
 				break;
 			case SET_LIGHT: //设置亮度
 				// 触摸屏幕超时
@@ -1634,11 +1879,50 @@ public class SKSceneManage {
 				}
 				break;
 			case SHOW_LONGIN:
-				turnToLogin();
+				IOperCall iCall=null;
+				if (msg.obj!=null) {
+					iCall=(IOperCall)msg.obj;
+				}
+				CALLTYPE type=CALLTYPE.OPER;
+				if (msg.arg1==1) {
+					type=CALLTYPE.MACRO;
+				}
+				//Log.d(TAG, "SHOW_LONGIN iCall="+iCall);
+				turnToLogin(iCall,type);
 				break;
 			case RESET:
 				//画面跳转
 				isStarting=false;
+				break;
+			case LOCK_WINDOW:
+				//跳出锁屏界面
+				String []s=(String[])msg.obj;
+				closeLockWindow();
+				lockWindow = new GlobalPopWindow(
+						getCurrentScene(), WINDOW_TYPE.LOCK, 0, 0,
+						SKSceneManage.nSceneWidth, SKSceneManage.nSceneHeight,
+						s[1],s[0], null);
+				lockWindow.initPopupWindow();
+				lockWindow.showPopupWindow();	
+				
+				break;
+			case GOTO_WINDOW:
+				//画面跳转
+				GotoInfo info=(GotoInfo)msg.obj;
+				if(info!=null){
+					window(info.type, info.id, info.record, info.enterType, info.eType);
+				}
+				break;
+			case BEEP:
+				if (vibrator==null) {
+					vibrator = (Vibrator) ContextUtl.getInstance()
+							.getSystemService(Service.VIBRATOR_SERVICE);
+				}
+				if (nBeepCount>0) {
+					nBeepCount--;
+					vibrator.vibrate(150/* new long[]{1000,50,1000,50}, 0 */);
+					mHandler.sendEmptyMessageDelayed(BEEP, nBeepTime);
+				}
 				break;
 			}
 		}
@@ -1650,28 +1934,51 @@ public class SKSceneManage {
 	 */
 	private void loadSceneAndItem() {
 		if (mLoadScene != null) {
-			if (mLoadScene.size() > 0) {
-				int sid = mLoadScene.get(0);
-				mLoadScene.remove(0);
-				if (mSceneItemMap.containsKey(sid)) {
-					if (mLoadScene.size()>0) {
-						loadSceneAndItem();
+			//需要优先加载的画面信息
+			if (mPriorLoad.size()>0) {
+				try {
+					int sid = mPriorLoad.get(0).nLoadSid;
+					mPriorLoad.remove(0);
+					if (mSceneItemMap.containsKey(sid)) {
+						if (mPriorLoad.size()>0||mLoadScene.size()>0) {
+							loadSceneAndItem();
+						}
+					}else {
+						LoadInfo info=new LoadInfo();
+						info.nSid=sid;
+						info.call=false;
+						if (sTaskName.equals("")) {
+							sTaskName=SKThread.getInstance().getBinder().onRegisterForScene(call);
+						}
+						SKThread.getInstance().getBinder().onTask(MODULE.SCENE, TASK.SCENE_AND_ITEM, sTaskName,info);
 					}
-				}else {
-					LoadInfo info=new LoadInfo();
-					info.nSid=sid;
-					info.call=false;
-					if (sTaskName.equals("")) {
-						sTaskName=SKThread.getInstance().getBinder().onRegisterForScene(call);
-					}
-					
-					SKThread.getInstance().getBinder().onTask(MODULE.SCENE, TASK.SCENE_AND_ITEM, sTaskName,info);
-					if (mLoadScene.size() > 0) {
-						mHandler.sendEmptyMessageDelayed(LOAD_SCENE_ITEM, 1000);
-					}
+				} catch (Exception e) {
+					Log.e(TAG, "ak priorload error !!! ");
+					//继续加载画面
+					loadSceneAndItem();
 				}
 				
+			}else{
+				if (mLoadScene.size() > 0) {
+					int sid = mLoadScene.get(0);
+					mLoadScene.remove(0);
+					if (mSceneItemMap.containsKey(sid)) { 
+						if (mLoadScene.size()>0) {
+							loadSceneAndItem();
+						}
+					}else {
+						LoadInfo info=new LoadInfo();
+						info.nSid=sid;
+						info.call=false;
+						if (sTaskName.equals("")) {
+							sTaskName=SKThread.getInstance().getBinder().onRegisterForScene(call);
+						}
+						SKThread.getInstance().getBinder().onTask(MODULE.SCENE, TASK.SCENE_AND_ITEM, sTaskName,info);
+					}
+					
+				}
 			}
+			
 		}
 	}
 
@@ -1697,8 +2004,30 @@ public class SKSceneManage {
 				if (firstLoad) {
 					//第一次加载
 					nFirstItemSize=DBTool.getInstance().getmSceneBiz().getInitSceneNum(info.nSid);
-					//bInitScene = true;
 				}
+				
+				if (info.call) {
+					//需要回调，并且控件已经存在的，直接回调
+					if (mSceneItemMap.containsKey(info.nSid)) {
+						if (info.nSid==nSceneId) {
+							if (mSceneViewMap.containsKey(nSceneId)) {
+								SKScene scene=mSceneViewMap.get(nSceneId);
+								if (mSceneItemMap.containsKey(nSceneId)) {
+									scene.setmSkGraphicsList(mSceneItemMap.get(nSceneId));
+								}
+								scene.drawGraphics();
+								
+								//加载当前画面上，需要跳转的画面信息
+								ScenceInfo mInfo=getCurrentInfo();
+								if (mInfo!=null) {
+									priorLoadScene(mInfo);
+								}
+								return;
+							}
+						}
+					}
+				}
+				
 				loadItem(info);
 			}
 		}
@@ -1761,6 +2090,8 @@ public class SKSceneManage {
 			outTimePop.setCallback(pCallBack);
 			outTimePop.initPopupWindow();
 			outTimePop.showPopupWindow();
+			//处于屏保状态
+			SystemVariable.getInstance().writeBitAddr(1, SystemAddress.getInstance().SceneSaver());
 		}
 
 	}
@@ -1774,10 +2105,17 @@ public class SKSceneManage {
 			SKTimer.getInstance().getBinder().onDestroy(sCallback);
 		}
 		lightFlag = true;
+		//关闭背光灯之前先保存亮度
+		saveCurrenBright();
 		// 如果超时，则设置亮度为当前亮度的一半
 		ScreenBrightness.setBrightness(activity, lightness);
 		// 保存亮度的设置状态
 		ScreenBrightness.saveBrightness(contentResolver, lightness);
+		
+		//处于屏保状态
+		SystemVariable.getInstance().writeBitAddr(1, SystemAddress.getInstance().SceneSaver());
+		
+		bBackLightOff = true;
 		
 	}
 	
@@ -1788,6 +2126,7 @@ public class SKSceneManage {
 		
 		if (bBackLightOff) {
 			if (activity!=null&&contentResolver!=null) {
+				SystemVariable.getInstance().writeBitAddr(0, SystemAddress.getInstance().SceneSaver());
 				// 如果超时，则设置亮度为当前亮度的一半
 				ScreenBrightness.setBrightness(activity, nCurrentBright);
 				// 保存亮度的设置状态
@@ -1802,8 +2141,14 @@ public class SKSceneManage {
 	 */
 	private boolean bBackLightOff;
 	public void backlightoff(){
-		
+		//如果已经注册了定时器 ，关闭背光的时候就要销毁定时器
+		boolean boo = SKTimer.getInstance().getBinder().isRegister(sCallback);
+		if (boo) {
+			SKTimer.getInstance().getBinder().onDestroy(sCallback);
+		}
 		if (activity!=null&&contentResolver!=null) {
+			//处于屏保状态
+			SystemVariable.getInstance().writeBitAddr(1, SystemAddress.getInstance().SceneSaver());
 			// 如果超时，则设置亮度为当前亮度的一半
 			ScreenBrightness.setBrightness(activity, 1);
 			// 保存亮度的设置状态
@@ -1817,6 +2162,10 @@ public class SKSceneManage {
 	public void saveCurrenBright(){
 		if (activity!=null) {
 			nCurrentBright=ScreenBrightness.getScreenBrightness(activity);
+			if(nCurrentBright == SystemInfo.getnBrightness())
+			{
+				nCurrentBright = 255;
+			}
 		}else {
 			nCurrentBright=255;
 		}
@@ -1840,21 +2189,25 @@ public class SKSceneManage {
 			window.initPopupWindow();
 			window.showPopupWindow();
 			GlobalPopWindow.outTimeWindow = true; // 设置窗口已经弹出
+			bHmiLock=true;//人机界面锁定
 		}
 
 	}
 
+	/**
+	 * 3G 短信锁屏
+	 */
 	public boolean turnToLockWindow(String info, String psw) {
 		try{
-			closeLockWindow();
-			lockWindow = new GlobalPopWindow(
-					mSceneViewMap.get(nSceneId), WINDOW_TYPE.LOCK, 0, 0,
-					SKSceneManage.nSceneWidth, SKSceneManage.nSceneHeight,
-					psw,info, null);
-			lockWindow.initPopupWindow();
-			lockWindow.showPopupWindow();	
+			if (getCurrentScene()==null) {
+				return false;
+			}
+			String []msg=new String[]{info,psw};
+			mHandler.obtainMessage(LOCK_WINDOW, msg).sendToTarget();
 			return true;
 		}catch(Exception e){
+			e.printStackTrace();
+			Log.e(TAG, "ak lock window error!!!");
 			return false;
 		}
 	}
@@ -1969,7 +2322,16 @@ public class SKSceneManage {
 		mHandler.sendEmptyMessage(SHOW_LONGIN);
 	}
 	
-	private void turnToLogin(){
+	public void turnToLoginPop(IOperCall iCall,CALLTYPE type) {
+		int temp=0;
+		if (type==CALLTYPE.MACRO) {
+			temp=1;
+		}
+		//Log.d(TAG, "iCall="+iCall);
+		mHandler.obtainMessage(SHOW_LONGIN,temp,0,iCall).sendToTarget();
+	}
+	
+	private void turnToLogin(IOperCall iCall,CALLTYPE type){
 		int startX = 0, startY = 0, width = SKSceneManage.nSceneWidth, height = SKSceneManage.nSceneHeight;
 		int nWidth = 800;
 		int nHeigth = 480;
@@ -1992,7 +2354,10 @@ public class SKSceneManage {
 		}
 		pop = new GlobalPopWindow(mSceneViewMap.get(nSceneId),
 				WINDOW_TYPE.LOGIN, startX, startY, nWidth, nHeigth, activity);
-
+		if (iCall!=null) {
+			pop.setiOperCall(iCall,type);
+		}
+		
 		// 如果窗口没有显示
 		if (!GlobalPopWindow.popIsShow) {
 			boolean boo = SKTimer.getInstance().getBinder()
@@ -2021,7 +2386,11 @@ public class SKSceneManage {
 			if (SKTimer.getInstance().getBinder().isRegister(sCallback)) {
 				SKTimer.getInstance().getBinder().onDestroy(sCallback);
 			}
-
+			//注销电量广播
+			if(SystemInfo.getModel()== HMIMODEL.MID){
+				ContextUtl.getInstance().unregisterReceiver(BatteryBroadcast.getInstance());
+		     }
+            
 			// 关闭存储介质状态管理器
 			StorageStateManager.getInstance().destroyStateMntRecv();
 
@@ -2062,11 +2431,12 @@ public class SKSceneManage {
 			SKSceneManage.getInstance().exitSceneMacros(nSceneId);
 			SKSceneManage.getInstance().exitGlobalMacros();
 			AlarmSaveThread.getInstance().destory();
+			if (MacroManager.getInstance(null)!=null) {
+				MacroManager.getInstance(null).Destroy();
+			}
 			
 			// 移除时效的分钟日期广播
-			if (mContext!=null) {
-				TimeBroadCast.getInstance(mContext.getApplicationContext()).remove();
-			}
+			TimeBroadCast.getInstance(ContextUtl.getInstance()).remove();
 
 			// 将pop弹出的参数复位
 			GlobalPopWindow.popIsShow = false;// 设置窗口已经关闭
@@ -2080,9 +2450,6 @@ public class SKSceneManage {
 			// 清除图片
 			ImageFileTool tool = new ImageFileTool();
 			tool.clearBitmap();
-			
-			/*清空触控和显现属性*/
-			TouchShowInfoBiz.destory();
 
 			this.sTaskName = "";
 			iGotoCallback = null;
@@ -2109,13 +2476,23 @@ public class SKSceneManage {
 
 			
 			/* 检查文件是否存在 */
-			File mCollectFile = new File(
-					"/data/data/com.android.Samkoonhmi/lib/libplc_drives_center.so");
-			if (mCollectFile.exists()) {
-				/* 最后关闭协议 */
-				ProtocolInterfaces.getProtocolInterface().closeAllProtocol();
+			String sSumsungFile = "/data/sumsung.phone";
+			File samsungfile = new File(sSumsungFile);
+			if(samsungfile.exists()){//三星手机
+				File mCollectFileSum = new File(
+						SystemVariable.sSumsungLibPath+"libplc_drives_center.so");
+				if (mCollectFileSum.exists()) {
+					/* 最后关闭协议 */
+					ProtocolInterfaces.getProtocolInterface().closeAllProtocol();
+				}
+			}else{
+				File mCollectFile = new File(
+						"/data/data/com.android.Samkoonhmi/lib/libplc_drives_center.so");
+				if (mCollectFile.exists()) {
+					/* 最后关闭协议 */
+					ProtocolInterfaces.getProtocolInterface().closeAllProtocol();
+				}
 			}
-
 			// 掉电保存，最后关闭
 			SKSaveThread.getInstance().stop();
 
@@ -2170,6 +2547,16 @@ public class SKSceneManage {
 		}
 		
 	}
+	
+	/**
+	 * 画面加载信息
+	 */
+	public class LoadInfo {
+		public int nSid;//加载的画面
+		public boolean call;//是否回调，如果没数据，先显示界面，再加载控件，然后回调
+		public boolean bLoading;//已经处于加载状态
+	}
+
 
 	/**
 	 * 更新画面
@@ -2224,6 +2611,7 @@ public class SKSceneManage {
 		}
 		return null;
 	}
+	
 
 	/**
 	 * 获取当前画面or窗口对象
@@ -2238,6 +2626,14 @@ public class SKSceneManage {
 	/**
 	 * 获取画面控件
 	 */
+	public List<ItemInfo> getItemList(int sid){
+		if (mSceneItemMap.containsKey(sid)) {
+			List<ItemInfo> list=mSceneItemMap.get(sid);
+			return list;
+		}
+		return null;
+	}
+	
 	public SKGraphics getItemId(int sid,int iid){
 		SKGraphics mItem=null;
 		if (mSceneItemMap.containsKey(sid)) {
@@ -2292,14 +2688,12 @@ public class SKSceneManage {
 	 * @param type=0-表示画面,type=1-表示窗口 说明移除窗口时，并不需要删除绑定,画面切换时才需要解除绑定
 	 */
 	public void removeSKcene(int sceneId, int type) {
-		//Log.d(TAG, "removeSKcene...");
 		if (mSceneViewMap.containsKey(sceneId)) {
-			//Log.d(TAG, "removeSKcene..."+sceneId);
 			isDestory = false;
-			mSceneViewMap.get(sceneId).clearData();// 清空数据
-			mSceneViewMap.remove(sceneId);
 			nSceneId = nBaseSceneId;
 			iSceneUpdate = mBaseIUpdate;
+			//mSceneViewMap.get(sceneId).setSamkoonHmi(false);
+			mSceneViewMap.get(sceneId).clearData();
 			SKProgress.hide();// 画面切换隐藏等待圈
 
 			/**
@@ -2311,10 +2705,10 @@ public class SKSceneManage {
 					if (info.isbLogout()) {
 						// 注销用户
 						ParameterSet.getInstance().outTimeLogout();
-						// SKSceneManage.getInstance().updateState();
 					}
 				}
 			}
+			
 			if (type == 0) {
 				unBinder(sceneId);
 			}else {
@@ -2334,6 +2728,26 @@ public class SKSceneManage {
 		SKTrendsThread.getInstance().destory();
 		// SKPlcNoticThread.getInstance().stop();
 		exitSceneMacros(sid);
+		
+		SKPlcNoticThread.getInstance().removeRefreshId(sid);
+	}
+	
+	//设置蜂鸣声
+	private static int nBeepCount=0;
+	private static int nBeepTime=100;
+	/**
+	 * @param count
+	 * @param time
+	 * @return
+	 */
+	public boolean beep(int count,int time){
+		if (count<0||time<0) {
+			return false;
+		}
+		nBeepCount=count;
+		nBeepTime=time*100;
+		mHandler.sendEmptyMessage(BEEP);
+		return true;
 	}
 
 	/**
@@ -2357,7 +2771,7 @@ public class SKSceneManage {
 		return result;
 	}
 	
-	private ScenceInfo getScenceInfo(int sid){
+	public ScenceInfo getScenceInfo(int sid){
 		ScenceInfo info=null;
 		if (mSceneInfoMap!=null) {
 			for (int i = 0; i < mSceneInfoMap.size(); i++) {
@@ -2370,7 +2784,6 @@ public class SKSceneManage {
 	}
 
 	private boolean isDestory = true;
-
 	public interface ISceneDestory {
 		void destory(boolean result);
 	}
@@ -2432,9 +2845,8 @@ public class SKSceneManage {
 		public SKGraphics mItem;
 	}
 	
-	public class LoadInfo{
-		public int nSid;//加载的画面
-		public boolean call;//是否回调，如果没数据，先显示界面，再加载控件，然后回调
+	public void setmSceneViewMap(HashMap<Integer, SKScene> mSceneViewMap) {
+		this.mSceneViewMap = mSceneViewMap;
 	}
 	
 	/**
@@ -2450,6 +2862,7 @@ public class SKSceneManage {
 		ScenceInfo info = getScenceInfo(nSceneId);
 		if (null != info) {
 			if (SHOW_TYPE.DEFAULT == info.geteType()) {
+				//画面
 				if (mReadAddr.containsKey(nSceneId)) {
 					mAddrList = mReadAddr.get(nSceneId);
 				}else {
@@ -2468,6 +2881,7 @@ public class SKSceneManage {
 					}
 				}
 			} else {
+				//窗口
 				bCover = false;
 				if (mReadAddr.containsKey(nSceneId)) {
 					mAddrList = mReadAddr.get(nSceneId);
@@ -2522,5 +2936,27 @@ public class SKSceneManage {
 		boolean record;
 		int enterType;
 		GOTO_TYPE eType;
+	}
+
+	/**
+	 * 获取锁屏标示
+	 */
+	public boolean isbHmiLock() {
+		return bHmiLock;
+	}
+
+	/**
+	 * 设置锁屏标示
+	 */
+	public void setbHmiLock(boolean bHmiLock) {
+		this.bHmiLock = bHmiLock;
+	}
+	
+	public boolean isbWindowFocus() {
+		return bWindowFocus;
+	}
+
+	public void setbWindowFocus(boolean bWindowFocus) {
+		this.bWindowFocus = bWindowFocus;
 	}
 }

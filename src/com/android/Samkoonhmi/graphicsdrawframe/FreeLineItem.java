@@ -78,6 +78,7 @@ public class FreeLineItem extends LinearDrawItem{
     		}
     	}
     }
+
     /**
 	 * 初始化画笔
 	 */

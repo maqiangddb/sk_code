@@ -1,15 +1,16 @@
 package com.android.Samkoonhmi.skwindow;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import android.content.Context;
 import android.util.Log;
-
 import com.android.Samkoonhmi.SKScene;
 import com.android.Samkoonhmi.databaseinterface.DBTool;
 import com.android.Samkoonhmi.databaseinterface.WindowBiz;
 import com.android.Samkoonhmi.model.ScenceInfo;
 import com.android.Samkoonhmi.model.SystemInfo;
 import com.android.Samkoonhmi.model.WindowInfo;
+import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
 import com.android.Samkoonhmi.skwindow.SKSceneManage.SHOW_TYPE;
 import com.android.Samkoonhmi.util.AlarmGroup;
 
@@ -19,15 +20,14 @@ import com.android.Samkoonhmi.util.AlarmGroup;
 public class SKWindowManage {
 
 	public static final int nTitleHeight=30;
-	public WindowInfo wInfo;
 	public int nWindowId;
-	private ScenceInfo sInfo;
 	private boolean result;
 	private SKDialog dialog;
 	private Context mContext;
 	public boolean show;
-	private static HashMap<Integer, WindowInfo> mWindowList;
+	private ScenceInfo wInfo;
 	private WindowBiz biz;
+	public HashMap<Integer, ScenceInfo> mWindowList=null;
 	
 	private static SKWindowManage sInstance=null;
 	public synchronized static SKWindowManage getInstance(Context context){
@@ -38,20 +38,10 @@ public class SKWindowManage {
 	}
 	
 	private SKWindowManage(Context context){
-		this.nWindowId=0;
+		this.nWindowId=-1;
 		this.result=false;
 		this.mContext=context;
 		this.show=false;
-	}
-	
-	/**
-	 * 加载窗口数据
-	 */
-	public void loadWindowList(){
-		if (biz==null) {
-			biz=DBTool.getInstance().getmWindowBiz();
-		}
-		mWindowList=biz.loadWindow();
 	}
 	
 	/**
@@ -66,6 +56,7 @@ public class SKWindowManage {
 			SKSceneManage.getInstance().isStarting=false;
 			return;
 		}
+		
 		SKSceneManage.getInstance().time=0;
 		loading=true;
 		show=true;
@@ -85,7 +76,7 @@ public class SKWindowManage {
 	 * @param type-1 表示要移除窗口的，主要用于报警
 	 */
 	public void closeWindow(int type){
-		Log.d("SKScene", "type="+type);
+		//Log.d("SKScene", "type="+type);
 		loading=false;
 		if (show) {
 			if (type==1) {
@@ -105,6 +96,14 @@ public class SKWindowManage {
 		}
 	}
 	
+	public void loadWindow(ArrayList<ScenceInfo> list){
+		if (biz==null) {
+			biz=DBTool.getInstance().getmWindowBiz();
+		}
+		
+		mWindowList=biz.loadWindow(list);
+	}
+	
 	/**
 	 * 加载数据
 	 */
@@ -119,26 +118,7 @@ public class SKWindowManage {
 			wInfo=biz.select(windowId);
 		}
 		if(wInfo!=null){
-			sInfo=new ScenceInfo();
-			sInfo.setnSceneId(wInfo.getnSceneId());
-			sInfo.setnNum(wInfo.getnNum());
-			sInfo.setnBackColor(wInfo.getnBackColor());
-			sInfo.setnSceneWidth(wInfo.getnWindownWidth());
-			sInfo.setnSceneHeight(wInfo.getnWindownHeight());
-			sInfo.setnLeftX(wInfo.getnShowPosX());
-			sInfo.setnLeftY(wInfo.getnShowPosY());
-			sInfo.setsScreenName(wInfo.getsScreenName());
-			sInfo.setnForeColor(wInfo.getnForeColor());
-			sInfo.seteBackType(wInfo.geteBackType());
-			sInfo.seteDrawStyle(wInfo.geteDrawStyle());
-			sInfo.setsPicturePath(wInfo.getsPicturePath());
-			sInfo.setbLogout(wInfo.isbLogout());
-			sInfo.seteType(SHOW_TYPE.FLOATING);
-			sInfo.setSceneMacroIDList(DBTool.getInstance().getmSceneBiz().selectMacroIDListBySceneID(sInfo.getnSceneId()));					
-			sInfo.setbShowTitle(wInfo.isbShowTitle());
-			SKSceneManage.getInstance().addSceneInfo(sInfo);
 			result=true;
-			
 		}else {
 			result=false;
 		}
@@ -156,6 +136,7 @@ public class SKWindowManage {
 			show=false;
 			return;
 		}
+
 		dialog=new SKDialog(SKSceneManage.getInstance().getActivity());
 		SKSceneManage.getInstance().nSceneId=wInfo.getnSceneId();
 		SKSceneManage.getInstance().setiSceneUpdate(callback,SHOW_TYPE.FLOATING);
@@ -171,7 +152,7 @@ public class SKWindowManage {
 				scene.setListener(listener);
 				dialog.onCreate(scene,wInfo);
 				dialog.setCanceledOnTouchOutside(false);
-				dialog.showDialog(wInfo.getnShowPosX(), wInfo.getnShowPosY(),wInfo.isbShowMiddle());
+				dialog.showDialog(wInfo.getnLeftX(), wInfo.getnLeftY(),wInfo.isbShowMiddle());
 			}
 			loading=false;
 		}
@@ -193,8 +174,10 @@ public class SKWindowManage {
 				nWindowId=-1;
 				SKSceneManage.getInstance().exitSceneMacros(wInfo.getnSceneId());
 				SKSceneManage.getInstance().removeSKcene(wInfo.getnSceneId(),1);
+				SKPlcNoticThread.getInstance().removeRefreshId(wInfo.getnSceneId());
+				//重新赋值
+				SKSceneManage.getInstance().setOneSceneReadAddrs(SKSceneManage.getInstance().getnBaseSceneId());
 				dialog.dismiss();
-				//dialog.cancel();
 			}
 		}
 	};

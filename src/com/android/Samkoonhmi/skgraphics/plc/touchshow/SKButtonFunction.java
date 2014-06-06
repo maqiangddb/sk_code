@@ -4,22 +4,25 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.BreakIterator;
 import java.util.Calendar;
 import java.util.Vector;
-
-import android.R.integer;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.AlertDialog.Builder;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
 import android.graphics.Rect;
-import android.graphics.Bitmap.Config;
-import android.graphics.Canvas;
 import android.graphics.Shader;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
@@ -30,6 +33,7 @@ import com.android.Samkoonhmi.SKTimer;
 import com.android.Samkoonhmi.databaseinterface.DBTool;
 import com.android.Samkoonhmi.databaseinterface.SceneBiz;
 import com.android.Samkoonhmi.model.CurrentRecipe;
+import com.android.Samkoonhmi.model.RecipeOGprop;
 import com.android.Samkoonhmi.model.RecipeOprop;
 import com.android.Samkoonhmi.model.ScenceInfo;
 import com.android.Samkoonhmi.model.SystemInfo;
@@ -37,46 +41,52 @@ import com.android.Samkoonhmi.model.skbutton.BitButtonInfo;
 import com.android.Samkoonhmi.model.skbutton.PeculiarButtonInfo;
 import com.android.Samkoonhmi.model.skbutton.SceneButtonInfo;
 import com.android.Samkoonhmi.model.skbutton.WordButtonInfo;
-import com.android.Samkoonhmi.model.skglobalcmn.RecipeDataProp;
 import com.android.Samkoonhmi.plccommunicate.PlcRegCmnStcTools;
-import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
-import com.android.Samkoonhmi.skcommon.SkCommon;
 import com.android.Samkoonhmi.skenum.BACKCSS;
 import com.android.Samkoonhmi.skenum.BUTTON.BIT_OPER_TYPE;
-import com.android.Samkoonhmi.skenum.BUTTON.BUTTON_TYPE;
 import com.android.Samkoonhmi.skenum.BUTTON.PECULIAR_OPER;
 import com.android.Samkoonhmi.skenum.BUTTON.WATCH_TYPE;
 import com.android.Samkoonhmi.skenum.CSS_TYPE;
+import com.android.Samkoonhmi.skenum.CURVE_TYPE;
 import com.android.Samkoonhmi.skenum.DATA_TYPE;
 import com.android.Samkoonhmi.skenum.GOTO_TYPE;
+import com.android.Samkoonhmi.skenum.HMIMODEL;
 import com.android.Samkoonhmi.skenum.READ_WRITE_COM_TYPE;
-import com.android.Samkoonhmi.skglobalcmn.DataCollect;
 import com.android.Samkoonhmi.skglobalcmn.RecipeDataCentre;
 import com.android.Samkoonhmi.skglobalcmn.RecipeDataCentre.EditRecipeInfo;
 import com.android.Samkoonhmi.skwindow.DateTimeSetting;
 import com.android.Samkoonhmi.skwindow.DateTimeSetting.TYPE;
+import com.android.Samkoonhmi.skwindow.EmailOperDialog;
 import com.android.Samkoonhmi.skwindow.IPSet;
+import com.android.Samkoonhmi.skwindow.IPSet.IPSetType;
+import com.android.Samkoonhmi.skwindow.RecipeCopyDialog;
 import com.android.Samkoonhmi.skwindow.SKEditUserDialog;
+import com.android.Samkoonhmi.skwindow.SKMenuManage;
 import com.android.Samkoonhmi.skwindow.SKProgress;
 import com.android.Samkoonhmi.skwindow.SKRecipeDialog;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
+import com.android.Samkoonhmi.skwindow.SKSceneManage.SHOW_TYPE;
 import com.android.Samkoonhmi.skwindow.SKSwitchOperDialog;
+import com.android.Samkoonhmi.skwindow.SKSwitchOperDialog.IOperCall;
+import com.android.Samkoonhmi.skwindow.SKSwitchOperDialog.IOperCall.CALLTYPE;
 import com.android.Samkoonhmi.skwindow.SKToast;
 import com.android.Samkoonhmi.skwindow.SKUserOperDialog;
 import com.android.Samkoonhmi.skwindow.SKWindowManage;
+import com.android.Samkoonhmi.skwindow.SingleRecipeCopyDialog;
 import com.android.Samkoonhmi.system.StorageStateManager;
 import com.android.Samkoonhmi.system.SystemVariable;
 import com.android.Samkoonhmi.system.address.SystemAddress;
 import com.android.Samkoonhmi.util.AlarmGroup;
+import com.android.Samkoonhmi.util.ContextUtl;
 import com.android.Samkoonhmi.util.FillRender;
 import com.android.Samkoonhmi.util.ImageFileTool;
 import com.android.Samkoonhmi.util.MODULE;
 import com.android.Samkoonhmi.util.ParameterSet;
-import com.android.Samkoonhmi.util.ResetService;
 import com.android.Samkoonhmi.util.SEND_DATA_STRUCT;
 import com.android.Samkoonhmi.util.SKLanguage;
+import com.android.Samkoonhmi.util.SavaInfo;
 import com.android.Samkoonhmi.util.SystemParam;
-import com.android.Samkoonhmi.util.TASK;
+import com.android.Samkoonhmi.vnc.VNCUtil;
 
 /**
  * 开关功能
@@ -85,6 +95,7 @@ public class SKButtonFunction {
 
 	private Context mContext;
 	private int sid=0;
+	public IOperCall iOperCall;
 
 	public SKButtonFunction(Context context,int sid) {
 		this.mContext = context;
@@ -112,14 +123,21 @@ public class SKButtonFunction {
 		}
 		
 		/**
+		 * 防止长按，短途松开
+		 */
+		if (down&&info.geteOperType()==BIT_OPER_TYPE.JOG) {
+			handler.removeMessages(JOD_UP);
+		}
+		
+		/**
 		 * 点动松开时，延迟执行
 		 */
 		if (!down&&info.geteOperType()==BIT_OPER_TYPE.JOG) {
 			Message msg=new Message();
 			msg.what=JOD_UP;
 			msg.obj=info;
-			handler.sendMessageDelayed(msg, 150);
-			//Log.d("SKScene", "job up ....");
+			handler.removeMessages(JOD_UP);
+			handler.sendMessageDelayed(msg, 200);
 			return;
 		}
 
@@ -215,7 +233,6 @@ public class SKButtonFunction {
 			return;
 		}
 		
-
 		boolean loop = false;
 		double min = 0;// 最小值
 		double max = 0;// 最大值
@@ -510,6 +527,8 @@ public class SKButtonFunction {
 
 
 	private static final int JOD_UP=1;
+	//private static final int SHOW=2;
+	private static final int DESTROY=3;
 	Handler handler = new Handler() {
 
 		@Override
@@ -522,6 +541,9 @@ public class SKButtonFunction {
 				if (info!=null) {
 					jobUp(info);
 				}
+				break;
+			case DESTROY:
+				SKSceneManage.getInstance().destroy();
 				break;
 			}
 		}
@@ -604,7 +626,8 @@ public class SKButtonFunction {
 				break;
 			case OPEN:
 				// 跳转画面
-				int sid = DBTool.getInstance().getmSceneBiz().getSceneId(info.getnTargetPage() + 1);
+				//int sid = DBTool.getInstance().getmSceneBiz().getSceneId(info.getnTargetPage() + 1);
+				int sid=SKSceneManage.getInstance().getSidById(SHOW_TYPE.DEFAULT, info.getnTargetPage() + 1);
 				if (sid > 0) {
 					//跳转之前，关闭已经打开的窗口
 					SKSceneManage.getInstance().gotoWindow(0, sid, true, info.getnEnterType(),GOTO_TYPE.BUTTON);
@@ -646,6 +669,8 @@ public class SKButtonFunction {
 	public SKUserOperDialog uDialog;
 	public DateTimeSetting collectSetting;
 	public IPSet mIpSet;
+	public EmailOperDialog mEmailOperDialog ;
+    public IPSet mEthernet;
 	private SKHistoryTrends mTrends=null;
 	public void peculiarOper(PeculiarButtonInfo info) {
 
@@ -671,16 +696,25 @@ public class SKButtonFunction {
 				mOperDialog.setiOperCall(new SKSwitchOperDialog.IOperCall() {
 					
 					@Override
-					public void onConfirm() {
-						mOperDialog.isShow=false;
-						mOperDialog.hidePopWindow();
-						reset();
+					public void onConfirm(int action) {
+						if (action==0) {
+							//按下
+							mOperDialog.isShow=false;
+							mOperDialog.hidePopWindow();
+							reset();
+						}
 					}
 					
 					@Override
 					public void onCancel() {
 						mOperDialog.isShow=false;
 						mOperDialog.hidePopWindow();
+					}
+
+					@Override
+					public void onStartMacro(int action) {
+						// TODO 自动生成的方法存根
+						
 					}
 				});
 				mOperDialog.showPopWindow();
@@ -726,13 +760,13 @@ public class SKButtonFunction {
 		}
 		case CHANGE_USER: // 切换当前用户
 			// 调用接口
-			SKSceneManage.getInstance().turnToLoginPop();
+			SKSceneManage.getInstance().turnToLoginPop(iOperCall,CALLTYPE.MACRO);
 			break;
 		case USER_MANAGE: // 用户管理
 			if (dialog==null||!dialog.show) {
-				dialog= new SKEditUserDialog(SKSceneManage.getInstance()
+				dialog= new SKEditUserDialog(mContext,SKSceneManage.getInstance()
 						.getActivity());
-				dialog.showDialog();
+				dialog.show();
 			}
 			break;
 		case TOUCH_SOUND: // 触摸声音开关
@@ -752,8 +786,13 @@ public class SKButtonFunction {
 			SystemVariable.getInstance().setTouchSoundToAddr(SystemAddress.getInstance().enableBeepAddr());
 			DBTool.getInstance().getmSystemInfoBiz().updateSysParam(SystemInfo.getnSetBoolParam());
 			break;
-		// case COPYRIGHT: // 产品授权
-		// break;
+		 case COPYRIGHT: // 启动浏览器
+			Uri url=Uri.parse("http://www.baidu.com"); //url为你要链接的地址
+			Intent intent= new Intent(Intent.ACTION_VIEW, url);
+			if (mContext!=null) {
+				mContext.startActivity(intent);
+			}
+			 break;
 		case CHANGE_LANGUAGE: // 语言切换
 			SKLanguage.getInstance().getBinder()
 			.onChange(info.getnLanguageId());
@@ -811,7 +850,7 @@ public class SKButtonFunction {
 					//Log.d("SKScene", "name:"+pack.packageName);
 					if (pack.packageName.equals("com.samkoon.setting")) {
 						// 包存在了，才启动
-						Log.d("SKScene", "start activity...");
+						//Log.d("SKScene", "start activity...");
 						PackageManager packageManager = mContext.getPackageManager();
 						Intent intent2 = packageManager
 								.getLaunchIntentForPackage("com.samkoon.setting");
@@ -823,11 +862,12 @@ public class SKButtonFunction {
 			}
 			
 			break;
-		case IP_SET://IP设置
+		case IP_SET:
+			//启动远程数据传输端口
 			if (mContext!=null) {
 				if (mIpSet==null||!mIpSet.isShow) {
 					mIpSet=new IPSet(mContext);
-					mIpSet.showPopWindow();
+					mIpSet.showPopWindow(IPSetType.SERVER);
 				}
 			}
 			break;
@@ -839,19 +879,21 @@ public class SKButtonFunction {
 				mTrends=(SKHistoryTrends)SKSceneManage.getInstance().getItemId(sid, id);
 			}
 			if (mTrends!=null) {
-				if (info.isbZoomX()&&info.isbZoomY()) {
-					//水平和垂直，都放大
-					mTrends.large(2);
-				}else {
-					if (info.isbZoomX()) {
-						//水平放大
-						mTrends.large(0);
+				if (mTrends.getmTrendType()==CURVE_TYPE.HISTORY_CURVE) {
+					//历史曲线
+					if (info.isbZoomX()&&info.isbZoomY()) {
+						//水平和垂直，都放大
+						mTrends.large(2);
 					}else {
-						//垂直放大
-						mTrends.large(1);
+						if (info.isbZoomX()) {
+							//水平放大
+							mTrends.large(0);
+						}else {
+							//垂直放大
+							mTrends.large(1);
+						}
 					}
 				}
-				
 			}
 			break;
 		case REDUCE:
@@ -875,6 +917,157 @@ public class SKButtonFunction {
 					}
 				}
 				
+			}
+			break;
+		case EMAIL:
+			//邮件设置
+			try {
+				if (mEmailOperDialog != null) {
+					if (mEmailOperDialog.isShowing()) {
+						mEmailOperDialog.cancel();
+					}
+				}
+				mEmailOperDialog = new EmailOperDialog(SKSceneManage.getInstance().getActivity());
+				mEmailOperDialog.showDialog();
+			} catch (Exception e) {
+				// TODO: handle exception
+				e.printStackTrace();
+			}
+		
+			break;
+		case START_VNC:
+			//启动远程服务
+			//是否开启了远程服务
+			if((SystemParam.LONG_INSPECT & SystemInfo.getnSetBoolParam()) == SystemParam.LONG_INSPECT)
+			{
+				if (mOperDialog==null||!mOperDialog.isShow) {
+					mOperDialog=new SKSwitchOperDialog(mContext);
+					mOperDialog.setiOperCall(new SKSwitchOperDialog.IOperCall() {
+						
+						@Override
+						public void onConfirm(int action) {
+							if(action==0){
+								//按下
+								mOperDialog.isShow=false;
+								mOperDialog.hidePopWindow();
+								VNCUtil.getInstance().start(SKSceneManage.getInstance().mContext);
+								SharedPreferences.Editor editr = mContext.getSharedPreferences(
+										"information", 0).edit();
+								editr.putBoolean("vnc_state", true);
+								editr.commit();
+							}
+						}
+						
+						@Override
+						public void onCancel() {
+							mOperDialog.isShow=false;
+							mOperDialog.hidePopWindow();
+						}
+
+						@Override
+						public void onStartMacro(int action) {
+							// TODO 自动生成的方法存根
+							
+						}
+					});
+					mOperDialog.showPopWindow();
+				}
+				
+			}else {
+				SKToast.makeText(mContext, R.string.vnc_hint, Toast.LENGTH_SHORT).show();
+			}
+			break;
+		case STOP_VNC:
+			//关闭远程服务
+			//是否设置了要开启远程服务
+			if (mOperDialog==null||!mOperDialog.isShow) {
+				mOperDialog=new SKSwitchOperDialog(mContext);
+				mOperDialog.setiOperCall(new SKSwitchOperDialog.IOperCall() {
+					
+					@Override
+					public void onConfirm(int action) {
+						if (action==0) {
+							mOperDialog.isShow=false;
+							mOperDialog.hidePopWindow();
+							VNCUtil.getInstance().stopVNC(SKSceneManage.getInstance().mContext); 
+							SharedPreferences.Editor editr = mContext.getSharedPreferences("information", 0).edit();
+							editr.putBoolean("vnc_state", false);
+							editr.commit();
+						}
+					}
+					
+					@Override
+					public void onCancel() {
+						mOperDialog.isShow=false;
+						mOperDialog.hidePopWindow();
+					}
+
+					@Override
+					public void onStartMacro(int action) {
+						// TODO 自动生成的方法存根
+						
+					}
+				});
+				mOperDialog.showPopWindow();
+			}
+			
+			break;
+		case ETHERNET:
+			//以太网设置
+			if (mContext!=null) {
+				if (mEthernet==null||!mEthernet.isShow) {
+					mEthernet=new IPSet(mContext);
+					mEthernet.showPopWindow(IPSetType.ETHERNET);
+				}
+			}
+			break;
+		case PRINTER:
+			//打印设置
+			
+			break;
+		case AKSETTING:
+			//AK系统设置,启动系统设置
+			if (SystemInfo.getModel()==HMIMODEL.MID) {
+				if (mContext!=null) {
+					for (PackageInfo pack : mContext.getPackageManager()
+							.getInstalledPackages(PackageManager.GET_ACTIVITIES)) {
+						if (pack.packageName.equals("soomkoon.ak.setting.activity")) {
+							// 包存在了，才启动
+							PackageManager packageManager = mContext.getPackageManager();
+							Intent intent2 = packageManager
+									.getLaunchIntentForPackage("soomkoon.ak.setting.activity");
+							mContext.startActivity(intent2);
+							break;
+						}
+					}
+				}
+			}
+			break;
+		case GOTO_LANUCHER2:
+			//返回到系统桌面
+			if (mContext!=null){
+				for (PackageInfo pack : mContext.getPackageManager()
+						.getInstalledPackages(PackageManager.GET_ACTIVITIES)) {
+					if (pack.packageName.equals("com.android.launcher")) {
+						// 包存在了，才启动
+						SavaInfo.setState(3);
+						
+						PackageManager packageManager = mContext.getPackageManager();
+						Intent intent2 = packageManager
+								.getLaunchIntentForPackage("com.android.launcher");
+						ContextUtl.getInstance().startActivity(intent2);
+						
+						Intent it=new Intent();
+						it.setAction("com.samkoon.systemUI.show");
+						ContextUtl.getInstance().sendBroadcast(it);
+						
+						handler.removeMessages(DESTROY);
+						handler.sendEmptyMessageDelayed(DESTROY, 1000);
+						Log.d("AKSystemUI", "AK HMI goto Launcher   ......   ");
+						
+						break;
+					}
+				}
 			}
 			break;
 		}
@@ -975,18 +1168,22 @@ public class SKButtonFunction {
 		case DELETE_FORMULA: // 删除当前配方
 			if (mOperDialog==null||!mOperDialog.isShow) {
 				mOperDialog=new SKSwitchOperDialog(mContext);
-				mOperDialog.setiOperCall(new SKSwitchOperDialog.IOperCall() {
-					
+				mOperDialog.setiOperCall(new SKSwitchOperDialog.IOperCall() {					
+				
 					@Override
-					public void onConfirm() {
-						CurrentRecipe ginfo=SystemInfo.getCurrentRecipe();
-						if (ginfo!=null) {
-							if (ginfo.getCurrentRecipeId()>-1) {
-								RecipeDataCentre.getInstance().msgDeleteRecipe(ginfo);
+					public void onConfirm(int action) {
+						// TODO Auto-generated method stub
+						if (action==0) {
+							CurrentRecipe ginfo=SystemInfo.getCurrentRecipe();
+							if (ginfo!=null) {
+								if (ginfo.getCurrentRecipeId()>-1) {
+									RecipeDataCentre.getInstance().msgDeleteRecipe(ginfo);								
+								}
+								mOperDialog.isShow=false;
+								mOperDialog.hidePopWindow();
 							}
 						}
-						mOperDialog.isShow=false;
-						mOperDialog.hidePopWindow();
+						
 					}
 					
 					@Override
@@ -994,6 +1191,14 @@ public class SKButtonFunction {
 						mOperDialog.isShow=false;
 						mOperDialog.hidePopWindow();
 					}
+
+					@Override
+					public void onStartMacro(int action) {
+						// TODO 自动生成的方法存根
+						
+					}
+
+					
 				});
 				mOperDialog.showPopWindow();
 			}
@@ -1004,6 +1209,7 @@ public class SKButtonFunction {
 				sDialog=new SKRecipeDialog(mContext, 3);
 				sDialog.initPopWindow();
 				sDialog.showPopWindow();
+				
 			}
 			break;
 		case WRITE_FORMULA: // 当前配方写入PLC
@@ -1030,7 +1236,7 @@ public class SKButtonFunction {
 		{
 			
 			CurrentRecipe cRecipe=RecipeDataCentre.getInstance().getCurrRecipe();
-			RecipeDataProp.recipeOGprop oGprop=RecipeDataCentre.getInstance().getOGRecipeData(cRecipe.getCurrentGroupRecipeId());
+			RecipeOGprop oGprop=RecipeDataCentre.getInstance().getOGRecipeData(cRecipe.getCurrentGroupRecipeId());
 			if (oGprop==null) {
 				return;
 			}
@@ -1057,8 +1263,92 @@ public class SKButtonFunction {
 			RecipeDataCentre.getInstance().msgEditRecipeSave(eInfo);
 			break;
 		}
+		case OUTPUT_RECIPES: //导出所有配方
+		{
+			if (sDialog==null||!sDialog.isShow) {
+				sDialog=new SKRecipeDialog(ContextUtl.getInstance(), 7);
+				sDialog.initPopWindow();
+				sDialog.showPopWindow();
+			}
+			
+		}
+		 break;
+		case RECIPES_CLEAR: //配方清零
+		{
+			CurrentRecipe cRecipe=RecipeDataCentre.getInstance().getCurrRecipe();
+			RecipeOGprop oGprop=RecipeDataCentre.getInstance().getOGRecipeData(cRecipe.getCurrentGroupRecipeId());
+			if (oGprop==null) {
+				return;
+			}
+			
+			RecipeOprop data=null;
+			
+			Vector<RecipeOprop>  mRecipeLists=oGprop.getmRecipePropList();
+			if (mRecipeLists!=null) {
+				for (int i = 0; i < mRecipeLists.size(); i++) {
+					if (mRecipeLists.get(i).getnRecipeId()==cRecipe.getCurrentRecipeId()) {
+						data=mRecipeLists.get(i);
+						break;
+					}
+				}
+			}
+			if (data==null) {
+				return;
+			}
+            EditRecipeInfo eInfo=RecipeDataCentre.getInstance().new EditRecipeInfo();
+            eInfo.mRecipeData=data;
+			eInfo.mRecipeInfo=cRecipe;
+			eInfo.sValueList=RecipeDataCentre.getInstance().getRecipeData(cRecipe.getCurrentGroupRecipeId(), 
+					cRecipe.getCurrentRecipeId(), false);
+			// 获取值， 然后进行清零
+			if (eInfo.sValueList != null) {
+				String  clearValue = 0 +"";
+				for(int i = 0; i < eInfo.sValueList.length; i++){
+					eInfo.sValueList[i] = clearValue;
+				}
+			}
+			RecipeDataCentre.getInstance().msgEditRecipeSave(eInfo);
+
+		}
+		break;
+		case COPY_RECIPES: //选择拷贝配方
+		{
+			
+			try {
+			if (mSingleCopyDialog != null && mSingleCopyDialog.isShowing()) {
+				mSingleCopyDialog.cancel();
+			}
+			mSingleCopyDialog = new SingleRecipeCopyDialog(SKSceneManage.getInstance().getActivity());
+			mSingleCopyDialog.show();
+			
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+			
+		}
+		break;
+		case COPY_GROUP_RECIPES:{
+			try {
+			if (mCopyDialog != null && mCopyDialog.isShowing()) {
+				mCopyDialog.cancel();
+			}
+			mCopyDialog = new RecipeCopyDialog(SKSceneManage.getInstance().getActivity());
+			mCopyDialog.show();
+			
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+		
+		}
+		break;
+		
 		}
 	}
+	
+	private RecipeCopyDialog mCopyDialog = null;
+	private SingleRecipeCopyDialog mSingleCopyDialog = null;
 
 	/**
 	 * 重启软件

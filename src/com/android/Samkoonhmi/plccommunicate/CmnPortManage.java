@@ -2,6 +2,8 @@ package com.android.Samkoonhmi.plccommunicate;
 
 import java.util.HashMap;
 import java.util.Vector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -107,11 +109,53 @@ public class CmnPortManage {
 	}
 	
 	/**
+	 * 发送以太从站应答数据
+	 * @param mPlcInfo
+	 * @param sHostIp
+	 * @param nHostPrt
+	 * @param sSendData
+	 * @return
+	 */
+	public boolean sendNetSlaveReponse(PlcSampInfo mPlcInfo ,int nNetPort,String sHostIp, int nHostPort, byte[] sSendData){
+		boolean bOpenSuccess = false;
+		if(null == sSendData || sSendData.length <= 0 || sHostIp == null || mPlcInfo.eConnectType != CONNECT_TYPE.NET0 ){
+			return bOpenSuccess;
+		}else{
+			Pattern pattern = Pattern
+					.compile("\\b((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\.((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\.((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\.((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\b");
+
+			Matcher matcher = pattern.matcher(sHostIp); // 以验证127.400.600.2为例
+
+			if(! matcher.matches()){
+				return bOpenSuccess;
+			}
+		}
+		
+		if(null == mNetPort0)
+		{
+			openCmnPort((short)mPlcInfo.eConnectType);
+		}
+		if(mNetPort0 != null)
+		{
+			NetPramObj nNetPramObj = new NetPramObj();
+			nNetPramObj.bServer = true;
+			nNetPramObj.bTcpNet = true;
+			nNetPramObj.nHostPort = nHostPort;
+			nNetPramObj.nNetPort = nNetPort;
+			nNetPramObj.sHostIpAddress = sHostIp;
+			nNetPramObj.sIpAddress = "";
+			bOpenSuccess = mNetPort0.sendData(sSendData, nNetPramObj);
+		}
+		
+		return bOpenSuccess;
+	}
+	
+	/**
 	 * 发送数据
 	 * @param sSendData
 	 * @return
 	 */
-	public synchronized  boolean sendData(PlcSampInfo mPlcInfo, byte[] sSendData)
+	public  boolean  sendData(PlcSampInfo mPlcInfo, byte[] sSendData)
 	{
 		boolean bOpenSuccess = false;
 		if(null == mPlcInfo || null == sSendData || sSendData.length <= 0) return bOpenSuccess;
@@ -180,7 +224,7 @@ public class CmnPortManage {
 	 * @param sSendData
 	 * @return
 	 */
-	public synchronized boolean getData(PlcSampInfo mPlcInfo, Vector<Byte > nGetBuff)
+	public  boolean getData(PlcSampInfo mPlcInfo, Vector<Byte > nGetBuff)
 	{
 		boolean bGetOk = false;
 		if(null == mPlcInfo || null == nGetBuff) return bGetOk;
@@ -244,6 +288,63 @@ public class CmnPortManage {
 		return bGetOk;
 	}
 
+	/**
+	 * 清除以太口缓存
+	 * @param mPlcInfo
+	 * @param sHostIp
+	 * @param nHostPort
+	 */
+	public synchronized void clearNetRcvBuff(PlcSampInfo mPlcInfo,String sHostIp,int nHostPort){
+		if(sHostIp == null){
+			return;
+		}else{
+			Pattern pattern = Pattern
+					.compile("\\b((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\.((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\.((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\.((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\b");
+
+			Matcher matcher = pattern.matcher(sHostIp); // 以验证127.400.600.2为例
+
+			if(! matcher.matches()){
+				return;
+			}
+		}
+		NetPramObj nNetPramObj = new NetPramObj();
+		nNetPramObj.bServer = mNetPlcMap.get(mPlcInfo.nProtocolIndex).bServer;
+		nNetPramObj.bTcpNet = mNetPlcMap.get(mPlcInfo.nProtocolIndex).bTcpNet;
+		nNetPramObj.nHostPort = nHostPort;
+		nNetPramObj.nNetPort = mNetPlcMap.get(mPlcInfo.nProtocolIndex).nNetPort;
+		nNetPramObj.sHostIpAddress = sHostIp;
+		nNetPramObj.sIpAddress = mNetPlcMap.get(mPlcInfo.nProtocolIndex).sIpAddress;
+		mNetPort0.clearRcvBuff(nNetPramObj);
+	}
+	
+	/**
+	 * 清除本机服务端以太口缓存
+	 * @param mPlcInfo
+	 * @param sHostIp
+	 * @param nHostPort
+	 */
+	public synchronized void clearNetServerRcvBuff(int nNetPort,String sHostIp,int nHostPort){
+		if(sHostIp == null){
+			return;
+		}else{
+			Pattern pattern = Pattern
+					.compile("\\b((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\.((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\.((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\.((?!\\d\\d\\d)\\d+|1\\d\\d|2[0-4]\\d|25[0-5])\\b");
+
+			Matcher matcher = pattern.matcher(sHostIp); // 以验证127.400.600.2为例
+
+			if(! matcher.matches()){
+				return;
+			}
+		}
+		NetPramObj nNetPramObj = new NetPramObj();
+		nNetPramObj.bServer = true;
+		nNetPramObj.bTcpNet = true;
+		nNetPramObj.nNetPort = nNetPort;
+		nNetPramObj.nHostPort = nHostPort;
+		nNetPramObj.sHostIpAddress = sHostIp;
+		mNetPort0.clearRcvBuff(nNetPramObj);
+	}
+	
 	/**
 	 * 清除缓存
 	 * @param eConnectType
@@ -362,6 +463,84 @@ public class CmnPortManage {
 			break;
 		}
 		}
+	}
+	
+	public boolean updateNetProtocol(String ip,String protocolName,int nPort)
+	{
+		boolean bReturn  = false;
+		short eConnectType = 8;
+		if(SystemInfo.getbSimulator() == 1) return false;
+		
+		SKCommThread result = SKCommThread.getComnThreadObj(eConnectType);
+		if(null != result)
+		{
+			result.stop(true);
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		if(mNetPort0 != null)
+		{
+			mNetPort0.removeCilentNet(nPort, ip);
+		}
+		
+		PlcSampInfo mPlcInfo = new PlcSampInfo();
+		/*获取所有连接的大小*/
+		if(null == SystemInfo.getPlcConnectionList()) return false;
+		
+		int nConnectSize = SystemInfo.getPlcConnectionList().size();
+		PlcConnectionInfo mConnect = null;
+		for(int i = 0; i < nConnectSize; i++)
+		{
+			if(SystemInfo.getPlcConnectionList().get(i).geteConnectPort() == eConnectType)
+			{
+				mConnect = SystemInfo.getPlcConnectionList().get(i);
+				break;
+			}
+		}
+		if(mConnect == null)
+		{
+			Log.e(TAG, "this connect is :" + eConnectType + " not exsit, so updateNetProtocol failed");
+			return false;
+		}
+		
+		
+		if(mConnect.getPlcAttributeList() != null)
+		{
+			int nPlcListSize = mConnect.getPlcAttributeList().size();
+			for(int i = 0; i < nPlcListSize; i++)
+			{
+				mPlcInfo.eConnectType = eConnectType;
+				mPlcInfo.nProtocolIndex = mConnect.getPlcAttributeList().get(i).getnUserPlcId();
+				mPlcInfo.nSampRate = mConnect.getPlcAttributeList().get(i).getnMinCollectCycle();
+				mPlcInfo.sProtocolName = mConnect.getPlcAttributeList().get(i).getsPlcServiceType();
+				
+				PROTOCOL_TYPE eProType = ProtocolInterfaces.getProtocolInterface().getProtocolType(mPlcInfo);
+				if(eProType == PROTOCOL_TYPE.SLAVE_MODEL)
+				{
+					continue;
+				}
+				if(protocolName.equals(mPlcInfo.sProtocolName))
+				{
+					NetPramObj mNetPram = mNetPlcMap.get(mPlcInfo.nProtocolIndex);
+					if(mNetPram != null)
+					{
+						mNetPram.nNetPort = nPort;
+						mNetPram.sIpAddress = ip;
+						mNetPlcMap.remove(mPlcInfo.nProtocolIndex);
+						mNetPlcMap.put(mPlcInfo.nProtocolIndex, mNetPram);
+						bReturn = true;
+						break;
+					}
+				}
+			}
+		}
+		result.start(true);
+		return bReturn;
 	}
 	
 	/**

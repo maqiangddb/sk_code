@@ -94,9 +94,16 @@ public class BUTTON {
 		EDIT_USER_PWD(15),  //修改用户密码
 		LOGOUT_USER(16),    //注销用户  
 		IP_SET(17),         //IP设置
-		ZOOM_IN(18),      //放大
-		REDUCE(19),       //缩小
-		WIFI(20);
+		ZOOM_IN(18),        //放大
+		REDUCE(19),         //缩小
+		WIFI(20),           //wifi 设置
+		EMAIL(21),          //邮件设置
+		START_VNC(22),      //启动远程服务
+		STOP_VNC(23),       //关闭远程服务
+		ETHERNET(24),       //以太网设置
+		PRINTER(25),        //打印设置
+		AKSETTING(26),      //AK系统设置
+		GOTO_LANUCHER2(27); //返回到系统桌面
 		
 		int value;
 		PECULIAR_TYPE(int value){
@@ -124,24 +131,27 @@ public class BUTTON {
 	 * 特殊按钮，操作类型
 	 */
 	public enum PECULIAR_OPER{
-		OPEN_WINDOW(1),          //打开窗口
-		CLOSE_WINDOW(2),         //关闭窗口
-		//CLEAR_SAMPLING(3),       //清除采样数据
-		EDIT_FORMULA(3),         //编辑当前配方
-		ADD_FORMULA(4),          //新建配方
-		DELETE_FORMULA(5),       //删除当前配方
-		DELETE_ALL_FORMULA(6),   //删除全组配方
-		WRITE_FORMULA(7),        //当前配方写入PLC
-		READ_FORMULA(8),         //从PLC读取当前配方
-		EXPORT_FORMULA(9),      //配方组导出为文件
-		INTO_FORMULA(10),        //文件导入为配方组
-		SAVE_CURRENT_FORMULA(11),//保存当前配方
-		SAVE_FORMULA(14),        //保存当前配方
-		ALRAM_SWITCH(15),        //报警声音开关
-		CONFIRM_ALRAM(16),       //确定报警
-		CLEAR_ALRAM(17),         //清除报警
-		CLEAR_HISTORY_ALRAM(18), //清除历史报警数据
-		EXPORT_FILE(19);         //导出历史数据
+
+		OPEN_WINDOW(1),            //打开窗口
+		CLOSE_WINDOW(2),           //关闭窗口
+		EDIT_FORMULA(3),           //编辑当前配方
+		ADD_FORMULA(4),            //新建配方
+		DELETE_FORMULA(5),         //删除当前配方
+		DELETE_ALL_FORMULA(6),     //删除全组配方
+		WRITE_FORMULA(7),          //当前配方写入PLC
+		READ_FORMULA(8),           //从PLC读取当前配方
+		EXPORT_FORMULA(9),         //配方组导出为文件
+		INTO_FORMULA(10),          //文件导入为配方组
+		SAVE_CURRENT_FORMULA(11),  //保存当前配方
+		OUTPUT_RECIPES(12),       //导出所有配方
+		RECIPES_CLEAR(13),         //配方清零
+		COPY_RECIPES(14),          //当前配方拷贝
+		ALRAM_SWITCH(15),          //报警声音开关
+		CONFIRM_ALRAM(16),         //确定报警
+		CLEAR_ALRAM(17),           //清除报警
+		CLEAR_HISTORY_ALRAM(18),   //清除历史报警数据
+		EXPORT_FILE(19),           //导出历史数据
+		COPY_GROUP_RECIPES(20);    //配方组拷贝
 		
 		int value;
 		PECULIAR_OPER(int value){
@@ -268,6 +278,20 @@ public class BUTTON {
 			return PECULIAR_TYPE.REDUCE;
 		case 20:
 			return PECULIAR_TYPE.WIFI;
+		case 21:
+			return PECULIAR_TYPE.EMAIL;
+		case 22:
+			return PECULIAR_TYPE.START_VNC;
+		case 23:
+			return PECULIAR_TYPE.STOP_VNC;
+		case 24:
+			return PECULIAR_TYPE.ETHERNET;
+		case 25:
+			return PECULIAR_TYPE.PRINTER;
+		case 26:
+			return PECULIAR_TYPE.AKSETTING;
+		case 27:
+			return PECULIAR_TYPE.GOTO_LANUCHER2;
 		}
 		return PECULIAR_TYPE.BACKLIGHT;
 	}
@@ -301,8 +325,12 @@ public class BUTTON {
 			return PECULIAR_OPER.INTO_FORMULA;
 		case 11:
 			return PECULIAR_OPER.SAVE_CURRENT_FORMULA;
+		case 12:
+			return PECULIAR_OPER.OUTPUT_RECIPES;
+		case 13:
+			return PECULIAR_OPER.RECIPES_CLEAR;
 		case 14:
-			return PECULIAR_OPER.SAVE_FORMULA;
+			return PECULIAR_OPER.COPY_RECIPES;
 		case 15:
 			return PECULIAR_OPER.ALRAM_SWITCH;
 		case 16:
@@ -313,7 +341,10 @@ public class BUTTON {
 			return PECULIAR_OPER.CLEAR_HISTORY_ALRAM;
 		case 19:
 			return PECULIAR_OPER.EXPORT_FILE;
+		case 20:
+			return PECULIAR_OPER.COPY_GROUP_RECIPES;
 		}
 		return PECULIAR_OPER.OPEN_WINDOW;
 	}
+	
 }

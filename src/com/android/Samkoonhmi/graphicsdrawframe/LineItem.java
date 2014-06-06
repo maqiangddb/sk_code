@@ -50,6 +50,10 @@ public class LineItem extends LinearDrawItem {
 			}
 		}
 	}
+	
+	public void updateData(){
+		pointsFloat = paseToFloatArray();
+	}
 
 	/**
 	 * 初始化画笔

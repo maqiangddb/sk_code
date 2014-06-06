@@ -85,9 +85,12 @@ public class SKTimer {
 									if (mCallBack.containsKey(mTimes.get(i))) {
 										ArrayList<ICallback> list=mCallBack.get(mTimes.get(i));
 										if (list!=null) {
-											//Log.d(TAG, "...........size:"+list.size()+",time:"+nTimeCount);
 											for (int j = 0; j < list.size(); j++) {
-												list.get(j).onUpdate();
+												try{
+													list.get(j).onUpdate();
+												}catch (Exception e) {
+													e.printStackTrace();
+												}
 											}
 										}
 									}

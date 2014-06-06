@@ -1,15 +1,10 @@
 package com.android.Samkoonhmi.databaseinterface;
 
 import java.util.ArrayList;
-import java.util.List;
-
 import android.database.Cursor;
-
 import com.android.Samkoonhmi.model.StaticTextModel;
 import com.android.Samkoonhmi.model.TextInfo;
-import com.android.Samkoonhmi.model.skbutton.ButtonInfo;
 import com.android.Samkoonhmi.skenum.CSS_TYPE;
-import com.android.Samkoonhmi.skenum.FLICK_TYPE;
 import com.android.Samkoonhmi.skenum.IntToEnum;
 import com.android.Samkoonhmi.skenum.TEXT_PIC_ALIGN;
 import com.android.Samkoonhmi.skglobalcmn.SkGlobalData;
@@ -26,7 +21,7 @@ public class StaticTextBiz extends DataBase{
 	 */
 	public ArrayList<StaticTextModel> getStaticText(int sceneId){
 		
-		String id="";
+		StringBuffer id=new StringBuffer();
 		boolean init=true;
 		
 		ArrayList<StaticTextModel>  list = new ArrayList<StaticTextModel>();
@@ -64,15 +59,16 @@ public class StaticTextBiz extends DataBase{
 				info.setShowInfo(TouchShowInfoBiz.getShowInfoById(info.getId()));
 				list.add(info);
 				if(init){
-					id+=" nItemId="+info.getId();
+					id.append(" nItemId in("+info.getId());
 					init=false;
 				}else {
-					id+=" or nItemId="+info.getId();
+					id.append(","+info.getId());
 				}
 			}
 		}
-		
-		textSelect(id, list);
+		id.append(")");
+		String sId=id.toString();
+		textSelect(sId, list);
 		close(cursor);
 		
 		
@@ -88,89 +84,40 @@ public class StaticTextBiz extends DataBase{
 		cursor = db.getDatabaseBySql(sql,null);
 		if(cursor!=null){
 			StaticTextModel info=null;
-			
 			int nItemId=-1;
-			int state=-1;
 			int index=0;
+			
 			while (cursor.moveToNext()) {
 				if (nItemId!=cursor.getInt(cursor.getColumnIndex("nItemId"))) {
 					nItemId=cursor.getInt(cursor.getColumnIndex("nItemId"));
-					for (int i = 0; i < list.size(); i++) {
-						if (list.get(i).getId()==nItemId) {
-							info=list.get(i);
-							ArrayList<TextInfo> mTextList=new ArrayList<TextInfo>();
-							info.setmTextList(mTextList);
-							state=-1;
-							index=0;
-							break;
+					if (list.get(index).getId()==nItemId) {
+						info=list.get(index);
+						ArrayList<TextInfo> mTextList=new ArrayList<TextInfo>();
+						info.setmTextList(mTextList);
+					}else {
+						for (int i = 0; i < list.size(); i++) {
+							if (list.get(i).getId()==nItemId) {
+								info=list.get(i);
+								ArrayList<TextInfo> mTextList=new ArrayList<TextInfo>();
+								info.setmTextList(mTextList);
+								break;
+							}
 						}
 					}
+					index++;
 				}
-				if (state!=cursor.getShort(cursor
-						.getColumnIndex("nStatusIndex"))) {
-					
-					state=cursor.getShort(cursor
-							.getColumnIndex("nStatusIndex"));
-					TextInfo tInfo = new TextInfo();
-					tInfo.setnStatusId( cursor.getShort(cursor
-							.getColumnIndex("nStatusIndex")));
-					tInfo.setnBColor(cursor.getInt(cursor.getColumnIndex("nColor")));
-					tInfo.setnLangugeId(cursor.getShort(cursor
-							.getColumnIndex("nLangIndex")));
-					tInfo.seteFlickType(FLICK_TYPE.NO_FLICK);
-					
-					//字体类型
-					ArrayList<String> mFonts=new ArrayList<String>();
-					mFonts.add(cursor.getString(cursor
-							.getColumnIndex("sFont")));
-					tInfo.setmFonts(mFonts);
-					
-					//字体大小
-					ArrayList<Integer> mSize=new ArrayList<Integer>();
-					mSize.add(cursor.getInt(cursor.getColumnIndex("nSize")));
-					tInfo.setmSize(mSize);
-					
-					//位置和闪烁
-					ArrayList<Integer> mAligns=new ArrayList<Integer>();
-					mAligns.add(cursor.getInt(cursor.getColumnIndex("nShowProp")));
-					tInfo.setmStyle(mAligns);
-					
-					ArrayList<Integer> mColors=new ArrayList<Integer>();
-					mColors.add(cursor.getInt(cursor.getColumnIndex("nColor")));
-					tInfo.setmColors(mColors);
-					
-					//文本
+				
+				//静态文本只有一个状态
+				if (info.getmTextList().size()==0) {
+					//状态文本，多语言
+					TextInfo tinfo=new TextInfo();
 					ArrayList<String> mTexts=new ArrayList<String>();
 					mTexts.add(cursor.getString(cursor.getColumnIndex("sText")));
-					tInfo.setmTextList(mTexts);
-					
-					index=info.getmTextList().size();
-					info.getmTextList().add(tInfo);
+					tinfo.setmTextList(mTexts);
+					info.getmTextList().add(tinfo);
 					
 				}else {
-					TextInfo tinfo=info.getmTextList().get(index);
-					
-					ArrayList<String> mFonts=tinfo.getmFonts();
-					if (mFonts!=null) {
-						mFonts.add(cursor.getString(cursor
-								.getColumnIndex("sFont")));
-					}
-					
-					ArrayList<Integer> mSize=tinfo.getmSize();
-					if (mSize!=null) {
-						mSize.add(cursor.getInt(cursor.getColumnIndex("nSize")));
-					}
-					
-					ArrayList<Integer> mStyle=tinfo.getmStyle();
-					if (mStyle!=null) {
-						mStyle.add(cursor.getInt(cursor.getColumnIndex("nShowProp")));
-					}
-					
-					ArrayList<Integer> mColor=tinfo.getmColors();
-					if (mColor!=null) {
-						mColor.add(cursor.getInt(cursor.getColumnIndex("nColor")));
-					}
-					
+					TextInfo tinfo=info.getmTextList().get(0);
 					ArrayList<String> mTexts=tinfo.getmTextList();
 					if (mTexts!=null) {
 						mTexts.add(cursor.getString(cursor.getColumnIndex("sText")));

@@ -76,7 +76,7 @@ public class HistoryDataCollect {
 	private boolean bSaveToFile ;
 
 	/*保存文件的控制地址*/
-	private AddrProp nCtlSaveAddrId = new AddrProp();
+	private AddrProp nCtlSaveAddr = new AddrProp();
 	
 	/*是否自动保存*/
 	private boolean bAutoSave = false; 
@@ -100,15 +100,44 @@ public class HistoryDataCollect {
 	private long nLastTime = 0;
 	
 	/*上升沿采集标识*/
-	private boolean bCollect;
+	private boolean nCollectCount;
 	
+	// 打印的状态  不打印 打印， 打印 +1  打印日期+2  打印 时间 +4 
+	private int  nPrintState; 
 	/**
 	 * 监视地址变化回调
 	 */
 	private ArrayList<CallbackItem> mCallbackItems=new ArrayList<CallbackItem>();
-	
 	// 需要重新注册
 	private boolean bResetCallback;
+	
+	//受控地址注册
+	private CallbackItem mCtlSampItem;
+		
+	
+	public boolean isnCollectCount() {
+		return nCollectCount;
+	}
+
+	public void setnCollectCount(boolean nCollectCount) {
+		this.nCollectCount = nCollectCount;
+	}
+
+	public CallbackItem getmCtlSampItem() {
+		return mCtlSampItem;
+	}
+
+	public void setmCtlSampItem(CallbackItem mCtlSampItem) {
+		this.mCtlSampItem = mCtlSampItem;
+	}
+
+	public void setPrintState(int state){
+		nPrintState = state;
+	}
+	
+	public int getPrintState(){
+		return nPrintState;
+	}
 
 	public boolean isbResetCallback() {
 		return bResetCallback;
@@ -190,12 +219,12 @@ public class HistoryDataCollect {
 		this.bAddrCtlSamp = bAddrCtlSamp;
 	}
 
-	public AddrProp getnCtlSampAddrId() {
+	public AddrProp getnCtlSampAddr() {
 		return nCtlSampAddrId;
 	}
 
-	public void setnCtlSampAddrId(AddrProp nCtlSampAddrId) {
-		this.nCtlSampAddrId = nCtlSampAddrId;
+	public void setnCtlSampAddr(AddrProp nCtlSampAddr) {
+		this.nCtlSampAddrId = nCtlSampAddr;
 	}
 
 	public short getnStartHour() {
@@ -295,11 +324,11 @@ public class HistoryDataCollect {
 	}
 
 	public AddrProp getnCtlSaveAddrId() {
-		return nCtlSaveAddrId;
+		return nCtlSaveAddr;
 	}
 
 	public void setnCtlSaveAddrId(AddrProp nCtlSaveAddrId) {
-		this.nCtlSaveAddrId = nCtlSaveAddrId;
+		this.nCtlSaveAddr = nCtlSaveAddrId;
 	}
 
 	public boolean isbAutoSave() {
@@ -357,12 +386,5 @@ public class HistoryDataCollect {
 	public void setnLastTime(long nLastTime) {
 		this.nLastTime = nLastTime;
 	}
-	
-	public boolean isbCollect() {
-		return bCollect;
-	}
 
-	public void setbCollect(boolean bCollect) {
-		this.bCollect = bCollect;
-	}
 }

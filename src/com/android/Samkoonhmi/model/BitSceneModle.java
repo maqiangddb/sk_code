@@ -8,9 +8,23 @@ public class BitSceneModle {
 	private AddrProp nBitAddress;//位地址
 	private int nSceneId;//画面编号
 	private boolean bRest ;//是否自动复位
+	private boolean bClose;//是否自动关闭
 	private int nAddressValue=-1; //地址值
 	private CallbackItem item;//地址监视回调
+	private int nWindowState;//窗口的状态，0-已经关闭，1-打开着
 	
+	public int getnWindowState() {
+		return nWindowState;
+	}
+	public void setnWindowState(int nWindowState) {
+		this.nWindowState = nWindowState;
+	}
+	public boolean isbClose() {
+		return bClose;
+	}
+	public void setbClose(boolean bClose) {
+		this.bClose = bClose;
+	}
 	
 	public CallbackItem getItem() {
 		return item;

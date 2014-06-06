@@ -24,6 +24,7 @@ import com.android.Samkoonhmi.skenum.DATA_TYPE;
 import com.android.Samkoonhmi.skenum.PROTOCOL_TYPE;
 import com.android.Samkoonhmi.skenum.READ_WRITE_COM_TYPE;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
+import com.android.Samkoonhmi.system.SystemVariable;
 import com.android.Samkoonhmi.system.address.SystemAddress;
 import com.android.Samkoonhmi.util.AddrProp;
 import com.android.Samkoonhmi.util.COM_PORT_PARAM_PROP;
@@ -39,6 +40,8 @@ import com.android.Samkoonhmi.util.SEND_DATA_STRUCT;
 import com.android.Samkoonhmi.util.SEND_PACKAGE_JNI;
 import com.android.Samkoonhmi.util.SendPkgArray;
 import com.android.Samkoonhmi.util.TurnDataProp;
+
+import java.math.BigInteger;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -428,6 +431,7 @@ public class SKCommThread {
 	    			/*主站自动读*/
 	    			if(nScreenType == 0)               
 	    			{
+	    				//android.os.Process.setThreadPriority(-20);
 	    				getCmnRefreashHandler().removeMessages(MODULE.SYSTEM_MAST_READ);
 	    				if(SystemInfo.getbSimulator() != 1)
 	    				{
@@ -634,8 +638,18 @@ public class SKCommThread {
 		    			/*通知通信失败*/
 		    			if(0 != nCheckInfo)
 		    			{
+		    				//设置通信异常报警
+		    				SystemVariable.getInstance().setComErrorAlarm(true);
+		    				
 		    				noticCmnFail(nCheckInfo, mTmpPlcInfo);
+		    				
+		    			}else{
+		    				//设置通信异常报警
+		    				SystemVariable.getInstance().setComErrorAlarm(false);
 		    			}
+		    		}else{
+		    			//设置通信异常报警
+						SystemVariable.getInstance().setComErrorAlarm(false);
 		    		}
 
 		    	}//end if(bSuccess)
@@ -688,6 +702,36 @@ public class SKCommThread {
 			mTmpPlcInfo.sProtocolName = m_nConnectObj.getPlcAttributeList().get(i).getsPlcServiceType();
 			int nStationId = m_nConnectObj.getPlcAttributeList().get(i).getnPlcNo();
 			
+			if(nProtocolSize > 1)//如果协议个数大于1
+			{
+				AddrProp addr = new AddrProp();
+				addr.eConnectType = 1; /* 读取连接类型 */
+				addr.nUserPlcId = 0; /* 读取PLC自定义号 */
+				addr.sPlcProtocol = "local"; /* 读取协议名字 */
+				addr.eAddrRWprop = 12;/* 读取PLC的地址读写等级 */
+				addr.nPlcStationIndex = 0; /* 读取PLC的站号 */// 根据屏号
+																					// 取com1的屏号
+
+				addr.nRegIndex = 1; /* 读取PLC的寄存器号 位地址0 字地址1 */
+				addr.nAddrValue = 60356;/* 读取PLC的地址值 */
+				addr.nAddrLen = 1; /* 读取PLC的地址长度 */
+
+				SEND_DATA_STRUCT mSendProp = new SEND_DATA_STRUCT();
+				mSendProp.eDataType = DATA_TYPE.INT_16;
+				mSendProp.eReadWriteCtlType = READ_WRITE_COM_TYPE.SCENE_CONTROL_LOOP_R;
+				Vector<Integer> dataresult = new Vector<Integer>();
+				boolean bRcv = PlcRegCmnStcTools.getRegIntData(addr, dataresult, mSendProp);
+				if(bRcv && dataresult.size() > 0)
+				{
+					BigInteger ta = new BigInteger(Integer.toString(dataresult.get(0)));
+					if(ta.testBit(nStationId))
+					{
+						continue;
+					}
+				}
+			}
+
+			
 			/*不是主站，则跳过*/
 			PROTOCOL_TYPE eProType = ProtocolInterfaces.getProtocolInterface().getProtocolType(mTmpPlcInfo);
 			if(eProType != PROTOCOL_TYPE.MASTER_MODEL)
@@ -727,7 +771,6 @@ public class SKCommThread {
 			{
 				bNeedSysRead = true;
 				nCheckInfo = readOnceData(mTmpPlcInfo, mPkgListObj, nTimeout, nFrameInterval);
-				
 				/*第一次校验返回值失败，则启动重试发送程序*/
 				if(0 != nCheckInfo)
 				{
@@ -742,8 +785,18 @@ public class SKCommThread {
 					/*通知通信失败*/
 					if(0 != nCheckInfo)
 					{
+						//设置通信异常报警
+						SystemVariable.getInstance().setComErrorAlarm(true);
+						
 						noticCmnFail(nCheckInfo, mTmpPlcInfo);
+						
+					}else{
+						//设置通信异常报警
+						SystemVariable.getInstance().setComErrorAlarm(false);
 					}
+				}else{
+					//设置通信异常报警
+					SystemVariable.getInstance().setComErrorAlarm(false);
 				}
 			}//if(bSuccess)
 			
@@ -782,11 +835,14 @@ public class SKCommThread {
     	
     	int nScreenNum = m_nConnectObj.getnScreenNo();
     	boolean bGetOk = CmnPortManage.getInstance().getData(mTmpPlcInfo, nTmpRecList);
-		if(bGetOk && nTmpRecList.size() == 4 && 
-				nTmpRecList.get(0) == 5 &&
-				nTmpRecList.get(1) == 1 &&
-				nTmpRecList.get(2) == nScreenNum &&
-				nTmpRecList.get(3) == 10)
+    	
+    	Vector<Byte > tmp = new Vector<Byte> (nTmpRecList);
+		
+		if(bGetOk && tmp.size() == 4 && 
+				tmp.get(0) == 5 &&
+				tmp.get(1) == 1 &&
+				tmp.get(2) == nScreenNum &&
+				tmp.get(3) == 10)
 		{
 			/*实时写*/
 			if(!mRTWCmnList.isEmpty())
@@ -999,8 +1055,18 @@ public class SKCommThread {
 				/*通知通信失败*/
 				if(0 != nCheckInfo)
 				{
+					//设置通信异常报警
+					SystemVariable.getInstance().setComErrorAlarm(true);
+					
 					noticCmnFail(nCheckInfo, mPlcInfo);
-				} 
+					
+				}else{
+					//设置通信异常报警
+					SystemVariable.getInstance().setComErrorAlarm(false);
+				}
+			}else{
+				//设置通信异常报警
+				SystemVariable.getInstance().setComErrorAlarm(false);
 			}
 			
 			/*如果读取成功， 则从新取写数据*/
@@ -1077,7 +1143,9 @@ public class SKCommThread {
     				if(bGetOk)
     				{
     					/*如果长度不够  则重新分配内存*/
-    					nRcvLen = nTmpRecList.size();
+    					
+    					Vector<Byte > tmp = new Vector<Byte> (nTmpRecList);
+    					nRcvLen = tmp.size();
     					if(nTmpCheckBuff.length < nRcvLen)
     					{
     						nTmpCheckBuff = new byte[nRcvLen];
@@ -1086,7 +1154,7 @@ public class SKCommThread {
     					/*赋值给数组*/
     					for(int nRcv = 0; nRcv < nRcvLen; nRcv++)
     					{
-    						nTmpCheckBuff[nRcv] = nTmpRecList.get(nRcv);
+    						nTmpCheckBuff[nRcv] = tmp.get(nRcv);
     					}
     				}
     				 
@@ -1095,6 +1163,10 @@ public class SKCommThread {
     					nCheckInfo = PlcCmnInfoCode.DATA_LEN_ERROR;
     					if(nReturnLen > 0)
     					{
+    						if(nRcvLen > nReturnLen)
+    						{
+    							nRcvLen = nReturnLen;
+    						}
     						if(nRcvLen == nReturnLen)
     						{
     							/*先置标识符为false*/
@@ -1225,7 +1297,10 @@ public class SKCommThread {
     				if(bGetOk)
     				{
     					/*如果长度不够  则重新分配内存*/
-    					nRcvLen = nTmpRecList.size();
+    					//Vector<Byte > tmp = new Vector<Byte> (nTmpRecList);
+    					@SuppressWarnings("unchecked")
+						Vector<Byte > tmp =(Vector<Byte>) nTmpRecList.clone();
+    					nRcvLen = tmp.size();
     					if(nTmpCheckBuff.length < nRcvLen)
     					{
     						nTmpCheckBuff = new byte[nRcvLen];
@@ -1234,7 +1309,7 @@ public class SKCommThread {
     					/*赋值给数组*/
     					for(int k = 0; k < nRcvLen; k++)
     					{
-    						nTmpCheckBuff[k] = nTmpRecList.get(k);
+    						nTmpCheckBuff[k] = tmp.get(k);
     					}
     				}
   
@@ -1243,6 +1318,10 @@ public class SKCommThread {
         				nCheckInfo = PlcCmnInfoCode.DATA_LEN_ERROR;
         				if(nReturnLen > 0)
         				{
+        					if(nRcvLen > nReturnLen)
+    						{
+    							nRcvLen = nReturnLen;
+    						}
         					if(nRcvLen == nReturnLen) 
         					{
         						/*先置标识符为false*/
@@ -1344,9 +1423,10 @@ public class SKCommThread {
 			
     		/*获取站号*/
     		int nStationId = m_nConnectObj.getnScreenNo();
-    		sSendData.sSendDataList = null ; 
-    		int nCheckInfo = ProtocolInterfaces.getProtocolInterface().rcvStrForSlave(mRcvData, mRcvData.length, nStationId, sSendData, mTmpPlcInfo);
-    		if(0 == nCheckInfo)
+    		/*sSendData.sSendDataList = null ; */
+    		SendPkgArray mPkgList = new SendPkgArray();
+    		int nCheckInfo = ProtocolInterfaces.getProtocolInterface().rcvStrForSlave(mRcvData, mRcvData.length, nStationId, mPkgList, mTmpPlcInfo);
+    		if(0 == nCheckInfo && null != mPkgList)
     		{
     			/*发消息更新内部地址和slave地址*/
     			SKPlcNoticThread.getInstance().getCmnNoticHandler().sendEmptyMessage(MODULE.LOCAL_ADDR_REFREASH);
@@ -1354,11 +1434,25 @@ public class SKCommThread {
     			/*成功 则清除缓存*/
 				CmnPortManage.getInstance().clearRcvBuff(mTmpPlcInfo);
 
-    			if(null != sSendData.sSendDataList)
-    			{
-    				bSuccess = CmnPortManage.getInstance().sendData(mTmpPlcInfo, sSendData.sSendDataList);
-    			}
-    			
+				int nPkgListSize = mPkgList.mSendPkgList.length;
+				for(int j = 0; j < nPkgListSize; j++)
+				{
+					SEND_PACKAGE_JNI mTmpSendPkg = mPkgList.mSendPkgList[j];
+					
+					if(null != mTmpSendPkg.sSendDataList)
+	    			{
+	    				bSuccess = CmnPortManage.getInstance().sendData(mTmpPlcInfo, mTmpSendPkg.sSendDataList);
+	    				if(nPkgListSize > 1 && j != (nPkgListSize -1))
+	    				{
+	    					try {
+								Thread.sleep(2);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+	    				}
+	    			}
+				}
     			bSuccess = true;
     			break;
     		}
@@ -1386,6 +1480,12 @@ public class SKCommThread {
     				
     				/*成功 则清除缓存*/
     				CmnPortManage.getInstance().clearRcvBuff(mTmpPlcInfo);
+    			}else if(nCheckInfo==PlcCmnInfoCode.UNRCV_ALL_DATA){
+    				bSuccess = true;
+    			}
+    			else if(nCheckInfo == PlcCmnInfoCode.UNRCV_ALL_DATA)
+    			{
+    				bSuccess = true;
     			}
     			else if((System.currentTimeMillis() - nSlaveFirstRcvTime) >= nMaxTimeout)
     			{
@@ -1443,7 +1543,7 @@ public class SKCommThread {
 			}
 			
 			/*匹配IP地址*/
-			if(mRcvProp.mNetPram != null)
+			/*if(mRcvProp.mNetPram != null)
 			{
 				int nNetPort = m_nConnectObj.getPlcAttributeList().get(i).getnNetPortNum();
 				String sIpAddr = m_nConnectObj.getPlcAttributeList().get(i).getsIpAddr();
@@ -1452,25 +1552,46 @@ public class SKCommThread {
 				{
 					continue;
 				}
-			}
+			}*/
 			
     		/*获取站号*/
     		int nStationId = m_nConnectObj.getnScreenNo();
-    		sSendData.sSendDataList = null ; 
-    		int nCheckInfo = ProtocolInterfaces.getProtocolInterface().rcvStrForSlave(mRcvProp.mRcvData, mRcvProp.mRcvData.length, nStationId, sSendData, mTmpPlcInfo);
+    		/*获得host IP*/
+    		String sHostIp = mRcvProp.mNetPram.sHostIpAddress;
+    		/*获得Host port*/
+    		int nHostPort = mRcvProp.mNetPram.nHostPort;
+    		
+    		//sSendData.sSendDataList = null ; 
+    		SendPkgArray mPkgList = new SendPkgArray();
+    		int nCheckInfo = ProtocolInterfaces.getProtocolInterface().rcvStrForSlave(mRcvProp.mRcvData, mRcvProp.mRcvData.length, nStationId, mPkgList, mTmpPlcInfo);
     		if(0 == nCheckInfo)
     		{
     			/*发消息更新内部地址和slave地址*/
     			SKPlcNoticThread.getInstance().getCmnNoticHandler().sendEmptyMessage(MODULE.LOCAL_ADDR_REFREASH);
     			
     			/*成功 则清除缓存*/
-    			CmnPortManage.getInstance().clearRcvBuff(mTmpPlcInfo);
+    			CmnPortManage.getInstance().clearNetServerRcvBuff(mRcvProp.mNetPram.nNetPort,sHostIp,nHostPort);
 
-    			if(null != sSendData.sSendDataList)
-    			{
-    				bSuccess = CmnPortManage.getInstance().sendData(mTmpPlcInfo, sSendData.sSendDataList);
-    			}
-    			
+    			int nPkgListSize = mPkgList.mSendPkgList.length;
+				for(int j = 0; j < nPkgListSize; j++)
+				{
+					SEND_PACKAGE_JNI mTmpSendPkg = mPkgList.mSendPkgList[j];
+					
+					if(null != mTmpSendPkg.sSendDataList)
+	    			{
+	    				bSuccess = CmnPortManage.getInstance().sendNetSlaveReponse(mTmpPlcInfo,mRcvProp.mNetPram.nNetPort, sHostIp, nHostPort, mTmpSendPkg.sSendDataList);
+	    				if(nPkgListSize > 1 && j != (nPkgListSize -1))
+	    				{
+	    					try {
+								Thread.sleep(2);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+	    				}
+	    			}
+				}
+				
     			bSuccess = true;
     			break;
     		}
@@ -1491,29 +1612,29 @@ public class SKCommThread {
     				bSuccess = true;
     				
     				/*成功 则清除缓存*/
-    				CmnPortManage.getInstance().clearRcvBuff(mTmpPlcInfo);
+    				CmnPortManage.getInstance().clearNetServerRcvBuff(mRcvProp.mNetPram.nNetPort,sHostIp,nHostPort);
     			}
     			else if(nCheckInfo == PlcCmnInfoCode.CHECK_OK_UNRCV_ALL)
     			{
     				bSuccess = true;
     				
     				/*成功 则清除缓存*/
-    				CmnPortManage.getInstance().clearRcvBuff(mTmpPlcInfo);
+    				CmnPortManage.getInstance().clearNetServerRcvBuff(mRcvProp.mNetPram.nNetPort,sHostIp,nHostPort);
     			}
     			else if((System.currentTimeMillis() - nSlaveFirstRcvTime) >= nMaxTimeout)
     			{
     				/*成功 则清除缓存*/
-    				CmnPortManage.getInstance().clearRcvBuff(mTmpPlcInfo);
+    				CmnPortManage.getInstance().clearNetServerRcvBuff(mRcvProp.mNetPram.nNetPort,sHostIp,nHostPort);
     				
     				if(null != sSendData.sSendDataList)
     				{
-    					bSuccess = CmnPortManage.getInstance().sendData(mTmpPlcInfo, sSendData.sSendDataList);
+    					bSuccess = CmnPortManage.getInstance().sendNetSlaveReponse(mTmpPlcInfo,mRcvProp.mNetPram.nNetPort, sHostIp, nHostPort, sSendData.sSendDataList);
     				}
     				bSuccess = true;
     			}
     			else
     			{
-    				CmnPortManage.getInstance().clearRcvBuff(mTmpPlcInfo);
+    				CmnPortManage.getInstance().clearNetRcvBuff(mTmpPlcInfo,sHostIp,nHostPort);
     				bSuccess = true;
     			}
     		}
@@ -1596,7 +1717,8 @@ public class SKCommThread {
     			if(bGetOk)
     			{
     				/*如果长度不够  则重新分配内存*/
-    				nRcvLen = nTmpRecList.size();
+    				Vector<Byte > tmp = new Vector<Byte> (nTmpRecList);
+					nRcvLen = tmp.size();
     				if(nTmpCheckBuff.length < nRcvLen)
     				{
     					nTmpCheckBuff = new byte[nRcvLen];
@@ -1605,7 +1727,7 @@ public class SKCommThread {
     				/*赋值给数组*/
     				for(int nRcv = 0; nRcv < nRcvLen; nRcv++)
     				{
-    					nTmpCheckBuff[nRcv] = nTmpRecList.get(nRcv);
+    					nTmpCheckBuff[nRcv] = tmp.get(nRcv);
     				}
     			}
 
@@ -1647,7 +1769,10 @@ public class SKCommThread {
     	
     	if(0 != nCheckInfo)
 		{
-			noticCmnFail(nCheckInfo, mPlcInfo);
+    		//设置通信异常报警
+			SystemVariable.getInstance().setComErrorAlarm(true);
+    		
+    		noticCmnFail(nCheckInfo, mPlcInfo);
 		
 			/*握手失败，休眠150ms*/
 			try {
@@ -1655,6 +1780,9 @@ public class SKCommThread {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
+		}else{
+			//设置通信异常报警
+			SystemVariable.getInstance().setComErrorAlarm(false);
 		}
 
 		/*清除缓存*/
@@ -1729,6 +1857,10 @@ public class SKCommThread {
 							/*失败*/
 							if(0 != nCheckInfo)
 							{
+								//设置通信异常报警
+								SystemVariable.getInstance().setComErrorAlarm(true);
+								
+								//提示通讯异常	
 								noticCmnFail(nCheckInfo, mPlcInfo);
 								
 								/*握手失败，休眠150ms*/
@@ -1737,16 +1869,25 @@ public class SKCommThread {
 								} catch (InterruptedException e) {
 									e.printStackTrace();
 								}
+							}else{
+								//设置通信异常报警
+								SystemVariable.getInstance().setComErrorAlarm(false);
 							}
 						}
 					}
 				}
+			}else{
+				//设置通信异常报警
+				SystemVariable.getInstance().setComErrorAlarm(false);
 			}
     		
     		/*再次检查检验是否成功*/
     		if(nCheckInfo != 0)
 			{
 				bCheckOk = false;
+				//设置通信异常报警
+				SystemVariable.getInstance().setComErrorAlarm(true);
+				
 				noticCmnFail(nCheckInfo, mPlcInfo);
 			}
 			else
@@ -1774,6 +1915,10 @@ public class SKCommThread {
 			    	if(0 != nCheckInfo)
 	    			{
 	    				bCheckOk = false;
+	    				
+	    				//设置通信异常报警
+						SystemVariable.getInstance().setComErrorAlarm(true);
+	    				
 	    				noticCmnFail(nCheckInfo, mPlcInfo);
 	    			
 	    				/*握手失败，休眠150ms*/
@@ -1787,6 +1932,9 @@ public class SKCommThread {
 	    			else
 	    			{
 	    				bCheckOk = true;
+	    				
+	    				//设置通信异常报警
+						SystemVariable.getInstance().setComErrorAlarm(false);
 	    			}
 
 	    			/*清除缓存*/
@@ -1799,6 +1947,9 @@ public class SKCommThread {
     	}
     	else
     	{
+//    		System.out.println("================2");
+//    		//设置通信异常报警
+//			SystemVariable.getInstance().setComErrorAlarm(false);
     		/*设置通信标志*/
 	    	ProtocolInterfaces.getProtocolInterface().setCmnInfo(0, mPlcInfo);
     		bCheckOk = true;

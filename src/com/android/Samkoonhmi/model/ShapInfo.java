@@ -37,6 +37,16 @@ public class ShapInfo {
 	private int roundRectRadiusY; // 圆角矩形纵向弯度
 	private int nZvalue;
 	private int nCollidindId;
+	private ShowInfo showInfo;//控件显现
+	
+
+	public ShowInfo getShowInfo() {
+		return showInfo;
+	}
+
+	public void setShowInfo(ShowInfo showInfo) {
+		this.showInfo = showInfo;
+	}
 
 	/**
 	 * 多边形

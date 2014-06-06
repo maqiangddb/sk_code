@@ -19,6 +19,7 @@ import android.widget.Toast;
 
 import com.android.Samkoonhmi.graphicsdrawframe.RectItem;
 import com.android.Samkoonhmi.graphicsdrawframe.TextItem;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.KeyBoardButtonInfo;
 import com.android.Samkoonhmi.model.KeyBoardInfo;
 import com.android.Samkoonhmi.model.StaticTextModel;
@@ -76,6 +77,7 @@ public class SKKeyButton extends View{
 	public SKKeyButton(Context context) {
 		super(context);
 		this.context = context;
+		
 	}
 
 	public SKKeyButton(KeyBoardButtonInfo key, Context context) {
@@ -180,6 +182,7 @@ public class SKKeyButton extends View{
 	/**
 	 * 画按钮
 	 */
+	private int nOldColor;
 	public void drawButton(Canvas canvas) {
 		if (isShowFlag){ 
 		// 调用键盘按钮实体类方法
@@ -190,6 +193,13 @@ public class SKKeyButton extends View{
 		
 		item.setLineColor(nFrameColor);// 边框色
 		item.setLineWidth(3);//线条宽度
+		if(isCaps){
+			textModels.setM_nFontColor(Color.RED);
+			textItem.initTextPaint();
+		}else{
+			textModels.setM_nFontColor(keybuttonInfo.getnFontColor());
+			textItem.initTextPaint();
+		}
 		item.setBackColor(nBackColor);// 背景色
 		item.setForeColor(nForeColor);// 前景色
 		item.setStyle(nStyle);// 样式
@@ -207,7 +217,6 @@ public class SKKeyButton extends View{
 			if(bitmaps!=null)
 				canvas.drawBitmap(bitmaps, null, rects, null);
 		}
-	
 		textItem.draw( canvas);// 画文本
 		}
 	}
@@ -226,6 +235,7 @@ public class SKKeyButton extends View{
 
 	private boolean bClickDown;
 	private long nStart=0;
+	private boolean isCaps=false;
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 		SKSceneManage.getInstance().time=0;
@@ -239,8 +249,8 @@ public class SKKeyButton extends View{
 			return false;
 		}
 		
-		if (event.getX()<rectButton.left||event.getX()>rectButton.right
-				||event.getY() < rectButton.top||event.getY() > rectButton.bottom) {
+		if (event.getX()<rectButton.left+3||event.getX()>rectButton.right-3
+				||event.getY() < rectButton.top+3||event.getY() > rectButton.bottom-3) {
 			
 			if (bClickDown) {
 				
@@ -279,7 +289,6 @@ public class SKKeyButton extends View{
 				nFontSize=keybuttonInfo.getnFontSize()*2;// 字体大小
 			}
 			inputText = keybuttonInfo.getASCIIStr();
-			
 			if (callback != null) {
 				if(keybuttonInfo.getKeyOperation()==KEYBOARD_OPERATION.ENTER || keybuttonInfo.getKeyOperation()==KEYBOARD_OPERATION.ESC
 						|| keybuttonInfo.getKeyOperation()==KEYBOARD_OPERATION.CLR || keybuttonInfo.getKeyOperation()==KEYBOARD_OPERATION.DEL){
@@ -317,6 +326,14 @@ public class SKKeyButton extends View{
 			inputText = keybuttonInfo.getASCIIStr();
 			keyOperation = keybuttonInfo.getKeyOperation();
 			
+			if(keyOperation == KEYBOARD_OPERATION.CAPS){	//大小写键
+			    if(isCaps){
+			    	isCaps = false;
+			    }else{
+			    	isCaps = true;
+			    }
+			}
+			
 			if (callback != null) {
 				callback.onResult(inputText, keyOperation,false);
 			}
@@ -333,10 +350,10 @@ public class SKKeyButton extends View{
 			ADDRTYPE addrType = keybuttonInfo.getTouchInfo().geteCtlAddrType();
 			if (addrType == ADDRTYPE.BITADDR) {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						keybuttonInfo.getTouchInfo().getTouchAddrProp(), touchCall, true);
+						keybuttonInfo.getTouchInfo().getTouchAddrProp(), touchCall, true,0);
 			} else {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						keybuttonInfo.getTouchInfo().getTouchAddrProp(), touchCall, false);
+						keybuttonInfo.getTouchInfo().getTouchAddrProp(), touchCall, false,0);
 			}
 		}		
 		// 注册显现通知
@@ -344,10 +361,10 @@ public class SKKeyButton extends View{
 			ADDRTYPE addrType = keybuttonInfo.getShowInfo().geteAddrType();
 			if (addrType == ADDRTYPE.BITADDR) {
 				SKPlcNoticThread.getInstance().addNoticProp(keybuttonInfo.getShowInfo().getShowAddrProp(),
-						showCall, true);
+						showCall, true,0);
 			} else {
 				SKPlcNoticThread.getInstance().addNoticProp(keybuttonInfo.getShowInfo().getShowAddrProp(),
-						showCall, false);
+						showCall, false,0);
 			}
 		}
 	}
@@ -401,8 +418,8 @@ public class SKKeyButton extends View{
 				public void realseMemeory() {
 					// TODO Auto-generated method stub
 					/*注销通知接口*/
-					SKPlcNoticThread.getInstance().destoryCallback(showCall);//显现
-					SKPlcNoticThread.getInstance().destoryCallback(touchCall);//触控
+					//SKPlcNoticThread.getInstance().destoryCallback(showCall);//显现
+					//SKPlcNoticThread.getInstance().destoryCallback(touchCall);//触控
 				}
 				
 				@Override
@@ -448,6 +465,12 @@ public class SKKeyButton extends View{
 				public void setDataToDatabase() {
 					// TODO Auto-generated method stub
 					
+				}
+
+				@Override
+				public IItem getIItem() {
+					// TODO Auto-generated method stub
+					return null;
 				}
 			};
 		}

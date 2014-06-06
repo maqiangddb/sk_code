@@ -5,6 +5,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.Vector;
 
+import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.SKSaveThread.CollectRecordProp;
 import com.android.Samkoonhmi.databaseinterface.SKDataBaseInterface;
 import com.android.Samkoonhmi.model.PlcConnectionInfo;
@@ -19,7 +20,10 @@ import com.android.Samkoonhmi.skenum.DATA_TYPE;
 import com.android.Samkoonhmi.skenum.PROTOCOL_TYPE;
 import com.android.Samkoonhmi.skenum.READ_WRITE_COM_TYPE;
 import com.android.Samkoonhmi.skglobalcmn.DataCollect.HistoryDataProp;
+import com.android.Samkoonhmi.skwindow.SKSceneManage;
+import com.android.Samkoonhmi.skwindow.SKToast;
 import com.android.Samkoonhmi.system.SystemVariable;
+import com.android.Samkoonhmi.system.address.SystemAddress;
 import com.android.Samkoonhmi.util.AddrProp;
 import com.android.Samkoonhmi.util.AddrPropArray;
 import com.android.Samkoonhmi.util.MODULE;
@@ -28,11 +32,13 @@ import com.android.Samkoonhmi.util.PlcCmnWriteCtlObj;
 import com.android.Samkoonhmi.util.PlcSampInfo;
 import com.android.Samkoonhmi.util.SEND_DATA_STRUCT;
 
+import android.app.Activity;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
+import android.widget.Toast;
 
 public class SkGlobalBackThread {
 
@@ -176,7 +182,12 @@ public class SkGlobalBackThread {
 				}
 				
 				/* 通知写数据到数据库 */
-				DataCollect.getInstance().writeGroupDataToFile((EditDataCollectProp) msg.obj);
+				boolean result = DataCollect.getInstance().writeGroupDataToFile((EditDataCollectProp) msg.obj);
+				if(result){
+					SystemVariable.getInstance().writeBitAddr(1, SystemAddress.getInstance().historySave());
+				}else{
+					SystemVariable.getInstance().writeBitAddr(0, SystemAddress.getInstance().historySave());
+				}
 				break;
 			}
 			case MODULE.DELETE_HISTORY_FROM_DATABASE: {
@@ -197,6 +208,15 @@ public class SkGlobalBackThread {
 				/* 删除数据库中的数据 */
 				deleteDatabase((EditDataCollectProp) msg.obj);
 				
+				/* 如果是删除时间段，需要重新init */
+				EditDataCollectProp data = (EditDataCollectProp) msg.obj;
+				//
+				if(data!=null){
+					if(data.nEndTime!=0){
+						DataCollect.getInstance().getCollectNoticHandler().
+							obtainMessage(MODULE.DATA_COLLECT_CLEAR_PART).sendToTarget();
+					}
+				}
 				break;
 			}
 			case MODULE.AFTER_SAVE_DATABASE: {
@@ -270,8 +290,14 @@ public class SkGlobalBackThread {
 			sSqlStr += " where id in(select id from dataCollect"
 					+ mEditData.nGroupId + " order by nMillis limit "
 					+ mEditData.nRecordTimeLen + ")";
+		}else if(mEditData.nEndTime!=0){
+			if(mEditData.bHasEndTime){
+				sSqlStr += " where nMillis>="+mEditData.nStartTime
+						+" and nMillis<="+mEditData.nEndTime;
+			}else {
+				sSqlStr += " where nMillis>="+mEditData.nStartTime;
+			}
 		}
-		
 		//Log.d("SKScene", "delete gid:"+mEditData.nGroupId);
 
 		mCollectDbObj.beginTransaction();

@@ -2,7 +2,8 @@ package com.android.Samkoonhmi.model;
 
 import java.util.List;
 import android.util.Log;
-
+import com.android.Samkoonhmi.skenum.HMIMODEL;
+import com.android.Samkoonhmi.skenum.PRINT_MODEL;
 import com.android.Samkoonhmi.util.AddrProp;
 import com.android.Samkoonhmi.util.ParameterSet;
 import com.android.Samkoonhmi.util.SystemParam;
@@ -44,10 +45,64 @@ public class SystemInfo {
 	private static List<String> userNameList;
 	private static boolean bBitScene; // 位地址控制画面切换
 	private static List<BitSceneModle> bitSceneList;// 位控制画面切换集合
-	private  static short bSimulator; // 在线模拟还是离线模拟, 0: 屏上运行（默认）1：是离线， 2：是在线
-	private static String sTgNum;//3g号码
-	private static String sSmsMsg;//发送内容
+	private static short bSimulator; // 在线模拟还是离线模拟, 0: 屏上运行（默认）1：是离线， 2：是在线
+	private static String sTgNum;// 3g号码
+	private static String sSmsMsg;// 发送内容
+	private static String strHmiName;// 别名
+	private static boolean bLockIcon;// 权限不足是否显示锁
+	private static String strMonitor;// 远程监控密码
+	private static int nMonitorPort ;//远程监控端口
+	private static HMIMODEL model;//触摸屏型号
+	private static PRINT_MODEL mPrintModel;//打印机型号
 	
+	public static PRINT_MODEL getmPrintModel() {
+		return mPrintModel;
+	}
+
+	public static void setmPrintModel(PRINT_MODEL mPrintModel) {
+		SystemInfo.mPrintModel = mPrintModel;
+	}
+
+	public static HMIMODEL getModel() {
+		return model;
+	}
+
+	public static void setModel(HMIMODEL model) {
+		SystemInfo.model = model;
+	}
+
+	public static int getnMonitorPort() {
+		return nMonitorPort;
+	}
+
+	public static void setnMonitorPort(int nMonitorPort) {
+		SystemInfo.nMonitorPort = nMonitorPort;
+	}
+
+	public static String getStrHmiName() {
+		return strHmiName;
+	}
+
+	public static void setStrHmiName(String strHmiName) {
+		SystemInfo.strHmiName = strHmiName;
+	}
+
+	public static boolean isbLockIcon() {
+		return bLockIcon;
+	}
+
+	public static void setbLockIcon(boolean bLockIcon) {
+		SystemInfo.bLockIcon = bLockIcon;
+	}
+
+	public static String getStrMonitor() {
+		return strMonitor;
+	}
+
+	public static void setStrMonitor(String strMonitor) {
+		SystemInfo.strMonitor = strMonitor;
+	}
+
 	public static String getsTgNum() {
 		return sTgNum;
 	}
@@ -63,7 +118,6 @@ public class SystemInfo {
 	public static void setsSmsMsg(String sSmsMsg) {
 		SystemInfo.sSmsMsg = sSmsMsg;
 	}
-
 
 	public static short getbSimulator() {
 		return bSimulator;

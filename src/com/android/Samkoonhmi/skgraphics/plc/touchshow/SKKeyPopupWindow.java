@@ -8,6 +8,7 @@ import android.os.Looper;
 import android.os.Message;
 //import android.renderscript.Element.DataType;
 //import android.util.Log;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -77,6 +78,20 @@ public class SKKeyPopupWindow {
 		this.check = checkNum;
 		this.nSceneId = nSceneId;
 		this.myDataType = dataType;
+		
+		//键盘实体类
+		if (keyInfo == null) {
+			keyInfo = new KeyBoardInfo();
+			//数据库
+			if (keys == null) {
+				keys = new KeyBroadBiz();
+			}
+			keyInfo = keys.selectKeyBorad(nSceneId);
+		}
+		nWidth=keyInfo.getNkeyWidth();
+		nHeight=keyInfo.getNkeyHeight();
+		if(nWidth==0) nWidth=320;
+		if(nHeight==0) nHeight=230;
 //		flag = true;
 		keyFlagIsShow=true;
 	}
@@ -91,6 +106,7 @@ public class SKKeyPopupWindow {
 		key.setMax(getShowMax());// 最大值
 		key.setMin(getShowMin());// 最小值
 		key.setChecks(check);// 输入判断
+		key.setInputType(inputType);
 		key.setToaskStartX(getnStartX());
 		key.setToaskStartY(getnStartY());
 		key.setPass(isPassWord());
@@ -99,19 +115,6 @@ public class SKKeyPopupWindow {
 		key.setLister(lister);
 		key.setDataType(myDataType);
 
-		//键盘实体类
-		if (keyInfo == null) {
-			keyInfo = new KeyBoardInfo();
-			//数据库
-			if (keys == null) {
-				keys = new KeyBroadBiz();
-			}
-			keyInfo = keys.selectKeyBorad(nSceneId);
-		}
-		nWidth=keyInfo.getNkeyWidth();
-		nHeight=keyInfo.getNkeyHeight();
-		if(nWidth==0) nWidth=320;
-		if(nHeight==0) nHeight=230;
 		mPopupWindow = new PopupWindow(mview, nWidth, nHeight);
 		
 	}
@@ -120,31 +123,42 @@ public class SKKeyPopupWindow {
 	 * 显示弹出窗口
 	 */
 	public void showPopUpWindow() {
-		if (mPopupWindow == null) {
-			initPopUpWindow();
-		}
-		keyFlagIsShow = false;
-		mPopupWindow.setFocusable(true);
-		mPopupWindow.update();
-		key.setbFirstClick(true);
-		//第一次弹出键盘界面，不包含按键信息
-		mPopupWindow.showAtLocation(SKSceneManage.getInstance().getCurrentScene(), Gravity.NO_GRAVITY, getnStartX(), getnStartY());
-		if (key!=null) {
-			if(lastText==null||lastText.equals("")){
-				if (check) {
-					key.setInputStr("0");
-				}else {
-					key.setInputStr("");
-				}
-			}else {
-				key.setInputStr(lastText);
+		try {
+			if (!SKSceneManage.getInstance().isbWindowFocus()) {
+				//窗口未获取焦点
+				Log.e("AKPopupWindow", "no window forcus ...");
+				return ;
 			}
+			if (mPopupWindow == null) {
+				initPopUpWindow();
+			}
+			keyFlagIsShow = false;
+			mPopupWindow.setFocusable(true);
+			mPopupWindow.update();
+			key.setbFirstClick(true);
+			//第一次弹出键盘界面，不包含按键信息
+			mPopupWindow.showAtLocation(SKSceneManage.getInstance().getCurrentScene(), Gravity.NO_GRAVITY, getnStartX(), getnStartY());
+			if (key!=null) {
+				if(lastText==null||lastText.equals("")){
+					if (check) {
+						key.setInputStr("0");
+					}else {
+						key.setInputStr("");
+					}
+				}else {
+					key.setInputStr(lastText);
+				}
+			}
+			
+			if (mHandler == null) {
+				mHandler = new MainUIHandler(Looper.getMainLooper());
+			}
+			mHandler.sendEmptyMessageDelayed(LOAD_DATA, 5);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e("SKKeyPopupWindow", "showPopUpWindow error !!!");
 		}
-		
-		if (mHandler == null) {
-			mHandler = new MainUIHandler(Looper.getMainLooper());
-		}
-		mHandler.sendEmptyMessageDelayed(LOAD_DATA, 5);
 		
 	}
 
@@ -152,13 +166,18 @@ public class SKKeyPopupWindow {
 	 * 关闭pop
 	 */
 	public void closePop() {
-		if (mPopupWindow != null && mPopupWindow.isShowing()) {// 当pop不为空并且显示的时候
-			mPopupWindow.dismiss();// 关闭pop
-//			flag = true;
-			mPopupWindow.setFocusable(false);
-			keyFlagIsShow = true;
-			mPopupWindow = null;
+		try {
+			if (mPopupWindow != null && mPopupWindow.isShowing()) {// 当pop不为空并且显示的时候
+				mPopupWindow.dismiss();// 关闭pop
+				mPopupWindow.setFocusable(false);
+				keyFlagIsShow = true;
+				mPopupWindow = null;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e("SKKeyPopupWindow", "closePop !!! ");
 		}
+		
 	}
 
 	public class MainUIHandler extends Handler {
@@ -308,5 +327,36 @@ public class SKKeyPopupWindow {
 
 	public void setPassWord(boolean isPassWord) {
 		this.isPassWord = isPassWord;
+	}
+	
+	public int getKeyboardWidth(){
+		return nWidth;
+		
+	}
+	
+	public int getKeyboardHeigh(){
+		return  nHeight;
+	}
+	/**
+	 * -- 输入类型判断
+	 * @param type  true/false: 数字键盘/带字母的键盘
+	 */
+	public void setKeyType(boolean type){
+		check = type;
+		if(key != null){
+			key.setChecks(check);
+		}
+	}
+	
+	private boolean inputType=true;
+	/**
+	 * 设置输入类型
+	 * @param type-true,数字； type-false 字符串
+	 */
+	public void setInputType(boolean type){
+		inputType=type;
+		if (key!=null) {
+			key.setInputType(type);
+		}
 	}
 }

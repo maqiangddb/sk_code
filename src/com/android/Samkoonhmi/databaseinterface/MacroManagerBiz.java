@@ -20,7 +20,7 @@ public class MacroManagerBiz extends DataBase{
 	
 	/**
 	 * 查询所有初始化宏指令的ID
-	 * */
+	 **/
 	public ArrayList<Short> selectInitMacroIDList(){
 		
 		mDB = SkGlobalData.getProjectDatabase();

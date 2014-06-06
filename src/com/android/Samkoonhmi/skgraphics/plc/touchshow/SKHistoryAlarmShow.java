@@ -1,28 +1,28 @@
 package com.android.Samkoonhmi.skgraphics.plc.touchshow;
 
 import java.sql.Date;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.List;
 import java.util.Vector;
-
-import android.R.integer;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Message;
-import android.util.Log;
+import android.view.Gravity;
 import android.view.MotionEvent;
-
-import com.android.Samkoonhmi.SKSaveThread;
+import android.widget.Toast;
+import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.SKThread;
 import com.android.Samkoonhmi.databaseinterface.DBTool;
 import com.android.Samkoonhmi.graphicsdrawframe.DragTable;
+import com.android.Samkoonhmi.graphicsdrawframe.HTitleItem.EnterKeyCallBack;
 import com.android.Samkoonhmi.model.DragTableInfo;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.RowCell;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.SystemInfo;
@@ -39,6 +39,7 @@ import com.android.Samkoonhmi.skwindow.SKSceneManage;
 import com.android.Samkoonhmi.skwindow.SKTableRowNum;
 import com.android.Samkoonhmi.util.AlarmGroup;
 import com.android.Samkoonhmi.util.AlarmSaveThread;
+import com.android.Samkoonhmi.util.ContextUtl;
 import com.android.Samkoonhmi.util.DateStringUtil;
 import com.android.Samkoonhmi.util.MODULE;
 import com.android.Samkoonhmi.util.SKLanguage;
@@ -49,7 +50,7 @@ import com.android.Samkoonhmi.util.TextAlignUtil;
  * 报警历史显示器
  * @author 刘伟江 创建时间 2012-7-14
  */
-public class SKHistoryAlarmShow extends SKGraphCmnTouch {
+public class SKHistoryAlarmShow extends SKGraphCmnTouch implements IItem {
 
 	private static final String TAG = "SKHistoryAlarmShow";
 	private static final int DELAY=10;
@@ -105,6 +106,7 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 	private TableLoadInfo mLoadInfo;
 	private boolean bFull;//是否才满
 	private int nShowType;//当显示受地址范围限制时，0-表示所有，1-表示部分
+
 	
 	public SKHistoryAlarmShow(int itemId, int sceneId, Context context,AlarmHisShowInfo info) {
 		this.nItemId = itemId;
@@ -116,57 +118,20 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 		this.info=info;
 		this.nShowType=0;
 		mLoadInfo=new TableLoadInfo();
-	}
-
-	@Override
-	public void initGraphics() {
-		init();
-	}
-
-	// 画面管理调用控件刷新方法
-	@Override
-	public boolean drawGraphics(Canvas canvas, int itemId) {
-		if (show) {
-			if (itemId == nItemId && (info != null)) {
-				dTable.draw(canvas);
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
-	 * 初始化表格每一格的宽高
-	 */
-	private void init() {
-		if (info == null) {
-			return;
-		}
-		this.show = true;
-		this.touch = true;
-		this.showByAddr = false;
-		this.touchByAddr = false;
-		this.showByUser = false;
-		this.touchByUser = false;
-		this.bAddIng=false;
-		this.flag = false;
-
-		// 初始化表格内容
-		initTableItem();
 		
-		if (items==null) {
-			Rect rect = new Rect(info.getnLeftTopX(), info.getnLeftTopY(),
-					info.getnLeftTopX() + info.getnWidth(),
-					info.getnLeftTopY() + info.getnHeight());
-			// 刷新信息
-			items = new SKItems();
-			items.itemId = nItemId;
-			items.sceneId = nSceneId;
-			items.nZvalue = info.getnZvalue();
-			items.nCollidindId = info.getnCollidindId();
-			items.rect = rect;
-			items.mGraphics=this;
-		}
+		Rect rect = new Rect(info.getnLeftTopX(), info.getnLeftTopY(),
+				info.getnLeftTopX() + info.getnWidth(),
+				info.getnLeftTopY() + info.getnHeight());
+		// 刷新信息
+		items = new SKItems();
+		items.itemId = nItemId;
+		items.sceneId = nSceneId;
+		items.nZvalue = info.getnZvalue();
+		items.nCollidindId = info.getnCollidindId();
+		items.rect = rect;
+		items.mGraphics=this;
+		
+		initTableItem();
 		
 		if (dTable==null) {
 			DragTableInfo dInfo = new DragTableInfo();
@@ -198,6 +163,7 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 			dInfo.setmHTypeFace(mType);
 			dInfo.setnRow((short) (info.getnRowCount()+1));
 			dInfo.setnRank((short) mRankCount);
+			dInfo.setnDataRank((short)mRankCount);
 			dInfo.setnWidth(info.getnWidth());
 			dInfo.setnHeight(info.getnHeight());
 			dInfo.setnLeftTopX(info.getnLeftTopX());
@@ -209,9 +175,109 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 			dTable.setiPageTurning(iTurning);
 			dTable.init(null);
 			dTable.initData(mRowCells, mHList,0);
+			dTable.getHTitleItem().setDrawEnterKey(false);
+			dTable.setEnterKeyShow(true);
+			dTable.getHTitleItem().SetEnterKeyCallBack(titleKeyCallBack);
 			dTable.drawTable();
 			
 		}
+		
+		this.show = true;
+		this.touch = true;
+		this.showByAddr = false;
+		this.touchByAddr = false;
+		this.showByUser = false;
+		this.touchByUser = false;
+		
+		// 显现权限
+		if (info.getmShowInfo() != null) {
+			if (info.getmShowInfo().getShowAddrProp() != null) {
+				// 受地址控制
+				showByAddr = true;
+			}
+			if (info.getmShowInfo().isbShowByUser()) {
+				// 受用户权限控制
+				showByUser = true;
+			}
+		}
+
+		// 触控权限
+		if (info.getmTouchInfo() != null) {
+			if (info.getmTouchInfo().getTouchAddrProp() != null) {
+				// 受地址控制
+				touchByAddr = true;
+			}
+
+			if (info.getmTouchInfo().isbTouchByUser()) {
+				// 受用户权限控制
+				touchByUser = true;
+			}
+		}
+
+		// 注册显现地址
+		if (showByAddr) {
+			ADDRTYPE addrType = info.getmShowInfo().geteAddrType();
+			if (addrType == ADDRTYPE.BITADDR) {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						info.getmShowInfo().getShowAddrProp(), showCall, true,
+						nSceneId);
+			} else {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						info.getmShowInfo().getShowAddrProp(), showCall, false,
+						nSceneId);
+			}
+
+		}
+
+		// 注册触控地址
+		if (touchByAddr) {
+			ADDRTYPE addrType = info.getmTouchInfo().geteCtlAddrType();
+			if (addrType == ADDRTYPE.BITADDR) {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						info.getmTouchInfo().getTouchAddrProp(), touchCall,
+						true, nSceneId);
+			} else {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						info.getmTouchInfo().getTouchAddrProp(), touchCall,
+						false, nSceneId);
+			}
+		}
+
+		if (info.isbControl()) {
+			SKPlcNoticThread.getInstance().addNoticProp(info.getmControlAddr(),
+					contralCall, false, nSceneId);
+		}
+	}
+
+	@Override
+	public void initGraphics() {
+		init();
+	}
+
+	// 画面管理调用控件刷新方法
+	@Override
+	public boolean drawGraphics(Canvas canvas, int itemId) {
+		if (show) {
+			if (itemId == nItemId && (info != null)) { 
+				dTable.draw(canvas);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 初始化表格每一格的宽高
+	 */
+	private void init() {
+		if (info == null) {
+			return; 
+		}
+		this.bAddIng=false;
+		this.flag = false;
+
+		// 初始化表格内容
+		initTableItem();
 		
 		// 注册通知
 		register();
@@ -227,10 +293,36 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 		mLoadInfo.nLoadType=0;
 		mLoadInfo.nLoadCount=info.getnRowCount();
 		
+		
 		SKSceneManage.getInstance().onRefresh(items);
 		AlarmGroup.getInstance().saveAlarmData(0, 1, alarmCall,nTaskId ,null);
 		
+		
 	}
+	
+	private EnterKeyCallBack titleKeyCallBack = new EnterKeyCallBack(){
+
+		@Override
+		public void onPress() {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void onLongTouch(int x, int y) {
+			// TODO Auto-generated method stub
+			int colum = dTable.getTouchColum(x);
+			if (colum >= 0 && colum < mHList.size() ) {
+				Toast toast = Toast.makeText(ContextUtl.getInstance(), mHList.get(colum), Toast.LENGTH_SHORT);
+				int offsetX = dTable.getHTitleRect(colum).centerX();
+				int offsetY = dTable.getHTitleRect(colum).bottom;
+				toast.setGravity(Gravity.LEFT| Gravity.TOP, offsetX, offsetY);
+				toast.show();
+				
+			}
+		}
+		
+	};
 
 	/**
 	 * 初始化表格
@@ -308,7 +400,7 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 		@Override
 		public void onLongClick(int index, int gid, int aid, int type) {
 			SKSceneManage.getInstance().time=0;
-			if (nAllCount<info.getnRowCount()) {
+			if (nAllCount<info.getnRowCount() ||!touch) {
 				return;
 			}
 			if (mTableRowNum==null||!mTableRowNum.isShow) {
@@ -321,9 +413,10 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 		@Override
 		public void onDoubleClick(int index, int gid, int aid, int type) {
  			SKSceneManage.getInstance().time=0;
-			if (mRowCells==null||mRowCells.size()==0||index==-1) {
+			if (mRowCells==null||mRowCells.size()==0||index==-1  || !touch) {
 				return;
 			}
+			
 			boolean result=true;
 			if (mRowCells.size()>index) {
 				RowCell item=mRowCells.get(index);
@@ -342,14 +435,63 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 			if (result) {
 				SKThread.getInstance().getBinder().onTask(MODULE.ALARM, TASK.ALARM_CONFIRM_REFRESH, tTaskName,gid,aid+"");
 			}
+			
 		}
 
 		@Override
 		public void onClick(int index, int gid, int aid, int type) {
 			SKSceneManage.getInstance().time=0;
+			if (mRowCells==null||mRowCells.size()==0||index==-1  || !touch) {
+				return;
+			}
+			
+			if (mRowCells.size() > index) {
+				RowCell item=mRowCells.get(index);
+				if (item.nClear > 0 && item.gid==gid && item.aid==aid) {
+					//AlarmGroup.getInstance().deleteAlarm(gid, aid);
+					showDelDialog(gid, aid);
+				}
+			}
 		}
 		
 	};
+	
+	private AlertDialog delDialog;
+	private void showDelDialog( final int gid, final int aid){
+		dismissDelDialog();
+		
+		 DialogInterface.OnClickListener mListener = new DialogInterface.OnClickListener() {
+			
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				// TODO Auto-generated method stub
+				if (which == DialogInterface.BUTTON_POSITIVE) {
+					ArrayList<Integer> bean = new ArrayList<Integer>();
+					bean.add(gid);
+					bean.add(aid);
+					AlarmGroup.getInstance().saveAlarmData(4, 1, alarmCall,nTaskId, bean);
+				}
+				else {
+					dismissDelDialog();
+				}
+				
+			}
+		};
+		
+		delDialog =  new AlertDialog.Builder(SKSceneManage.getInstance().getActivity()).create();
+		delDialog.setCanceledOnTouchOutside(false);
+		delDialog.setMessage(ContextUtl.getInstance().getText(R.string.confirm_operation));
+		delDialog.setButton(DialogInterface.BUTTON_POSITIVE, ContextUtl.getInstance().getText(R.string.email_sure), mListener);
+		delDialog.setButton(DialogInterface.BUTTON_NEGATIVE, ContextUtl.getInstance().getText(R.string.email_cancel),mListener);
+		delDialog.show();
+	}
+	
+	private void dismissDelDialog(){
+		if (delDialog != null && delDialog.isShowing()) {
+			delDialog.cancel();
+		}
+		delDialog = null;
+	}
 	
 	/**
 	 * 翻页
@@ -473,7 +615,6 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 	 */
 	private synchronized void initData(ArrayList<AlarmDataInfo> list,int type,int top,int end){
 		
-		//Log.d(TAG, "init type:"+type+",top:"+top+",list:"+list.size());
 		
 		int loadNum=0;
 		mRowCells.clear();
@@ -604,12 +745,14 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 	@Override
 	public boolean isShow() {
 		itemShow();
+		SKSceneManage.getInstance().onRefresh(items);
 		return show;
 	}
 
 	@Override
 	public boolean isTouch() {
 		itemTouch();
+		SKSceneManage.getInstance().onRefresh(items);
 		return touch;
 	}
 
@@ -635,7 +778,7 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 		SKSceneManage.getInstance().time=0;
-		if (!show || !touch||info==null) {
+		if (!show||info==null) {
 			return false;
 		}
 		if (dTable != null) {
@@ -650,61 +793,10 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 	}
 
 	private void register() {
-		// 显现权限
-		if (info.getmShowInfo() != null) {
-			if (info.getmShowInfo().getShowAddrProp()!=null) {
-				// 受地址控制
-				showByAddr = true;
-			}
-			if (info.getmShowInfo().isbShowByUser()) {
-				// 受用户权限控制
-				showByUser = true;
-			}
-		}
-
-		// 触控权限
-		if (info.getmTouchInfo() != null) {
-			if (info.getmTouchInfo().getTouchAddrProp()!=null) {
-				// 受地址控制
-				touchByAddr = true;
-			}
-
-			if (info.getmTouchInfo().isbTouchByUser()) {
-				// 受用户权限控制
-				touchByUser = true;
-			}
-		}
-
-		// 注册显现地址
-		if (showByAddr) {
-			ADDRTYPE addrType = info.getmShowInfo().geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmShowInfo().getShowAddrProp(), showCall,
-						true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmShowInfo().getShowAddrProp(), showCall,
-						false);
-			}
-
-		}
-
-		// 注册触控地址
-		if (touchByAddr) {
-			ADDRTYPE addrType = info.getmTouchInfo().geteCtlAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmTouchInfo().getTouchAddrProp(),
-						touchCall, true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(info.getmTouchInfo().getTouchAddrProp(),
-						touchCall, false);
-			}
-		}
 		
-		if (info.isbControl()) {
-			SKPlcNoticThread.getInstance().addNoticProp(info.getmControlAddr(), contralCall, false);
+		if (SystemInfo.getLanguageNumber()>1) {
+			SKLanguage.getInstance().getBinder().onRegister(lCallback);
 		}
-		
-		SKLanguage.getInstance().getBinder().onRegister(lCallback);
 		
 		/**
 		 * 注册报警登录
@@ -737,6 +829,7 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 			return;
 		}
 		//long start=System.currentTimeMillis();
+		
 		
 		if (nAllCount<=info.getnRowCount()) {
 			bLast=true;
@@ -855,14 +948,17 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 		if (list == null || list.size() == 0 || mRowCells == null) {
 			return;
 		}
-		
+
+		if(mRowCells.size() == 0){
+			getSynList().addAll(list);
+		}
+	
 		//long start=System.currentTimeMillis();
 		for (int j = list.size() - 1; j >= 0; j--) {
 			AlarmDataInfo ainfo = list.get(j);
 			if (ainfo == null) {
 				break;
 			}
-
 			getTime(info.geteClearTimeFormat(), info.geteClearDateFormat(),
 					null, 2);
 
@@ -1047,6 +1143,16 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 		return savelist;
 	}
 	
+	
+	//首次启动时，如果有报警消除， 报警消除可能会在界面刷新前调用，导致报警显示状态错误,用此数组进行同步
+	private ArrayList<AlarmDataInfo> mSynList = new ArrayList<AlarmDataInfo>();
+	private Object synObject = new Object();
+	private ArrayList<AlarmDataInfo> getSynList(){
+		synchronized (synObject) {
+			return mSynList;
+		}
+	}
+	
 	/**
 	 * 注册报警登录
 	 */
@@ -1055,10 +1161,12 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 		@Override
 		public void onClose(ArrayList<AlarmDataInfo> templist) {
 			//报警消除
+			
 			ArrayList<AlarmDataInfo> list = getSaveAlarmList(templist);
+			
 			if (list==null||list.size()==0) {
 				return;
-			}
+			}	
 			if (tTaskName.equals("")) {
 				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
 			}
@@ -1134,12 +1242,6 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 		@Override
 		public void onConfirm(ArrayList<Integer> confrimList) {
 			//报警确定
-//			if (tTaskName.equals("")) {
-//				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
-//			}
-//			SKThread.getInstance().getBinder()
-//			.onTask(MODULE.ALARM, TASK.ALARM_CONFIRM_REFRESH, tTaskName,0,"");
-			
 			if (tTaskName.equals("")) {
 				tTaskName=SKThread.getInstance().getBinder().onRegister(tCallback);
 			}
@@ -1259,7 +1361,21 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 			}
 			
 			ArrayList<AlarmDataInfo> list=null;
-			list=DBTool.getInstance().getmAlarmBiz().selectAllMsg(nStartTime,nEndTime,mLoadInfo.nRowIndex,mLoadInfo.nLoadCount);
+			list=DBTool.getInstance().getmAlarmBiz().selectAllMsg(nStartTime,nEndTime,mLoadInfo.nRowIndex,mLoadInfo.nLoadCount);	
+			ArrayList<AlarmDataInfo> synList = getSynList();
+			if (list != null) {
+				for(int i = 0; i < list.size(); i++){
+					AlarmDataInfo bean = list.get(i);
+					for(int j = 0; j <synList.size(); j++){
+						AlarmDataInfo tempBean = synList.get(j);
+						if (bean.getnGroupId() == tempBean.getnGroupId() && bean.getnAlarmIndex() == tempBean.getnAlarmIndex()) {
+							bean.setnClear((short)2);
+							break;
+						}
+					}
+				}
+				synList.clear();
+			}
 			initData(list,mLoadInfo.nLoadType,mLoadInfo.nRowIndex,mLoadInfo.nEndIndex);//数据查询
 		}
 		}
@@ -1285,16 +1401,12 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 	@Override
 	public void realseMemeory() {
 		
-		if (info!=null) {
-			if (info.isbControl()) {
-				SKPlcNoticThread.getInstance().destoryCallback(contralCall);
-			}
+		dismissDelDialog();
+		if (SystemInfo.getLanguageNumber()>1) {
+			SKLanguage.getInstance().getBinder().onDestroy(lCallback);
 		}
-		SKLanguage.getInstance().getBinder().onDestroy(lCallback);
 		AlarmGroup.getInstance().getBinder().onDestroy(alarmCall);
 		SKThread.getInstance().getBinder().onDestroy(tCallback, tTaskName);
-		SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		SKPlcNoticThread.getInstance().destoryCallback(touchCall);
 		tTaskName = "";
 		sAlarmDate="";
 		sClearDate="";
@@ -1338,7 +1450,6 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 	};
 	
 	
-	private int preTimeState = 0;
 	/**
 	 * 报警查询时间范围
 	 */
@@ -1346,22 +1457,6 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 		if (data.size()<13) {
 			return;
 		}
-		//判断flag 0、1 代表  显示所有、根据时间范围进行显示。
-		int flag = PlcRegCmnStcTools.intToBCD_16(data.get(0));
-		if (flag != 1) {
-			nStartTime = 0;
-			nEndTime = 0;
-			
-			if (preTimeState == 1) {
-				mLoadInfo.nLoadType=0;
-				mLoadInfo.nLoadCount=info.getnRowCount();
-				AlarmGroup.getInstance().saveAlarmData(0, 1, alarmCall,nTaskId, null);
-			}
-			preTimeState = 0;
-			
-			return ;
-		}
-		preTimeState = 1;
 		int[] time=new int[]{0,0,0,0,0,0,0,0,0,0,0,0};
 		
 		int type=0;
@@ -1581,4 +1676,322 @@ public class SKHistoryAlarmShow extends SKGraphCmnTouch {
 	}
 	
 	
+	/**
+	 * 控件对外接口
+	 */
+	
+	public IItem getIItem(){
+		return this;
+	}
+	
+	@Override
+	public int getItemLeft(int id) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			return info.getnLeftTopX();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			return info.getnLeftTopY();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO 自动生成的方法存根
+		if(info!=null){
+			return info.getnWidth();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO 自动生成的方法存根
+		if(info!=null){
+			return info.getnHeight();
+		}
+		return -1;
+	}
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO 自动生成的方法存根
+		return null;
+	}
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			return getColor(info.getnTableColor());
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO 自动生成的方法存根
+		if(info!=null){
+			return getColor(info.getnFrameColor());
+		}
+		return null;
+	}
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO 自动生成的方法存根
+		return show;
+	}
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO 自动生成的方法存根
+		return touch;
+	}
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if (x<0||x>SKSceneManage.getInstance().getCurrentScene().nSceneWidth) {
+				return false;
+			}
+			if (x==info.getnLeftTopX()) {
+				return true;
+			}
+			info.setnLeftTopX((short)x);
+			int l=items.rect.left;
+			items.rect.left=x;
+			items.rect.right=x-l+items.rect.right;
+			items.mMoveRect=new Rect();
+			dTable.resetLeftTopX(x);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		
+		return false;
+	}
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if (y<0||y>SKSceneManage.getInstance().getCurrentScene().nSceneHeight) {
+				return false;
+			}
+			if (y==info.getnLeftTopY()) {
+				return true;
+			}
+			info.setnLeftTopY((short)y);
+			int t = items.rect.top;
+			items.rect.top = y;
+			items.rect.bottom = y - t + items.rect.bottom;
+			items.mMoveRect=new Rect();
+			dTable.resetLeftTopY(y);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if(w<0||w>SKSceneManage.getInstance().getCurrentScene().nSceneWidth){
+				return false;
+			}
+			if(w==info.getnWidth()){
+				return true;
+			}
+			info.setnWidth((short)w);
+			items.rect.right = w - items.rect.width() + items.rect.right;
+			items.mMoveRect=new Rect();
+			dTable.resetWidth(w);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO 自动生成的方法存根
+		if (info!=null) {
+			if (h<0||h>SKSceneManage.getInstance().getCurrentScene().nSceneHeight) {
+				return false;
+			}
+			if(h==info.getnHeight()){
+				return true;
+			}
+			info.setnHeight((short)h);
+			items.rect.bottom = h - items.rect.height() + items.rect.bottom;
+			items.mMoveRect=new Rect();
+			dTable.resetHeigth(h);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		if (info==null) {
+			return false;
+		}
+		
+		int color=Color.rgb(r, g, b);
+		
+		if (color==info.getnTableColor()) {
+			return true;
+		}
+		info.setnTableColor(color);
+		dTable.resetBackcolor(color);
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO 自动生成的方法存根
+		if (info==null) {
+			return false;
+		}
+		
+		int color=Color.rgb(r, g, b);
+		
+		if (color==info.getnFrameColor()) {
+			return true;
+		}
+		info.setnFrameColor(color);
+		dTable.resetLinecolor(color);
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		if (v==show) {
+			return true;
+		}
+		show=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		if (v==touch) {
+			return true;
+		}
+		touch=v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			dTable.turnPage(0);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			dTable.turnPage(1);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			int type=0;
+			if (w<0) {
+				type=1;
+			}
+			dTable.moveRank(type,Math.abs(w));
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO 自动生成的方法存根
+		if (dTable!=null) {
+			int type=0;
+			if(h<0){
+				type=1;
+			}
+			dTable.moveRow(type, Math.abs(h));
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO 自动生成的方法存根
+		return false;
+	}
+	
+	/**
+	 * 颜色取反
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
+	}
 }

@@ -1,10 +1,7 @@
 package com.android.Samkoonhmi.databaseinterface;
 
 import java.util.ArrayList;
-import java.util.List;
-
 import android.database.Cursor;
-
 import com.android.Samkoonhmi.model.AcillInputInfo;
 import com.android.Samkoonhmi.model.ShowInfo;
 import com.android.Samkoonhmi.model.TouchInfo;
@@ -18,9 +15,7 @@ import com.android.Samkoonhmi.util.AddrProp;
 
 /**
  * Acill输入显示器
- * 
  * @author Administrator
- * 
  */
 public class AcillInputBiz extends DataBase {
 	private SKDataBaseInterface db;
@@ -40,7 +35,8 @@ public class AcillInputBiz extends DataBase {
 		if (null == db) {
 			db = SkGlobalData.getProjectDatabase();
 		}
-		String id = "";
+		
+		StringBuffer id = new StringBuffer();
 		boolean init = true;
 		Cursor cursor = db.getDatabaseBySql(
 				"select * from dataShow where eItemType=2 and  nSceneId=?", new String[] { sceneId
@@ -95,29 +91,38 @@ public class AcillInputBiz extends DataBase {
 				
 				list.add(info);
 				if (init) {
-					id += " nItemId=" + info.getId();
+					id.append(" nItemId in(" + info.getId());
 					init = false;
 				} else {
-					id += " or nItemId=" + info.getId();
+					id.append("," + info.getId());
 				}
 
 			}
 		}
 		close(cursor);
+		
+		id.append(")");
+		String sId=id.toString();
 		AcillInputInfo info = null;
 		int nItemId = -1;
-		cursor = db.getDatabaseBySql("select * from  ascii where " + id, null);
+		cursor = db.getDatabaseBySql("select * from  ascii where " + sId, null);
+		int index=0;
+		
 		if (null != cursor) {
 			while (cursor.moveToNext()) {
 				if (nItemId != cursor.getInt(cursor.getColumnIndex("nItemId"))) {
 					nItemId = cursor.getInt(cursor.getColumnIndex("nItemId"));
-					for (int i = 0; i < list.size(); i++) {
-						if (list.get(i).getId() == nItemId) {
-							info = list.get(i);
-							break;
+					if (list.get(index).getId()==nItemId) {
+						info = list.get(index);
+					}else{
+						for (int i = 0; i < list.size(); i++) {
+							if (list.get(i).getId() == nItemId) {
+								info = list.get(i);
+								break;
+							}
 						}
 					}
-
+					index++;
 				}
 				if (null != cursor.getString(cursor.getColumnIndex("bIsinput"))) {
 					info.setbIsinput(cursor.getString(
@@ -175,6 +180,17 @@ public class AcillInputBiz extends DataBase {
 							cursor.getColumnIndex("bAutoChangeBit")).equals(
 							"true") ? true : false);
 				}
+				boolean inputIsShow = cursor.getString(
+						cursor.getColumnIndex("bInputIsShow")).equals("true") ? true
+						: false;
+				info.setInputIsShow(inputIsShow);
+                if(!inputIsShow)
+                {
+            		int nInputAddrId=cursor.getInt(cursor.getColumnIndex("nInputAddr"));
+    				if (nInputAddrId>-1) {
+    					info.setInputAddr(AddrPropBiz.selectById(nInputAddrId));
+    				}	
+                }
 
 			}
 		}

@@ -66,6 +66,10 @@ public class ITEM_TABLE_TYPE {
 	public static final int MESSAGE_BOARD=37;
 	//多功能按钮
 	public static final int FUN_SWITCH=38;
+	//下拉框
+	public static final int DRAGDOWN_BOX=39;
+	//XY曲线
+	public static final int XY_CURVE=40;
 	//组合
 	public static final int GROUP_SHAPE=100;
 	
@@ -88,7 +92,7 @@ public class ITEM_TABLE_TYPE {
 	//组合item
 	public static final int GROUP=BASE+23;
 	//图片基类
-	public static final int PIXMAP=BASE+24;
+	//public static final int PIXMAP=BASE+24;
 	//圆弧
 	public static final int LINECIRCLE=BASE+25;
 	//圆角矩形

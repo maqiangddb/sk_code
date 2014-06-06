@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.android.Samkoonhmi.model.CalibrationModel;
+import com.android.Samkoonhmi.model.ShowInfo;
 import com.android.Samkoonhmi.skenum.CALIBRATION_DIRECTION;
 import com.android.Samkoonhmi.skenum.IntToEnum;
 import com.android.Samkoonhmi.skglobalcmn.SkGlobalData;
@@ -57,6 +58,8 @@ public class CalibrationBiz extends DataBase {
 			//	info.setShowLateral(cursor.getString(cursor.getColumnIndex("bShowLeteral")).equals("true")?true:false);
 				info.setMainNumberCount(cursor.getInt(cursor.getColumnIndex("nMainNumberCount")));
 				info.setNextNumberCount(cursor.getInt(cursor.getColumnIndex("nNextNumberCount")));
+				ShowInfo showInfo = TouchShowInfoBiz.getShowInfoById(info.getId());
+				info.setShowInfo(showInfo);
 				list.add(info);
 			}
 		}

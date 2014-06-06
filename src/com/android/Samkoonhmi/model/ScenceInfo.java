@@ -38,7 +38,43 @@ public class ScenceInfo {
 	private int nLeftX;         //左顶点X坐标
 	private int nLeftY;         //左顶点Y坐标
 	private boolean bLogout;    //切换注销用户
+	private ArrayList<PriorLoadInfo> mLoadScene;//当前画面需要预先加载的画面
+	private boolean bShowMiddle;//是否显示正中
+	private boolean bShowShutBtn;//	Bool;	//是否显示关闭按钮
+	private String sTileName;//	String	标题名字
 	
+	public String getsTileName() {
+		return sTileName;
+	}
+
+	public void setsTileName(String sTileName) {
+		this.sTileName = sTileName;
+	}
+
+	public boolean isbShowMiddle() {
+		return bShowMiddle;
+	}
+
+	public void setbShowMiddle(boolean bShowMiddle) {
+		this.bShowMiddle = bShowMiddle;
+	}
+
+	public boolean isbShowShutBtn() {
+		return bShowShutBtn;
+	}
+
+	public void setbShowShutBtn(boolean bShowShutBtn) {
+		this.bShowShutBtn = bShowShutBtn;
+	}
+
+	public ArrayList<PriorLoadInfo> getmLoadScene() {
+		return mLoadScene;
+	}
+
+	public void setmLoadScene(ArrayList<PriorLoadInfo> mLoadScene) {
+		this.mLoadScene = mLoadScene;
+	}
+
 	public int getnBeforeSId() {
 		return nBeforeSId;
 	}

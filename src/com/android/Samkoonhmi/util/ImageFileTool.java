@@ -7,18 +7,18 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.BitmapFactory;
-import android.graphics.BitmapFactory.Options;
 import android.graphics.Matrix;
 import android.util.Log;
 
 import com.android.Samkoonhmi.model.CacheInfo;
+import com.android.Samkoonhmi.skwindow.SKSceneManage;
 
 public class ImageFileTool {
 
 	/**
-	 * 最大缓存25M数据，如果超出删除缓缓存
+	 * 最大缓存50M数据，如果超出删除缓缓存
 	 */
-	private static final int nMaxValue=26214400;
+	private static final int nMaxValue=52428800;
 	private static int nValue=0;
 	
 	/**
@@ -32,7 +32,7 @@ public class ImageFileTool {
 	 */
 	public static Bitmap getBitmap(String fileName){
 		if (fileName == null||fileName.equals("")) {
-			return null;
+			return null;  
 		}
 		Bitmap mBitmap = null;
 		mBitmap=getCacheBitmap(fileName);
@@ -42,8 +42,8 @@ public class ImageFileTool {
 				int temp=mBitmap.getWidth()*mBitmap.getHeight()*4;
 				if (temp>4*1024*1024) {
 					Matrix matrix=new Matrix(); 
-					float fx=mBitmap.getWidth()/800;
-					float fy=mBitmap.getHeight()/480;
+					float fx=((float)mBitmap.getWidth())/SKSceneManage.nSceneWidth;
+					float fy=((float)mBitmap.getHeight())/SKSceneManage.nSceneHeight;
 					matrix.postScale(fx, fy); 
 					Bitmap tBitmap=Bitmap.createBitmap(mBitmap,0,0,mBitmap.getWidth(),mBitmap.getHeight(),matrix,true); 
 					mBitmap.recycle();
@@ -114,7 +114,7 @@ public class ImageFileTool {
 	
 	/**
 	 * 根据宽高创建图片
-	 * 创建两个缓存图片
+	 * 创建三个缓存图片
 	 */
 	private static int mark=1;
 	/**
@@ -122,12 +122,16 @@ public class ImageFileTool {
 	 * @param height=场景高
 	 * @param type=0 画面,1窗口
 	 */
-	public static Bitmap getBitmap(int width,int height,int type,Context context){
+	public synchronized static Bitmap getBitmap(int width,int height,int type,Context context){
+		
+		if(width<=0||height<=0){
+			return null;
+		}
+		
 		Bitmap mBitmap = null;
 		mBitmap=getCacheBitmap(width+"_"+height+"_"+type+"_"+mark);
 		if (mBitmap==null) {
-			mBitmap = Bitmap.createBitmap(width, height,
-					Config.ARGB_8888);
+			mBitmap = Bitmap.createBitmap(width, height,Config.ARGB_8888);
 			
 			if (mBitmap!=null) {
 				int temp=mBitmap.getWidth()*mBitmap.getHeight()*4;
@@ -145,7 +149,7 @@ public class ImageFileTool {
 			}
 		}
 		mark++;
-		if (mark>2) {
+		if (mark>3) {
 			mark=1;
 		}
 		return mBitmap;
@@ -154,6 +158,10 @@ public class ImageFileTool {
 	private static int titleMark = 1;
 	public static Bitmap getTitleBgBitmap(int width, int high , Context context)
 	{
+		if(width<=0||high<=0){
+			return null;
+		}
+		
 		Bitmap mTitleBitmap = null;
 		String path ="wd_title_" + width + "_" + high + titleMark;
 		mTitleBitmap = getCacheBitmap(path);

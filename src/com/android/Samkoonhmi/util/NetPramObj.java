@@ -5,4 +5,6 @@ public class NetPramObj {
 	public int nNetPort = 502;
 	public String sIpAddress = "192.168.1.95";
 	public boolean bTcpNet = true;//TCP协议   false: UDP协议
+	public int nHostPort = 502;
+	public String sHostIpAddress = "";
 }

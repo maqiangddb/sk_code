@@ -77,7 +77,10 @@ public class SKTableRowNum {
 		mPopupWindow.setOutsideTouchable(true);
 		mPopupWindow.setAnimationStyle(R.style.PopupAnimation);
 		mPopupWindow.update();
-		mPopupWindow.showAtLocation(SKSceneManage.getInstance().getCurrentScene(), Gravity.CENTER, 0, 0);
+		if (SKSceneManage.getInstance().getCurrentScene() != null) {
+			mPopupWindow.showAtLocation(SKSceneManage.getInstance().getCurrentScene(), Gravity.CENTER, 0, 0);
+		}
+		
 	}
 	
 	/**

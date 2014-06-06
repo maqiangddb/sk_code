@@ -1,28 +1,26 @@
 package com.android.Samkoonhmi.system;
 
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import android.content.Intent;
-import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
-
 import com.android.Samkoonhmi.SKTimer;
 import com.android.Samkoonhmi.databaseinterface.DBTool;
 import com.android.Samkoonhmi.databaseinterface.SystemInfoBiz;
-import com.android.Samkoonhmi.macro.corba.ShortHolder;
-import com.android.Samkoonhmi.macro.corba.ShortSeqHolder;
 import com.android.Samkoonhmi.model.PlcConnectionInfo;
 import com.android.Samkoonhmi.model.SystemInfo;
 import com.android.Samkoonhmi.model.UserInfo;
+import com.android.Samkoonhmi.model.skglobalcmn.CollectDataInfo;
 import com.android.Samkoonhmi.network.PhoneManager;
 import com.android.Samkoonhmi.plccommunicate.CmnPortManage;
 import com.android.Samkoonhmi.plccommunicate.PlcRegCmnStcTools;
@@ -32,12 +30,13 @@ import com.android.Samkoonhmi.skenum.CONNECT_TYPE;
 import com.android.Samkoonhmi.skenum.DATA_TYPE;
 import com.android.Samkoonhmi.skenum.LIGHTENESS;
 import com.android.Samkoonhmi.skenum.READ_WRITE_COM_TYPE;
+import com.android.Samkoonhmi.skenum.SYSTEM_OPER_TYPE;
+import com.android.Samkoonhmi.skenum.WINDOW_TYPE;
 import com.android.Samkoonhmi.skglobalcmn.DataCollect;
 import com.android.Samkoonhmi.skglobalcmn.RecipeDataCentre;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
 import com.android.Samkoonhmi.skwindow.SKToast;
 import com.android.Samkoonhmi.system.address.SystemAddress;
-import com.android.Samkoonhmi.util.AcillCode;
 import com.android.Samkoonhmi.util.AddrProp;
 import com.android.Samkoonhmi.util.AlarmGroup;
 import com.android.Samkoonhmi.util.COM_PORT_PARAM_PROP;
@@ -56,7 +55,7 @@ import com.android.Samkoonhmi.util.SystemParam;
  * 
  */
 public class SystemVariable {
-	//private static final String TAG = "system";
+	// private static final String TAG = "system";
 	private static int currentScond = 0; // 当前秒
 	private static int currentMinute = 0;// 当前分
 	private static int currentHour = 0; // 当前小时
@@ -99,10 +98,21 @@ public class SystemVariable {
 	private int myCom2DataLen = 0;// com2数据长度
 	private int myCom2Check = 0; // com2校验位
 	private int myCom2Stop = 0; // com2停止位
-    private myMainHandler handler=null;
+	
+	private int grayThreshold_A5 = 160;//A5 打印的灰度阈值
+	
+	private String imsi = "";//imsi
+	private String localPhoneNum = "";//本地号码
+	
+	private boolean isComErrorAlarm = false; 
+	
+	private myMainHandler handler = null;
 	// 单例
 	private static SystemVariable sInstance = null;
-
+	
+	//三星手机
+	public static String sSumsungDriverLibPath = "/data/data/com.android.Samkoonhmi/drv-lib/";
+	public static String sSumsungLibPath = "/system/lib/";
 	public synchronized static SystemVariable getInstance() {
 		if (sInstance == null) {
 			sInstance = new SystemVariable();
@@ -156,8 +166,7 @@ public class SystemVariable {
 				}
 				// 判断是否进入屏保
 				if ((SystemInfo.getnSetBoolParam() & SystemParam.USE_SAVER) == SystemParam.USE_SAVER) {
-					if(null == handler)
-					{
+					if (null == handler) {
 						handler = new myMainHandler(Looper.getMainLooper());
 					}
 					handler.sendEmptyMessage(11);
@@ -171,10 +180,30 @@ public class SystemVariable {
 				setReadAlarmOpen();
 				// 获得系统运行时间
 				getRunTime();
+
+				// ip获取
+				PhoneManager.getInstance().getAllIp();
 				
-				//ip获取
-				PhoneManager.getInstance().wifiSetting();
+				// imsi获取
+				PhoneManager.getInstance().setIMSI();
 				
+				//获取本机号码
+				PhoneManager.getInstance().setTgPhoneNum();
+				
+				// sd or udisk状态写入
+				boolean result = StorageStateManager.getInstance()
+						.isSDMounted();
+				if (result != SystemAddress.getInstance().bUseSDCard) {
+					SystemAddress.getInstance().bUseSDCard = result;
+					setSDCardMntState(result);
+				}
+
+				result = StorageStateManager.getInstance().isUSBMounted();
+				if (result != SystemAddress.getInstance().bUseUdisk) {
+					SystemAddress.getInstance().bUseUdisk = result;
+					setUDiskMntState(result);
+				}
+
 				try {
 					Thread.sleep(1000);
 				} catch (InterruptedException e) {
@@ -183,6 +212,7 @@ public class SystemVariable {
 			}
 		}
 	}
+
 	private class myMainHandler extends Handler {
 		public myMainHandler(Looper loop) {
 			super(loop);
@@ -196,16 +226,16 @@ public class SystemVariable {
 				boolean boo = SKTimer.getInstance().getBinder()
 						.isRegister(SKSceneManage.getInstance().sCallback);
 				// 定时器还没注册
-				if (!boo && !GlobalPopWindow.popIsShow && !SystemBroadcast.ISKEYBOARDOPEN) {
+				if (!boo && !GlobalPopWindow.popIsShow
+						&& !SystemBroadcast.ISKEYBOARDOPEN) {
 					SKSceneManage.getInstance().time = 0;
-					SKTimer.getInstance()
-							.getBinder()
-							.onRegister(
-									SKSceneManage.getInstance().sCallback);
+					SKTimer.getInstance().getBinder()
+							.onRegister(SKSceneManage.getInstance().sCallback);
 				}
 			}
 		}
 	}
+
 	private void initTime() {
 		Calendar ca = Calendar.getInstance();
 		currentScond = ca.get(Calendar.SECOND);// 秒
@@ -272,8 +302,8 @@ public class SystemVariable {
 		setethNumber();
 		// 将当前用户写入地址
 		setCurrentUserToAddr();
-		
-
+		//将默认阈值写入A5阈值寄存器
+		setGrayThresholdA5();
 	}
 
 	/**
@@ -283,121 +313,129 @@ public class SystemVariable {
 		// 触发注销用户
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().Tri_LogOutAddr(), triLogoutCall,
-				true);
+				true, 0);
 		// 时间设置触发
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().tri_SetTimeAddr(), setTimeCall,
-				true);
+				true, 0);
 		// 触控是否有声音
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().enableBeepAddr(), enableBeepCall,
-				true);
+				true, 0);
 		// 系统语言改变
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().sys_LanIndexAddr(),
-				systemLanguageCall, false);
+				systemLanguageCall, false, 0);
 		// 留言板清除信息触发
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().tri_ClrBoardAddr(),
-				tri_ClrBoardCall, true);
+				tri_ClrBoardCall, true, 0);
 		// 待机注销用户
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().is_LogOutAddr(), is_LogOutCall,
-				true);
+				true, 0);
 		// 待机保护时间
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().sys_SaveTimeAddr(), saveTimeCall,
-				false);
+				false, 0);
 		// 初始画面号设置
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().sys_InitNumAddr(), initSceneCall,
-				false);
+				false, 0);
 		// 设置待机亮度
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().sys_SavBriAddr(), sys_SavBriCall,
-				true);
+				true, 0);
 		// 画面待机方式
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().sys_ScrSavAddr(), sys_ScrSavCall,
-				false);
+				false, 0);
 		// 修改当前配方组号
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().sys_CurRcpGrpAddr(),
-				sys_CurRcpGrpCall, false);
+				sys_CurRcpGrpCall, false, 0);
 		// 修改当前配方组号
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().sys_CurRcpAddr(), sys_CurRcpCall,
-				false);
+				false, 0);
 		// 连接设置参数确认修改触发通知
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().tri_MdParaAddr(), tri_mdParaCall,
-				true);
+				true, 0);
 		// 报警是否有声音
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().isAlarmBeepAddr(), isAlarmBeepCall,
-				true);
+				true, 0);
 		// 历史报警记录清除
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().tri_ClrAlarmAddr(),
-				Tri_ClrAlarmCall, true);
-		
+				Tri_ClrAlarmCall, true, 0);
+
 		// 报警确定
 		SKPlcNoticThread.getInstance().addNoticProp(
-				SystemAddress.getInstance().mAlarmComfirm(),
-				alarmConfirmCall, true);
-				
+				SystemAddress.getInstance().mAlarmComfirm(), alarmConfirmCall,
+				true, 0);
+
 		// 历史数据记录清除
 		SKPlcNoticThread.getInstance().addNoticProp(
 				SystemAddress.getInstance().tri_ClrSampAddr(), tri_ClrSampCall,
-				true);
-		
+				true, 0);
+
 		SKPlcNoticThread.getInstance().addNoticProp(
-				SystemAddress.getInstance().TriSms(), triSmsCall,
-				true);
-		
-//		SKPlcNoticThread.getInstance().addNoticProp(
-//				SystemAddress.getInstance().isSmsSend(), null,
-//				true);
-		
+				SystemAddress.getInstance().TriSms(), triSmsCall, true, 0);
+
+		// SKPlcNoticThread.getInstance().addNoticProp(
+		// SystemAddress.getInstance().isSmsSend(), null,
+		// true);
+
+		// SKPlcNoticThread.getInstance().addNoticProp(
+		// SystemAddress.getInstance().wifiStatus(), null,
+		// false);
+
 		SKPlcNoticThread.getInstance().addNoticProp(
-				SystemAddress.getInstance().wifiIp(), wifiIpCall,false);
-		
-//		SKPlcNoticThread.getInstance().addNoticProp(
-//				SystemAddress.getInstance().wifiStatus(), null,
-//				false);
-		
+				SystemAddress.getInstance().wifiSignal(), wifiSignalCall,
+				false, 0);
+
+		// SKPlcNoticThread.getInstance().addNoticProp(
+		// SystemAddress.getInstance().TgIp(), tgIpCall,
+		// false);
+
 		SKPlcNoticThread.getInstance().addNoticProp(
-				SystemAddress.getInstance().wifiSignal(), wifiSignalCall,false);
-		
+				SystemAddress.getInstance().TgStatus(), tgStatusCall, false, 0);
+
 		SKPlcNoticThread.getInstance().addNoticProp(
-				SystemAddress.getInstance().TgIp(), tgIpCall,
-				false);
-		
+				SystemAddress.getInstance().TgSignal(), tgSignalCall, false, 0);
+
 		SKPlcNoticThread.getInstance().addNoticProp(
-				SystemAddress.getInstance().TgStatus(), tgStatusCall,
-				false);
-		
+				SystemAddress.getInstance().SpType(), spTypeCall, false, 0);
+
+		// SKPlcNoticThread.getInstance().addNoticProp(
+		// SystemAddress.getInstance().TransProg(), null,
+		// false);
+
 		SKPlcNoticThread.getInstance().addNoticProp(
-				SystemAddress.getInstance().TgSignal(), tgSignalCall,
-				false);
-		
+				SystemAddress.getInstance().smsMsg(), smsMsgCall, false, 0);
+
 		SKPlcNoticThread.getInstance().addNoticProp(
-				SystemAddress.getInstance().SpType(), spTypeCall,
-				false);
+				SystemAddress.getInstance().TGNum(), tgNumCall, false, 0);
 		
-//		SKPlcNoticThread.getInstance().addNoticProp(
-//				SystemAddress.getInstance().TransProg(), null,
-//				false);
-		
+		//A5打印阈值
 		SKPlcNoticThread.getInstance().addNoticProp(
-				SystemAddress.getInstance().smsMsg(), smsMsgCall,
-				false);
-		
+				SystemAddress.getInstance().grayThresholdAddress(),grayThredsholdA5Call,false,0);
+	
+		//IMSI
 		SKPlcNoticThread.getInstance().addNoticProp(
-				SystemAddress.getInstance().TGNum(), tgNumCall,
-				false);
-				
+				SystemAddress.getInstance().imsi(),imsiCallBack,false,0);
+		
+		//本地号码
+		SKPlcNoticThread.getInstance().addNoticProp(
+				SystemAddress.getInstance().TG_PhoneNum(),localPhoneNumCallBack,false,0);
+		
+		//通讯异常警报
+		SKPlcNoticThread.getInstance().addNoticProp(
+				SystemAddress.getInstance().comErrorAlarm(),comErrorAlarmCallBack,true,0);
 	}
+
 	/**
 	 * 连接设置参数确认修改 触发
 	 */
@@ -449,8 +487,18 @@ public class SystemVariable {
 				if (historyAddrValue == 0) {
 					// 如果上一次的地址值为0
 					// 地址值由 0 变为1 触发历史数据记录清除
-					DataCollect.getInstance().msgClearAllHistory(null);
-					writeBitAddr(0, SystemAddress.getInstance().tri_ClrSampAddr());
+					ArrayList<Integer> list = new ArrayList<Integer>();
+
+					if (CollectDataInfo.getInstance().getmHistoryInfoList() != null) {
+						int size = CollectDataInfo.getInstance()
+								.getmHistoryInfoList().size();
+						for (int i = 0; i < size; i++) {
+							list.add(i);
+						}
+					}
+					DataCollect.getInstance().msgClearAllHistory(list);
+					writeBitAddr(0, SystemAddress.getInstance()
+							.tri_ClrSampAddr());
 				}
 			}
 			historyAddrValue = addrValue;
@@ -479,7 +527,8 @@ public class SystemVariable {
 					// 如果上一次的地址值为0
 					// 地址值由 0 变为1 触发历史报警记录清除
 					AlarmGroup.getInstance().clearHisData(null);
-					writeBitAddr(0, SystemAddress.getInstance().tri_ClrAlarmAddr());
+					writeBitAddr(0, SystemAddress.getInstance()
+							.tri_ClrAlarmAddr());
 				}
 			}
 			alarmAddrValue = addrValue;
@@ -510,7 +559,7 @@ public class SystemVariable {
 
 		}
 	};
-	
+
 	/**
 	 * 报警确定
 	 */
@@ -528,13 +577,12 @@ public class SystemVariable {
 			// 报警确定
 			if (addrValue == 1) {
 				AlarmGroup.getInstance().confirmAlarm();
-				//自动复位
+				// 自动复位
 				writeBitAddr(0, SystemAddress.getInstance().mAlarmComfirm());
-			} 
+			}
 
 		}
 	};
-
 
 	/**
 	 * 修改当前配方号
@@ -640,7 +688,7 @@ public class SystemVariable {
 		@Override
 		public void addrValueNotic(Vector<Byte> nStatusValue) {
 			// TODO Auto-generated method stub
-			//Log.d(TAG, "设置待机保护时间地址通知");
+			// Log.d(TAG, "设置待机保护时间地址通知");
 			int myAddrTime = 0;
 			if (null == dataListInt) {
 				dataListInt = new Vector<Integer>();
@@ -677,12 +725,14 @@ public class SystemVariable {
 				if (tri_ClrBoardAddrValue == 0) {
 					// 如果上一次的地址值为0
 					// 地址值由 0 变为1 触发设置系统时间
-					boolean b = DBTool.getInstance().getMessageBoard().deleteMessage();
+					boolean b = DBTool.getInstance().getMessageBoard()
+							.deleteMessage();
 					for (int i = 0; i < mMessageList.size(); i++) {
 						mMessageList.get(i).clearMessage(b);
 					}
-					//自动复位
-					writeBitAddr(0, SystemAddress.getInstance().tri_ClrBoardAddr());
+					// 自动复位
+					writeBitAddr(0, SystemAddress.getInstance()
+							.tri_ClrBoardAddr());
 				}
 			}
 			tri_ClrBoardAddrValue = (short) addrValue;
@@ -748,8 +798,9 @@ public class SystemVariable {
 			if (myAddrLanguage != addrLanguageIndex) {
 				setSystemLanguage(myAddrLanguage);
 				addrLanguageIndex = myAddrLanguage;
-				//把当前语言号写入报警表，方便上位导出
-				DBTool.getInstance().getmAlarmBiz().setLanguageId(addrLanguageIndex);
+				// 把当前语言号写入报警表，方便上位导出
+				DBTool.getInstance().getmAlarmBiz()
+						.setLanguageId(addrLanguageIndex);
 			}
 
 		}
@@ -836,65 +887,62 @@ public class SystemVariable {
 		@Override
 		public void addrValueNotic(Vector<Byte> nStatusValue) {
 			// TODO Auto-generated method stub
-			
+
 		}
 	};
-	
+
 	SKPlcNoticThread.IPlcNoticCallBack tgStatusCall = new SKPlcNoticThread.IPlcNoticCallBack() {
 
 		@Override
 		public void addrValueNotic(Vector<Byte> nStatusValue) {
 			// TODO Auto-generated method stub
-			
+
 		}
 	};
-	
-	
+
 	SKPlcNoticThread.IPlcNoticCallBack tgSignalCall = new SKPlcNoticThread.IPlcNoticCallBack() {
 
 		@Override
 		public void addrValueNotic(Vector<Byte> nStatusValue) {
 			// TODO Auto-generated method stub
-			
+
 		}
 	};
-	
-	
+
 	SKPlcNoticThread.IPlcNoticCallBack tgNumCall = new SKPlcNoticThread.IPlcNoticCallBack() {
 
 		@Override
 		public void addrValueNotic(Vector<Byte> nStatusValue) {
 			// TODO Auto-generated method stub
-			if (nStatusValue==null||nStatusValue.size()==0) {
+			if (nStatusValue == null || nStatusValue.size() == 0) {
 				return;
 			}
 			byte[] byteValue = new byte[nStatusValue.size()];
 			for (int i = 0; i < nStatusValue.size(); i++) {
 				byteValue[i] = nStatusValue.get(i);
 			}
-			String showValue = converCodeShow(byteValue,false);
-			if (showValue==null||showValue.equals("")) {
+			String showValue = converCodeShow(byteValue, false);
+			if (showValue == null || showValue.equals("")) {
 				return;
 			}
-			
-			showValue=showValue.trim();
-			boolean result=isMobileNO(showValue);
-			if(result){
-				Log.d("SystemVariable", "showValue="+showValue);
+
+			showValue = showValue.trim();
+			boolean result = isMobileNO(showValue);
+			if (result) {
+				Log.d("SystemVariable", "showValue=" + showValue);
 				SystemInfo.setsTgNum(showValue);
 			}
-			
-			
+
 		}
 	};
-	
+
 	SKPlcNoticThread.IPlcNoticCallBack smsMsgCall = new SKPlcNoticThread.IPlcNoticCallBack() {
 
 		@Override
 		public void addrValueNotic(Vector<Byte> nStatusValue) {
 			// TODO Auto-generated method stub
-			if(nStatusValue==null||nStatusValue.size()==0){
-				return ;
+			if (nStatusValue == null || nStatusValue.size() == 0) {
+				return;
 			}
 			byte[] byteValue = new byte[nStatusValue.size() + 2];
 			byteValue[0] = -1;
@@ -902,10 +950,14 @@ public class SystemVariable {
 			for (int i = 0; i < nStatusValue.size(); i++) {
 				byteValue[i + 2] = nStatusValue.get(i);
 			}
-			SystemInfo.setsSmsMsg( converCodeShow(byteValue,true));
+			String temp = converCodeShow(byteValue, true);
+			if (temp != null) {
+				temp = temp.trim();
+			}
+			SystemInfo.setsSmsMsg(temp);
 		}
 	};
-	
+
 	SKPlcNoticThread.IPlcNoticCallBack triSmsCall = new SKPlcNoticThread.IPlcNoticCallBack() {
 
 		@Override
@@ -918,26 +970,24 @@ public class SystemVariable {
 				}
 
 			}
-			if (addrValue == 1){
-				 // 地址值为1
-				Log.d("SKScene", ".......addrValue="+addrValue);
+			if (addrValue == 1) {
+				// 地址值为1
+				// Log.d("SKScene", ".......addrValue="+addrValue);
 				PhoneManager.getInstance().sendMSM();
-				
-				//自动复位
-				//writeBitAddr(0, SystemAddress.getInstance().TriSms());
+
 			}
 		}
 	};
-	
+
 	SKPlcNoticThread.IPlcNoticCallBack spTypeCall = new SKPlcNoticThread.IPlcNoticCallBack() {
 
 		@Override
 		public void addrValueNotic(Vector<Byte> nStatusValue) {
 			// TODO Auto-generated method stub
-			
+
 		}
 	};
-	
+
 	/**
 	 * wifi ip
 	 */
@@ -946,13 +996,13 @@ public class SystemVariable {
 		@Override
 		public void addrValueNotic(Vector<Byte> nStatusValue) {
 			// TODO Auto-generated method stub
-			if (nStatusValue==null||nStatusValue.size()==0) {
+			if (nStatusValue == null || nStatusValue.size() == 0) {
 				return;
 			}
 			read16WordsAddr(nStatusValue, 4);
 		}
 	};
-	
+
 	/**
 	 * wifi 信号
 	 */
@@ -961,10 +1011,90 @@ public class SystemVariable {
 		@Override
 		public void addrValueNotic(Vector<Byte> nStatusValue) {
 			// TODO Auto-generated method stub
-			
+
 		}
 	};
 	
+	/**
+	 * A5 打印阈值
+	 */
+	SKPlcNoticThread.IPlcNoticCallBack grayThredsholdA5Call = new SKPlcNoticThread.IPlcNoticCallBack() {
+		
+		@Override
+		public void addrValueNotic(Vector<Byte> nStatusValue) {
+			if(null != nStatusValue){
+				Vector<Short> data = read16WordsAddr(nStatusValue,1);
+				if(null != data){
+					grayThreshold_A5 = data.get(0);
+				}
+			}
+		}
+	};
+	
+	/**
+	 * IMSI
+	 */
+	SKPlcNoticThread.IPlcNoticCallBack imsiCallBack = new SKPlcNoticThread.IPlcNoticCallBack() {
+		
+		@Override
+		public void addrValueNotic(Vector<Byte> nStatusValue) {
+			if(null != nStatusValue){
+				String imsi = byteToAscii(nStatusValue);
+				setImsi(imsi);
+			}
+		}
+	};
+	
+	/**
+	 * 本地号码回调
+	 */
+	SKPlcNoticThread.IPlcNoticCallBack localPhoneNumCallBack = new SKPlcNoticThread.IPlcNoticCallBack() {
+		
+		@Override
+		public void addrValueNotic(Vector<Byte> nStatusValue) {
+			if(null != nStatusValue){
+				String num = byteToAscii(nStatusValue);
+				setLocalPhoneNum(num);
+			}
+		}
+	};
+	
+	/**
+	 * 通信异常警报回调
+	 */
+	SKPlcNoticThread.IPlcNoticCallBack comErrorAlarmCallBack = new SKPlcNoticThread.IPlcNoticCallBack() {
+		
+		@Override
+		public void addrValueNotic(Vector<Byte> nStatusValue) {
+			if(null != nStatusValue){
+				if(nStatusValue.get(0)==0){
+					isComErrorAlarm = false;
+				}else{
+					isComErrorAlarm = true;
+				}
+			}
+		}
+	};
+	
+	private String byteToAscii(Vector<Byte> nStatusValue){
+		String ret = "";
+		try{
+			int ascii_act_len = 0;
+			for (ascii_act_len = 0; ascii_act_len < nStatusValue.size(); ascii_act_len++) {
+				if (nStatusValue.get(ascii_act_len) == 0) {
+					break;
+				}
+			}
+			byte[] data = new byte[ascii_act_len];
+			for(int i=0;i<ascii_act_len;i++){
+				data[i] = nStatusValue.get(i);
+			}
+			ret = new String(data,"US-ASCII").trim();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return ret;
+	}
 	
 	/**
 	 * 把当前时间写入地址 监控的地址就可以及时读取出来
@@ -1014,7 +1144,7 @@ public class SystemVariable {
 	/**
 	 * 设置系统时间 从地址中读取地址时间
 	 */
-	private boolean  setSystemTimeFromAddr() {
+	private boolean setSystemTimeFromAddr() {
 		boolean flag = false;
 		// 获取地址秒数 设置系统秒 0-59
 		int myAddrSecond = read_16BCD_Addr(SystemAddress.getInstance()
@@ -1025,7 +1155,7 @@ public class SystemVariable {
 		// 获取地址小时数，设置系统小时 0-23
 		int myAddrHour = read_16BCD_Addr(SystemAddress.getInstance()
 				.sys_CurHourAddr());
-		// 获取地址日期 设置系统日  1-31
+		// 获取地址日期 设置系统日 1-31
 		int myAddrDay = read_16BCD_Addr(SystemAddress.getInstance()
 				.sys_CurDateAddr());
 		// 获取地址月份，设置系统月 1~12
@@ -1034,33 +1164,33 @@ public class SystemVariable {
 		// 获取地址中的年，设置系统年份
 		int myAddrYear = read_16BCD_Addr(SystemAddress.getInstance()
 				.sys_CurYearAddr());
-		
+
 		if (myAddrSecond < 0 || myAddrSecond > 59) {
 			SKToast.makeText("秒钟设置超出了范围，请输入0~59的数据", Toast.LENGTH_SHORT).show();
 			// 执行完自动复位地址值
 			writeBitAddr(0, SystemAddress.getInstance().tri_SetTimeAddr());
 			return false;
-		}else if (myAddrMinute < 0 || myAddrMinute > 59) {
+		} else if (myAddrMinute < 0 || myAddrMinute > 59) {
 			SKToast.makeText("分钟设置超出了范围，请输入0~59的数据", Toast.LENGTH_SHORT).show();
 			// 执行完自动复位地址值
 			writeBitAddr(0, SystemAddress.getInstance().tri_SetTimeAddr());
 			return false;
-		}else if (myAddrHour < 0 || myAddrHour > 23) {
+		} else if (myAddrHour < 0 || myAddrHour > 23) {
 			SKToast.makeText("小时设置超出了范围，请输入0~23的数据", Toast.LENGTH_SHORT).show();
 			// 执行完自动复位地址值
 			writeBitAddr(0, SystemAddress.getInstance().tri_SetTimeAddr());
 			return false;
-		}else if (myAddrDay < 1 || myAddrDay > 31) {
+		} else if (myAddrDay < 1 || myAddrDay > 31) {
 			SKToast.makeText("日期设置超出了范围，请输入1~31的数据", Toast.LENGTH_SHORT).show();
 			// 执行完自动复位地址值
 			writeBitAddr(0, SystemAddress.getInstance().tri_SetTimeAddr());
 			return false;
-		}else if (myAddrMonth < 1 || myAddrMonth > 12) {
+		} else if (myAddrMonth < 1 || myAddrMonth > 12) {
 			SKToast.makeText("月份设置超出了范围，请输入1~12的数据", Toast.LENGTH_SHORT).show();
 			// 执行完自动复位地址值
 			writeBitAddr(0, SystemAddress.getInstance().tri_SetTimeAddr());
 			return false;
-		}else{
+		} else {
 			Calendar c = Calendar.getInstance();
 			c.set(Calendar.SECOND, myAddrSecond);
 			c.set(Calendar.MINUTE, myAddrMinute);
@@ -1069,10 +1199,10 @@ public class SystemVariable {
 			c.set(Calendar.MONTH, (myAddrMonth - 1));
 			c.set(Calendar.YEAR, myAddrYear);
 			long when = c.getTimeInMillis();
-			
+
 			// 修改系统时间秒
 			if (when / 1000 < Integer.MAX_VALUE) {
-				Intent	intent = new Intent();
+				Intent intent = new Intent();
 				intent.setAction("com.samkoon.settime");
 				intent.putExtra("time", when);
 				SKSceneManage.getInstance().mContext.sendBroadcast(intent);
@@ -1081,7 +1211,7 @@ public class SystemVariable {
 			writeBitAddr(0, SystemAddress.getInstance().tri_SetTimeAddr());
 			return true;
 		}
-	
+
 	}
 
 	/**
@@ -1105,12 +1235,12 @@ public class SystemVariable {
 			}
 			String temp = DataTypeFormat.intToBcdStr((long) addrValue, false);
 			if (!temp.equals("") && !"ERROR".equals(temp)) {
-				try{
+				try {
 					addrValue = Integer.valueOf(temp);
-				}catch (Exception e) {
+				} catch (Exception e) {
 					// TODO: handle exception
 				}
-				
+
 			}
 		}
 		return addrValue;
@@ -1152,12 +1282,12 @@ public class SystemVariable {
 		if (secondStr.equals("")) {
 			return;
 		}
-		try{
+		try {
 			mydataListInt.add(Integer.valueOf(secondStr));
-		}catch (Exception e) {
+		} catch (Exception e) {
 			// TODO: handle exception
 		}
-		
+
 		mSendData = getMSendData();
 		mSendData.eDataType = DATA_TYPE.BCD_16;
 		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
@@ -1178,9 +1308,9 @@ public class SystemVariable {
 		if (minuteStr.equals("")) {
 			return;
 		}
-		try{
+		try {
 			mydataListInt.add(Integer.valueOf(minuteStr));
-		}catch (Exception e) {
+		} catch (Exception e) {
 			// TODO: handle exception
 		}
 		mSendData = getMSendData();
@@ -1202,12 +1332,12 @@ public class SystemVariable {
 		if (hourStr.equals("")) {
 			return;
 		}
-		try{
+		try {
 			mydataListInt.add(Integer.valueOf(hourStr));
-		}catch (Exception e) {
+		} catch (Exception e) {
 			// TODO: handle exception
 		}
-		
+
 		mSendData = getMSendData();
 		mSendData.eDataType = DATA_TYPE.BCD_16;
 		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
@@ -1227,9 +1357,9 @@ public class SystemVariable {
 		if (dayStr.equals("")) {
 			return;
 		}
-		try{
+		try {
 			mydataListInt.add(Integer.valueOf(dayStr));
-		}catch (Exception e) {
+		} catch (Exception e) {
 			// TODO: handle exception
 		}
 		mSendData = getMSendData();
@@ -1251,12 +1381,12 @@ public class SystemVariable {
 		if (monthStr.equals("")) {
 			return;
 		}
-		try{
+		try {
 			mydataListInt.add(Integer.valueOf(monthStr));
-		}catch (Exception e) {
+		} catch (Exception e) {
 			// TODO: handle exception
 		}
-		
+
 		mSendData = getMSendData();
 		mSendData.eDataType = DATA_TYPE.BCD_16;
 		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
@@ -1275,12 +1405,12 @@ public class SystemVariable {
 		if (yearStr.equals("")) {
 			return;
 		}
-		try{
+		try {
 			mydataListInt.add(Integer.valueOf(yearStr));
-		}catch (Exception e) {
+		} catch (Exception e) {
 			// TODO: handle exception
 		}
-		
+
 		mSendData = getMSendData();
 		mSendData.eDataType = DATA_TYPE.BCD_16;
 		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
@@ -1293,19 +1423,18 @@ public class SystemVariable {
 	 */
 	private void Sys_CurrentWeek(Calendar c) {
 		Vector<Integer> mydataListInt = new Vector<Integer>();
-		//星期 1代表星期日 7代表星期六
-		String dayOfWeek = c.get(Calendar.DAY_OF_WEEK)+"";
+		// 星期 1代表星期日 7代表星期六
+		String dayOfWeek = c.get(Calendar.DAY_OF_WEEK) + "";
 		dayOfWeek = Long.toString(DataTypeFormat.bcdStrToInt(dayOfWeek, 16));
 		if (dayOfWeek.equals("")) {
 			return;
 		}
-		try{
-			int week=Integer.valueOf(dayOfWeek)-1;
-			if (week==0) {
-				week=7;
+		try {
+			int week = Integer.valueOf(dayOfWeek) - 1;
+			if (week == 0) {
+				week = 7;
 			}
-			if(week != currentWeek)
-			{
+			if (week != currentWeek) {
 				mydataListInt.add(Integer.valueOf(week));
 				mSendData = getMSendData();
 				mSendData.eDataType = DATA_TYPE.BCD_16;
@@ -1314,12 +1443,11 @@ public class SystemVariable {
 						.sys_CurWeekAddr(), mydataListInt, mSendData);
 				currentWeek = week;
 			}
-			
-		}catch (Exception e) {
+
+		} catch (Exception e) {
 			// TODO: handle exception
 		}
-		
-		
+
 	}
 
 	/**
@@ -1495,28 +1623,29 @@ public class SystemVariable {
 		if (null == systemInfoBiz) {
 			systemInfoBiz = new SystemInfoBiz();
 		}
-//		Log.d("system", "设置前的值为：" + (SystemInfo.getnSetBoolParam()));
+		// Log.d("system", "设置前的值为：" + (SystemInfo.getnSetBoolParam()));
 		boolean isLogout = ((SystemInfo.getnSetBoolParam() & SystemParam.LOGOUT) == SystemParam.LOGOUT);
 		if (addrValue == 1) {
 			// 地址值要求注销用户
 			if (!isLogout) {
-//				Log.d("system",
-//						"地址值为1 设置注销用户，设置进去的值为："
-//								+ (SystemInfo.getnSetBoolParam() | (SystemParam.LOGOUT)));
+				// Log.d("system",
+				// "地址值为1 设置注销用户，设置进去的值为："
+				// + (SystemInfo.getnSetBoolParam() | (SystemParam.LOGOUT)));
 				SystemInfo.setnSetBoolParam(SystemInfo.getnSetBoolParam()
 						| (SystemParam.LOGOUT));
-//				Log.d("system", "设置后的值为：" + (SystemInfo.getnSetBoolParam()));
+				// Log.d("system", "设置后的值为：" + (SystemInfo.getnSetBoolParam()));
 				systemInfoBiz.updateSysParam(SystemInfo.getnSetBoolParam());
 			}
 		} else {
 			// 如果要求不注销用户
 			if (isLogout) {
-//				Log.d("system",
-//						"地址值为0 设置不注销用户，设置进去的值为："
-//								+ (SystemInfo.getnSetBoolParam() & (~SystemParam.LOGOUT)));
+				// Log.d("system",
+				// "地址值为0 设置不注销用户，设置进去的值为："
+				// + (SystemInfo.getnSetBoolParam() & (~SystemParam.LOGOUT)));
 				SystemInfo.resetnSetBoolParam(SystemInfo.getnSetBoolParam()
 						& (~SystemParam.LOGOUT));
-//				Log.d("system", "设置后的值为：：" + (SystemInfo.getnSetBoolParam()));
+				// Log.d("system", "设置后的值为：：" +
+				// (SystemInfo.getnSetBoolParam()));
 				systemInfoBiz.updateSysParam(SystemInfo.getnSetBoolParam());
 			}
 		}
@@ -1532,11 +1661,11 @@ public class SystemVariable {
 		if (isLogout) {
 			// 如果选择了注销用户，则将1写入地址
 			writeBitAddr(1, addrProp);
-//			Log.d("system", "设置注销用户地址值1");
+			// Log.d("system", "设置注销用户地址值1");
 
 		} else {
 			writeBitAddr(0, addrProp);
-//			Log.d("system", "设置注销用户地址值0");
+			// Log.d("system", "设置注销用户地址值0");
 		}
 	}
 
@@ -1551,7 +1680,7 @@ public class SystemVariable {
 		}
 		// 待机保护时间最小为1
 		if (addrValue > 0) {
-		//	Log.d(TAG, "设置待机保护时间：" + addrValue);
+			// Log.d(TAG, "设置待机保护时间：" + addrValue);
 			SystemInfo.setnScreenTime(addrValue);
 			systemInfoBiz.updateScreenSaverTime(addrValue);
 		}
@@ -1809,7 +1938,7 @@ public class SystemVariable {
 			String com1Name2 = com1Info.getsConnectName();
 			if (null != com1Name2) {
 				if (com1Name != com1Name2) {
-				//	Log.d(TAG, "com1名字写入地址：" + com1Name2);
+					// Log.d(TAG, "com1名字写入地址：" + com1Name2);
 					setUnicodeToAddr(SystemAddress.getInstance()
 							.cOM1_NameAddr(), com1Name2);
 					com1Name = com1Name2;
@@ -1836,7 +1965,7 @@ public class SystemVariable {
 			String com2Name2 = com2Info.getsConnectName();
 			if (null != com2Name) {
 				if (com2Name != com2Name2) {
-				//	Log.d(TAG, "com2名字写入地址：" + com2Name2);
+					// Log.d(TAG, "com2名字写入地址：" + com2Name2);
 					setUnicodeToAddr(SystemAddress.getInstance()
 							.cOM2_NameAddr(), com2Name2);
 					com2Name = com2Name2;
@@ -1861,7 +1990,7 @@ public class SystemVariable {
 		if (null != com1Info) {
 			int comId = com1Info.getnScreenNo();
 			if (comId != com1Number) {
-			//	Log.d(TAG, "com1编号：" + comId);
+				// Log.d(TAG, "com1编号：" + comId);
 				Vector<Integer> mydataListInt = new Vector<Integer>();
 
 				mydataListInt.add(comId);
@@ -1890,7 +2019,7 @@ public class SystemVariable {
 		if (null != com2Info) {
 			int comId = com2Info.getnScreenNo();
 			if (comId != com2Number) {
-			//	Log.d(TAG, "com2编号：" + comId);
+				// Log.d(TAG, "com2编号：" + comId);
 				Vector<Integer> mydataListInt = new Vector<Integer>();
 				mydataListInt.add(comId);
 				mSendData = getMSendData();
@@ -1941,7 +2070,7 @@ public class SystemVariable {
 		if (null != eth) {
 			int ethId = eth.getnScreenNo();
 			if (ethId != ethNumber) {
-			//	Log.d(TAG, "以太网编号：" + ethId);
+				// Log.d(TAG, "以太网编号：" + ethId);
 				Vector<Integer> mydataListInt = new Vector<Integer>();
 				mydataListInt.add(ethId);
 				mSendData = getMSendData();
@@ -2035,7 +2164,7 @@ public class SystemVariable {
 		if (null == com1Info) {
 			com1Info = systemInfoBiz.findComInfo(3);
 		}
-		if (com1Info!=null) {
+		if (com1Info != null) {
 			int com1baud = com1Info.getnBaudRate();
 			Vector<Integer> mydataListInt = new Vector<Integer>();
 
@@ -2045,7 +2174,7 @@ public class SystemVariable {
 			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
 			PlcRegCmnStcTools.setRegIntData(addrProp, mydataListInt, mSendData);
 		}
-		
+
 	}
 
 	/**
@@ -2060,17 +2189,17 @@ public class SystemVariable {
 		if (null == com2Info) {
 			com2Info = systemInfoBiz.findComInfo(4);
 		}
-		
-		if (com2Info!=null) {
+
+		if (com2Info != null) {
 			int com2baud = com2Info.getnBaudRate();
 			Vector<Integer> mydataListInt = new Vector<Integer>();
 			mydataListInt.add(com2baud);
 			mSendData = getMSendData();
 			mSendData.eDataType = DATA_TYPE.INT_32;
 			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
-			PlcRegCmnStcTools.setRegIntData(addrProp, mydataListInt, mSendData);  
+			PlcRegCmnStcTools.setRegIntData(addrProp, mydataListInt, mSendData);
 		}
-		
+
 	}
 
 	/**
@@ -2085,8 +2214,8 @@ public class SystemVariable {
 		if (null == com1Info) {
 			com1Info = systemInfoBiz.findComInfo(3);
 		}
-		
-		if (com1Info!=null) {
+
+		if (com1Info != null) {
 			int com1DataBit = com1Info.getnDataBits();
 			Vector<Integer> mydataListInt = new Vector<Integer>();
 			mydataListInt.add(com1DataBit);
@@ -2095,7 +2224,7 @@ public class SystemVariable {
 			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
 			PlcRegCmnStcTools.setRegIntData(addrProp, mydataListInt, mSendData);
 		}
-		
+
 	}
 
 	/**
@@ -2110,8 +2239,8 @@ public class SystemVariable {
 		if (null == com2Info) {
 			com2Info = systemInfoBiz.findComInfo(4);
 		}
-		
-		if (com2Info!=null) {
+
+		if (com2Info != null) {
 			int com2databit = com2Info.getnDataBits();
 			Vector<Integer> mydataListInt = new Vector<Integer>();
 			mydataListInt.add(com2databit);
@@ -2120,7 +2249,7 @@ public class SystemVariable {
 			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
 			PlcRegCmnStcTools.setRegIntData(addrProp, mydataListInt, mSendData);
 		}
-		
+
 	}
 
 	/**
@@ -2135,7 +2264,7 @@ public class SystemVariable {
 		if (null == com1Info) {
 			com1Info = systemInfoBiz.findComInfo(3);
 		}
-		if (com1Info!=null) {
+		if (com1Info != null) {
 			int com1Check = com1Info.getnCheckType();
 			Vector<Integer> mydataListInt = new Vector<Integer>();
 			mydataListInt.add(com1Check);
@@ -2144,7 +2273,7 @@ public class SystemVariable {
 			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
 			PlcRegCmnStcTools.setRegIntData(addrProp, mydataListInt, mSendData);
 		}
-		
+
 	}
 
 	/**
@@ -2159,7 +2288,7 @@ public class SystemVariable {
 		if (null == com2Info) {
 			com2Info = systemInfoBiz.findComInfo(4);
 		}
-		if (com2Info!=null) {
+		if (com2Info != null) {
 			int com2Check = com2Info.getnCheckType();
 			Vector<Integer> mydataListInt = new Vector<Integer>();
 			mydataListInt.add(com2Check);
@@ -2168,7 +2297,7 @@ public class SystemVariable {
 			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
 			PlcRegCmnStcTools.setRegIntData(addrProp, mydataListInt, mSendData);
 		}
-		
+
 	}
 
 	/**
@@ -2183,7 +2312,7 @@ public class SystemVariable {
 		if (null == com1Info) {
 			com1Info = systemInfoBiz.findComInfo(3);
 		}
-		if (com1Info!=null) {
+		if (com1Info != null) {
 			int com1stop = com1Info.getnStopBit();
 			Vector<Integer> mydataListInt = new Vector<Integer>();
 			mydataListInt.add(com1stop);
@@ -2192,7 +2321,7 @@ public class SystemVariable {
 			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
 			PlcRegCmnStcTools.setRegIntData(addrProp, mydataListInt, mSendData);
 		}
-		
+
 	}
 
 	/**
@@ -2204,12 +2333,12 @@ public class SystemVariable {
 		if (systemInfoBiz == null) {
 			systemInfoBiz = new SystemInfoBiz();
 		}
-		
+
 		if (null == com2Info) {
 			com2Info = systemInfoBiz.findComInfo(4);
 		}
-		
-		if (com2Info!=null) {
+
+		if (com2Info != null) {
 			int com2stop = com2Info.getnStopBit();
 			Vector<Integer> mydataListInt = new Vector<Integer>();
 			mydataListInt.add(com2stop);
@@ -2218,7 +2347,7 @@ public class SystemVariable {
 			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
 			PlcRegCmnStcTools.setRegIntData(addrProp, mydataListInt, mSendData);
 		}
-	
+
 	}
 
 	/**
@@ -2233,22 +2362,21 @@ public class SystemVariable {
 		SKCommThread thread1 = SKCommThread.getComnThreadObj(CONNECT_TYPE.COM1);
 		if (null != thread1) {
 			int com1Status = thread1.getCmnCodeInfo();
-				wirteStatus(SystemAddress.getInstance().cOM1_StatusAddr(),
-						com1Status);
+			wirteStatus(SystemAddress.getInstance().cOM1_StatusAddr(),
+					com1Status);
 		}
 		// com2的通信状态
 		SKCommThread thread2 = SKCommThread.getComnThreadObj(CONNECT_TYPE.COM2);
 		if (null != thread2) {
 			int com2Status = thread2.getCmnCodeInfo();
-				wirteStatus(SystemAddress.getInstance().cOM2_StatusAddr(),
-						com2Status);
+			wirteStatus(SystemAddress.getInstance().cOM2_StatusAddr(),
+					com2Status);
 		}
 		// 以太网的通信状态
 		SKCommThread eth = SKCommThread.getComnThreadObj(CONNECT_TYPE.NET0);
 		if (null != eth) {
 			int ethStatus = eth.getCmnCodeInfo();
-				wirteStatus(SystemAddress.getInstance().eth_StatusAddr(),
-						ethStatus);
+			wirteStatus(SystemAddress.getInstance().eth_StatusAddr(), ethStatus);
 		}
 	}
 
@@ -2278,7 +2406,7 @@ public class SystemVariable {
 			String currentUserName2 = info.getName();
 			if (null != currentUserName2) {
 				if (currentUserName != currentUserName2) {
-				//	Log.d(TAG, "写入地址的用户名：" + currentUserName2);
+					// Log.d(TAG, "写入地址的用户名：" + currentUserName2);
 					setUnicodeToAddr(addr, currentUserName2);
 					currentUserName = currentUserName2;
 				}
@@ -2286,6 +2414,14 @@ public class SystemVariable {
 		}
 	}
 
+	/**
+	 * 将默认阈值写入A5阈值寄存器
+	 */
+	private void setGrayThresholdA5() {
+		AddrProp addr = SystemAddress.getInstance().grayThresholdAddress();
+		write16WordAddr(grayThreshold_A5,addr);
+	}
+	
 	/**
 	 * 写入ascII到地址
 	 * 
@@ -2343,7 +2479,7 @@ public class SystemVariable {
 		mydataListInt.add(value);
 		PlcRegCmnStcTools.setRegIntData(addrprop, mydataListInt, mSendData);
 	}
-	
+
 	/**
 	 * 将值写入16位地址
 	 * 
@@ -2359,6 +2495,45 @@ public class SystemVariable {
 		PlcRegCmnStcTools.setRegIntData(addrprop, mydataListInt, mSendData);
 	}
 
+	/**
+	 * 将值写入32位地址
+	 * 
+	 * @param value
+	 * @param addrprop
+	 */
+	public void write32WordAddr(int value, AddrProp addrprop) {
+		Vector<Integer> mydataListInt = new Vector<Integer>();
+		mSendData = getMSendData();
+		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
+		mSendData.eDataType = DATA_TYPE.INT_32;
+		mydataListInt.add(value);
+		PlcRegCmnStcTools.setRegIntData(addrprop, mydataListInt, mSendData);
+	}
+
+	public void writeStringAddr(String msg, AddrProp addrprop) {
+		// 将输入的值进行数据类型进行转换
+		byte[] by;
+		try {
+			by = msg.getBytes("US-ASCII");
+			// 将输入转换后的数组写入地址
+			Vector<Byte> dataList = new Vector<Byte>();
+
+			if (0 != by.length) {
+				for (int i = 0; i < by.length; i++) {
+					dataList.add(by[i]);
+				}
+			}
+			SEND_DATA_STRUCT mSendData = new SEND_DATA_STRUCT();
+			mSendData.eDataType = DATA_TYPE.ASCII_STRING;
+			mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
+			PlcRegCmnStcTools.setRegAsciiData(addrprop, dataList, mSendData);
+
+		} catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
 
 	/**
 	 * 更新U盘的挂载状态
@@ -2417,7 +2592,7 @@ public class SystemVariable {
 	 * 读取是否有实时报警发生 写入地址 1 有 0 没有
 	 */
 	private void setReadAlarmOpen() {
-		if (AlarmGroup.getInstance().isAlarmSound()) {
+		if (AlarmGroup.getInstance().haveAlarm()) {
 			writeBitAddr(1, SystemAddress.getInstance().isAlarmAddr());
 
 		} else {
@@ -2432,7 +2607,7 @@ public class SystemVariable {
 	}
 
 	public void setClearCall(ICallBack clearCall) {
-		if (clearCall==null) {
+		if (clearCall == null) {
 			return;
 		}
 		remove(clearCall);
@@ -2444,11 +2619,12 @@ public class SystemVariable {
 		void clearMessage(boolean reuslt); // 清空所有的留言消息
 
 	};
-	
-	private static Vector<ICallBack> mMessageList=new Vector<SystemVariable.ICallBack>();
-	private void remove(ICallBack callBack){
+
+	private static Vector<ICallBack> mMessageList = new Vector<SystemVariable.ICallBack>();
+
+	private void remove(ICallBack callBack) {
 		for (int i = 0; i < mMessageList.size(); i++) {
-			if (mMessageList.get(i)==callBack) {
+			if (mMessageList.get(i) == callBack) {
 				mMessageList.remove(i);
 			}
 		}
@@ -2465,7 +2641,6 @@ public class SystemVariable {
 		void autoChange(AddrProp addr); // 清空所有的留言消息
 
 	};
-
 
 	/**
 	 * 读取int类型的字地址值，
@@ -2493,28 +2668,31 @@ public class SystemVariable {
 		}
 		return addrValue;
 	}
-	
+
 	private Vector<Short> mSDataList;
-	private Vector<Short> read16WordsAddr(Vector<Byte> nStatusValue,int nAddrLen){
-		Vector<Short> temps=new Vector<Short>();
-		
-		if (mSDataList==null) {
-			mSDataList=new Vector<Short>();
-		}else {
+
+	private Vector<Short> read16WordsAddr(Vector<Byte> nStatusValue,
+			int nAddrLen) {
+		Vector<Short> temps = new Vector<Short>();
+
+		if (mSDataList == null) {
+			mSDataList = new Vector<Short>();
+		} else {
 			mSDataList.clear();
 		}
-		boolean result = PlcRegCmnStcTools.bytesToShorts(nStatusValue, mSDataList);
+		boolean result = PlcRegCmnStcTools.bytesToShorts(nStatusValue,
+				mSDataList);
 		if (result) {
-			if (mSDataList.size()==nAddrLen) {
+			if (mSDataList.size() == nAddrLen) {
 				for (int i = 0; i < mSDataList.size(); i++) {
 					temps.add(mSDataList.get(i));
 				}
 			}
 		}
-		
+
 		return temps;
 	}
-	
+
 	/**
 	 * 
 	 * @param addrProp
@@ -2536,12 +2714,14 @@ public class SystemVariable {
 		}
 		return addrValue;
 	}
-	
+
 	/**
 	 * 转换编码 再显示
-	 * @param temp return 转换编码之后的 要显示的字符串
+	 * 
+	 * @param temp
+	 *            return 转换编码之后的 要显示的字符串
 	 */
-	private String converCodeShow(byte[] bTemp,boolean unicode) {
+	private String converCodeShow(byte[] bTemp, boolean unicode) {
 		String returnValue = new String(bTemp);
 		try {
 			if (unicode) {
@@ -2558,17 +2738,129 @@ public class SystemVariable {
 
 		return returnValue;
 	}
-	
-	public static boolean isMobileNO(String mobiles){  
-		  
-		if (mobiles==null||mobiles.equals("")) {
+
+	public static boolean isMobileNO(String mobiles) {
+
+		if (mobiles == null || mobiles.equals("")) {
 			return false;
 		}
-		Pattern p = Pattern.compile("^((13[0-9])|(15[^4,\\D])|(18[0,5-9]))\\d{8}$");  
-		Matcher m = p.matcher(mobiles);  
-		  
-		return m.matches();  
-		  
-	}  
+		Pattern p = Pattern
+				.compile("^((13[0-9])|(15[^4,\\D])|(18[0,5-9]))\\d{8}$");
+		Matcher m = p.matcher(mobiles);
+
+		return m.matches();
+
+	}
+
+	public static boolean isEmailNO(String email) {
+		if (TextUtils.isEmpty(email)) {
+			return false;
+		}
+
+		Pattern pattern = Pattern
+				.compile("^\\s*\\w+(?:\\.{0,1}[\\w-]+)*@[a-zA-Z0-9]+(?:[-.][a-zA-Z0-9]+)*\\.[a-zA-Z]+\\s*$");
+		Matcher m = pattern.matcher(email);
+		return m.matches();
+	}
+
+
+	/**
+	 * 读取是否在没有3G卡的时候锁屏的内部寄存器
+	 * @return
+	 */
+	private int read3Glock() {
+
+		if (mSendData == null) {
+			mSendData = getMSendData();
+		}
+		if (dataListInt == null) {
+			dataListInt = new Vector<Integer>();
+		} else {
+			dataListInt.clear();
+		}
+		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_R;
+		mSendData.eDataType = DATA_TYPE.BIT_1;
+		//读取是否在没有3G卡的时候锁屏的内部寄存器
+		PlcRegCmnStcTools.getRegIntData(SystemAddress.getInstance()
+				.isLockAddr(), dataListInt, mSendData);
+		int addrValue = 0;
+		if (!dataListInt.isEmpty()) {
+			addrValue = dataListInt.get(0);
+		}
+		return addrValue;
+
+	}
+	/**
+	 * 读取无3G卡需要的密码值
+	 * @return
+	 */
+	private String  read3GPass(){
+		if (mSendData == null) {
+			mSendData = getMSendData();
+		}
+		if (byteList == null) {
+			byteList =new Vector<Byte>();
+		} else {
+			byteList.clear();
+		}
+		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_R;
+		mSendData.eDataType = DATA_TYPE.ASCII_STRING;
+		String value = "";
+		//读取是否在没有3G卡的时候锁屏的内部寄存器
+		PlcRegCmnStcTools.getRegAsciiData(SystemAddress.getInstance().GLockPassAddr(), byteList, mSendData, false);
+	    if(byteList.size()!= 0){
+	    	byte[] byteValue = new byte[byteList.size()];
+			for (int i = 0; i < byteList.size(); i++) {
+				byteValue[i] = byteList.get(i);
+			}
+			 value = new String(byteValue).trim();
+	    }
+	    return value;
+	}
+	public void isLockByNo3G(){
+		int flag = read3Glock();
+		if(flag == 1){ 
+			String pass = read3GPass();
+			if (ParameterSet.getInstance().phoneState() != 5) {
+				//锁屏  
+				GlobalPopWindow lockWindow = new GlobalPopWindow(
+						SKSceneManage.getInstance().getCurrentScene(),
+						WINDOW_TYPE.LOCK, 0, 0, SKSceneManage.nSceneWidth,
+						SKSceneManage.nSceneHeight,pass,"3G卡不存在或已损坏，屏已经锁定,请插入3G卡，或者联系供应商获取密码！", null);
+				lockWindow.initPopupWindow();
+				lockWindow.showPopupWindow();
+			}
+		}
+	}
 	
+	public int getGrayThredsholdA5(){
+//		Log.e("getGrayThredsholdA5", "grayThreshold_A5="+grayThreshold_A5);
+		return grayThreshold_A5;
+	}
+	
+	public String getImsi(){
+		return this.imsi;
+	}
+	
+	public void setImsi(String imsi){
+		this.imsi = imsi;
+	}
+	
+	public void setLocalPhoneNum(String number){
+		this.localPhoneNum = number;
+	}
+	
+	public String getLocalPhoneNum(){
+		return this.localPhoneNum;
+	}
+	
+	public void setComErrorAlarm(boolean state){
+		if(state != isComErrorAlarm){
+			int value = 0;
+			if(state){
+				value = 1;
+			}
+			writeBitAddr(value, SystemAddress.getInstance().comErrorAlarm());
+		}
+	}
 }

@@ -76,10 +76,15 @@ public class SectorItem extends SquareItem{
 //		clearPaint(paint);
     
     	paint.reset();
+    	int temp = getLineWidth()/2;
+    	if(getLineType() == LINE_TYPE.NO_PEN || getLineWidth() ==1)
+    	{
+    		temp = 1;
+    	}
         rectf.left=getRect().left;
         rectf.right=getRect().right;
-        rectf.top=getRect().top;
-        rectf.bottom=getRect().bottom;
+        rectf.top=getRect().top+temp; ///加减temp 是因为清除的时候擦不干净，所以往里面缩边框宽度的一半
+        rectf.bottom=getRect().bottom-temp;
        
     	//画填充()
     	initFill(paint);

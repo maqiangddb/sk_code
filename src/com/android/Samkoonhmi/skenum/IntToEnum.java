@@ -63,6 +63,8 @@ public class IntToEnum {
 			return KEYBOARD_OPERATION.ESC;//取消
 		case 5:
 			return KEYBOARD_OPERATION.TEXT;//文本
+		case 6:
+			return KEYBOARD_OPERATION.CAPS;//大写键
 		}
 		return KEYBOARD_OPERATION.TEXT;
 	}
@@ -308,6 +310,8 @@ public class IntToEnum {
 			return DATA_TYPE.OTC_16;
 		case 13:
 			return DATA_TYPE.OTC_32;
+		case 15:
+			return DATA_TYPE.UNICODE_STRING;
 		}
 		return DATA_TYPE.OTHER_DATA_TYPE;
 	}
@@ -620,6 +624,53 @@ public class IntToEnum {
 			
 		}
 		return COM_PORT_PARAM_PROP.BAUD_RATE.BAUD9600;
+	}
+	/**
+	 * 获取表达式的符号枚举
+	 * @param i
+	 * @return
+	 */
+	public static EXPRESS_SIGN getExpressSign(int i){
+		switch (i) {
+		case 1:
+			return EXPRESS_SIGN.ADD;
+		case 2:
+			return EXPRESS_SIGN.REDUCE;
+		case 3:
+			return EXPRESS_SIGN.MULTIPLY;
+		case 4:
+			return EXPRESS_SIGN.DIVIDE;
+		case 5:
+			return EXPRESS_SIGN.XOR;
+		case 6:
+			return EXPRESS_SIGN.MOD;
+		case 7:
+			return EXPRESS_SIGN.AND;
+		case 8:
+			return EXPRESS_SIGN.OR;
+		case 9:
+			return EXPRESS_SIGN.LEFT;
+		case 10:
+			return EXPRESS_SIGN.RIGHT;
+		default:
+			return EXPRESS_SIGN.NONE;
+			
+		}
+	}
+	/**
+	 * 获取运算数据的类型
+	 * @param i
+	 * @return
+	 */
+	public static EXPRESS_NUM_TYPE getExpType(int i){
+		switch (i) {
+		case 1:
+			return EXPRESS_NUM_TYPE.ADDRESS;
+		case 2:
+			return EXPRESS_NUM_TYPE.CONSTANT;
+		default:
+			return EXPRESS_NUM_TYPE.CONSTANT;
+		}
 	}
 
 }

@@ -25,8 +25,8 @@ public class RectItem extends SquareItem {
 	private boolean init = false;
 	private Paint mPaint;
 	private Paint mLinePaint;
-	private int nAlpha=255;
-	private int nLineAlpha=255;
+	private int nAlpha = 255;
+	private int nLineAlpha = 255;
 
 	public RectItem(Rect mRect) {
 		super(mRect);
@@ -36,16 +36,16 @@ public class RectItem extends SquareItem {
 		mLinePaint = new Paint();
 		fillRender = new FillRender();
 	}
-	
-	public void init(){
+
+	public void init() {
 		if (!init) {
 			// 初始化
 			init = true;
-			if (nAlpha>0&&getStyle()!=CSS_TYPE.CSS_TRANSPARENCE) {
+			if (nAlpha > 0 && getStyle() != CSS_TYPE.CSS_TRANSPARENCE) {
 				initFill(mPaint);
 			}
-			
-			if (nLineAlpha>0&&getLineWidth()>0) {
+
+			if (nLineAlpha > 0 && getLineWidth() > 0) {
 				initStrok(mLinePaint);
 			}
 		}
@@ -59,7 +59,7 @@ public class RectItem extends SquareItem {
 		return super.getType();
 	}
 
-	public void draw(Paint paint,Canvas canvas) {
+	public void draw(Paint paint, Canvas canvas) {
 		if (null == fillRender) {
 			fillRender = new FillRender();
 		}
@@ -70,59 +70,76 @@ public class RectItem extends SquareItem {
 			if (!init) {
 				// 未初始化
 				init = true;
-				if (nAlpha>0&&getStyle()!=CSS_TYPE.CSS_TRANSPARENCE) {
+				if (nAlpha > 0 && getStyle() != CSS_TYPE.CSS_TRANSPARENCE) {
 					initFill(mPaint);
 				}
-				
-				if (nLineAlpha>0&&getLineWidth()>0) {
+
+				if (nLineAlpha > 0 && getLineWidth() > 0) {
 					initStrok(mLinePaint);
 				}
 			}
 
 			int tmpLineWidth = getLineWidth();
 			// 画线宽
-			if (tmpLineWidth>0&&nLineAlpha>0) {
+			if (tmpLineWidth > 0 && nLineAlpha > 0) {
 				if (getLineWidth() % 2 == 0) {
-					
+
 					Rect tmpRect = new Rect(getRect().left + tmpLineWidth / 2,
 							getRect().top + tmpLineWidth / 2, getRect().right
 									- tmpLineWidth / 2, getRect().bottom
 									- tmpLineWidth / 2);
-					
-					if (nAlpha>0&&getStyle()!=CSS_TYPE.CSS_TRANSPARENCE) {
+
+					if (nAlpha > 0 && getStyle() != CSS_TYPE.CSS_TRANSPARENCE) {
 						canvas.drawRect(tmpRect, mPaint);
 					}
 
 					if (-1 != this.getLineAlpha()) {// 边框是否有独立的Alpha值
 						mLinePaint.setAlpha(this.getLineAlpha());
 					}
-					
-					canvas.drawRect(tmpRect, mLinePaint);
+					if (LINE_TYPE.NO_PEN != getLineType())// 线类型样式为不显示 ，则不画边框
+					{
+						if (getLineWidth() == 1) {
+							tmpRect.left = tmpRect.left + 1;
+							tmpRect.right = tmpRect.right - 1;
+							tmpRect.top = tmpRect.top + 1;
+							tmpRect.bottom = tmpRect.bottom - 1;
+						}
+						canvas.drawRect(tmpRect, mLinePaint);
+					}
 				} else {
-                   
-					Rect tmpRect=null;
-					if (getLineWidth()>1) {
+
+					Rect tmpRect = null;
+					if (getLineWidth() > 1) {
 						tmpLineWidth = tmpLineWidth + 1;
 						tmpRect = new Rect(getRect().left + tmpLineWidth / 2,
-								getRect().top + tmpLineWidth / 2, getRect().right
-										- tmpLineWidth / 2, getRect().bottom
-										- tmpLineWidth / 2);
-					}else {
+								getRect().top + tmpLineWidth / 2,
+								getRect().right - tmpLineWidth / 2,
+								getRect().bottom - tmpLineWidth / 2);
+					} else {
 						tmpRect = new Rect(getRect());
 					}
-					
-					if (nAlpha>0&&getStyle()!=CSS_TYPE.CSS_TRANSPARENCE) {
+
+					if (nAlpha > 0 && getStyle() != CSS_TYPE.CSS_TRANSPARENCE) {
 						canvas.drawRect(tmpRect, mPaint);
 					}
-					
+
 					if (-1 != this.getLineAlpha()) {// 边框是否有独立的Alpha值
 						mLinePaint.setAlpha(this.getLineAlpha());
 					}
-					canvas.drawRect(tmpRect, mLinePaint);
+					if (LINE_TYPE.NO_PEN != getLineType())// 线类型样式为不显示 ，则不画边框
+					{
+						if (getLineWidth() == 1) {
+							tmpRect.left = tmpRect.left + 1;
+							tmpRect.right = tmpRect.right - 1;
+							tmpRect.top = tmpRect.top + 1;
+							tmpRect.bottom = tmpRect.bottom - 1;
+						}
+						canvas.drawRect(tmpRect, mLinePaint);
+					}
 				}// End of:if (getLineWidth() % 2 == 0)
 
 			} else {
-				if (nAlpha>0&&getStyle()!=CSS_TYPE.CSS_TRANSPARENCE) {
+				if (nAlpha > 0 && getStyle() != CSS_TYPE.CSS_TRANSPARENCE) {
 					canvas.drawRect(this.getRect(), mPaint);
 				}
 			}// End of:if( 0!= tmpLineWidth)
@@ -136,6 +153,7 @@ public class RectItem extends SquareItem {
 	 * @param paint
 	 */
 	private PathEffect effect;
+
 	private void initFill(Paint paint) {
 		paint.reset();
 		paint.setAntiAlias(true);// 去锯齿
@@ -179,6 +197,7 @@ public class RectItem extends SquareItem {
 
 	/**
 	 * 初始化边框的画笔
+	 * 
 	 * @param paint
 	 */
 	private void initStrok(Paint paint) {
@@ -208,26 +227,25 @@ public class RectItem extends SquareItem {
 		// paint.setShader(myShader);
 	}
 
-	
 	@Override
 	public void setAlpha(int nAlpha) {
 		// TODO Auto-generated method stub
 		super.setAlpha(nAlpha);
-		if(mPaint==null){
+		if (mPaint == null) {
 			return;
 		}
-		this.nAlpha=nAlpha;
+		this.nAlpha = nAlpha;
 		mPaint.setAlpha(nAlpha);
 	}
-	
+
 	@Override
 	public void setLineAlpha(int a) {
 		// TODO Auto-generated method stub
 		super.setLineAlpha(a);
-		if (mLinePaint==null) {
+		if (mLinePaint == null) {
 			return;
 		}
-		this.nLineAlpha=a;
+		this.nLineAlpha = a;
 		mLinePaint.setAlpha(nLineAlpha);
 	}
 
@@ -235,10 +253,9 @@ public class RectItem extends SquareItem {
 	public void setForeColor(int nForeColor) {
 		// TODO Auto-generated method stub
 		super.setForeColor(nForeColor);
-	    init = false;
+		init = false;
 	}
 
-	
 	@Override
 	public void setBackColor(int nBackColor) {
 		// TODO Auto-generated method stub
@@ -252,7 +269,7 @@ public class RectItem extends SquareItem {
 		init = false;
 	}
 
-	public void resetRect(){
+	public void resetRect() {
 		init = false;
 	}
 }

@@ -118,6 +118,12 @@ public class TableItem {
 		if (init) {
 			this.paint = paint;
 			if (mBitmap==null) {
+				if(nWidth<1){
+					nWidth=1;
+				}
+				if(nHeight<1){
+					nHeight=1;
+				}
 				mBitmap = Bitmap.createBitmap(nWidth , nHeight, Config.ARGB_8888);
 				mCanvas = new Canvas(mBitmap);
 			}

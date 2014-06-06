@@ -22,8 +22,7 @@ public class MParamInfo {
     private boolean bOffset;//是否有偏移
     private AddrProp nOffsetAddr;//偏移地址
     
- 
-	
+
 	/**
 	 * 设置参数名称
 	 * */
@@ -178,4 +177,5 @@ public class MParamInfo {
 	public void setnSid(int nSid) {
 		this.nSid = nSid;
 	}
+	
 }

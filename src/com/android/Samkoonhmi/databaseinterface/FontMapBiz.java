@@ -14,6 +14,9 @@ public class FontMapBiz {
 	}
 
 	public String findTtfName(String fontName) {
+		if (fontName==null||fontName.equals("")) {
+			return "";
+		}
 		String ttfName = "";
 		if (null == db) {
 			db = SkGlobalData.getProjectDatabase();

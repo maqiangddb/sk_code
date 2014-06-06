@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Message;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import com.android.Samkoonhmi.databaseinterface.DBTool;
 import com.android.Samkoonhmi.databaseinterface.SystemInfoBiz;
@@ -55,6 +56,7 @@ public class ParameterSet {
 	private SEND_DATA_STRUCT mSendData;
 	private boolean first = true;
 	private SystemInfoBiz sysBiz;
+	private static final String TAG="ParameterSet";
 
 	// 单例
 	private static ParameterSet sInstance = null;
@@ -90,7 +92,9 @@ public class ParameterSet {
 
 	/**
 	 * 写入当前配方号 recipeGropId 配方组号
-	 * @param recipeId 配方Id
+	 * 
+	 * @param recipeId
+	 *            配方Id
 	 */
 	public void writeCurrentRecipe(int recipeGropId, int recipeId,
 			AddrProp recipeAddr) {
@@ -112,31 +116,31 @@ public class ParameterSet {
 		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
 		PlcRegCmnStcTools.setRegIntData(recipeAddr, dataList, mSendData);
 	}
-	
+
 	/**
-	 * 系统设置
-	 * plc控制配方地址监视
+	 * 系统设置 plc控制配方地址监视
 	 */
-	public void setRecipeNotice(AddrProp addrProp){
-		if (addrProp==null) {
+	public void setRecipeNotice(AddrProp addrProp) {
+		if (addrProp == null) {
 			return;
 		}
 		
 		SKPlcNoticThread.getInstance().addNoticProp(addrProp,
-				recipeCall, false);
+				recipeCall, false,0);
+
 	}
-	
+
 	/**
 	 * 修改当前配方组号
 	 */
-	private Vector<Integer> dataListInt=null;
+	private Vector<Integer> dataListInt = null;
 	SKPlcNoticThread.IPlcNoticCallBack recipeCall = new SKPlcNoticThread.IPlcNoticCallBack() {
 
 		@Override
 		public void addrValueNotic(Vector<Byte> nStatusValue) {
 			// TODO Auto-generated method stub
 			int gid = 0;
-			int cid=0;
+			int cid = 0;
 			if (null == dataListInt) {
 				dataListInt = new Vector<Integer>();
 			} else {
@@ -144,18 +148,19 @@ public class ParameterSet {
 			}
 			boolean valueBool = PlcRegCmnStcTools.bytesToUShorts(nStatusValue,
 					dataListInt);
-			if (valueBool && dataListInt.size()==2) {
+			if (valueBool && dataListInt.size() == 2) {
 				gid = dataListInt.get(0);
-				cid=dataListInt.get(1);
-				
-				//修改当前配方组, 当前配方号不变
-				RecipeDataCentre.getInstance().setCurrRecipe(gid,
-						SystemInfo.getCurrentRecipe().getCurrentRecipeId());
-				
-				//修改当前配方 当前组号不变
-				RecipeDataCentre.getInstance().setCurrRecipe(
-						SystemInfo.getCurrentRecipe().getCurrentGroupRecipeId(),
-						cid);
+				cid = dataListInt.get(1);
+//				// 修改当前配方组, 当前配方号不变
+//				RecipeDataCentre.getInstance().setCurrRecipe(gid,
+//						SystemInfo.getCurrentRecipe().getCurrentRecipeId());
+//
+//				// 修改当前配方 当前组号不变
+//				RecipeDataCentre.getInstance()
+//						.setCurrRecipe(
+//								SystemInfo.getCurrentRecipe()
+//										.getCurrentGroupRecipeId(), cid);
+				RecipeDataCentre.getInstance().setCurrRecipe(gid,cid);
 			}
 
 		}
@@ -163,7 +168,9 @@ public class ParameterSet {
 
 	/**
 	 * 写入当前语言信息
-	 * @param languageId-语言Id
+	 * 
+	 * @param languageId
+	 *            -语言Id
 	 */
 	public void writeCurrentLanguage(int languageId, AddrProp languageAddr) {
 		// Log.d("Scene", "写入语言编号，编号id:" + languageId + ",地址id：" + apprId);
@@ -197,7 +204,7 @@ public class ParameterSet {
 				// System.out.println("注册了接口 字切换画面的接口：：：地址类型："
 				// + wordAddrProp.nRegIndex);
 				SKPlcNoticThread.getInstance().addNoticProp(wordSceneAddr,
-						wordCall, false);
+						wordCall, false,0);
 			}
 		}
 	}
@@ -253,20 +260,19 @@ public class ParameterSet {
 		if (SystemInfo.getBitSceneList().size() == 0) {
 			return;
 		}
-		
-		
-		//注册地址监视回调
+
+		// 注册地址监视回调
 		for (int i = 0; i < SystemInfo.getBitSceneList().size(); i++) {
-			BitSceneModle modle=SystemInfo.getBitSceneList().get(i);
-			if (modle!=null) {
-				CallbackItem item=new CallbackItem();
-				item.eDataType= DATA_TYPE.BIT_1;
-				item.onRegister(modle.getnBitAddress(), true);
+			BitSceneModle modle = SystemInfo.getBitSceneList().get(i);
+			if (modle != null) {
+				CallbackItem item = new CallbackItem();
+				item.eDataType = DATA_TYPE.BIT_1;
+				item.onRegister(modle.getnBitAddress(), true,0);
 				modle.setItem(item);
 			}
 		}
-		
-		Thread mThread=new Thread(){
+
+		Thread mThread = new Thread() {
 
 			@Override
 			public void run() {
@@ -277,66 +283,75 @@ public class ParameterSet {
 						SceneByBitAddr();
 						sleep(100);
 					}
-					
+
 				} catch (Exception e) {
 					e.printStackTrace();
 					Log.e("ParameterSet", "Scene by bitAddr error!");
 				}
 			}
-			
+
 		};
-		
+
 		mThread.setName("SceneByBitAddr");
 		mThread.start();
 
-		
 	}
-	
-	private void SceneByBitAddr(){
-		
+
+	private void SceneByBitAddr() {
+
 		// 地址值
 		int addrValue = 0;
 		for (int i = 0; i < SystemInfo.getBitSceneList().size(); i++) {
-			
+
 			BitSceneModle bit = SystemInfo.getBitSceneList().get(i);
-			
-			if (bit.getItem()!=null) {
-				addrValue=bit.getItem().getnIValue();
+
+			if (bit.getItem() != null) {
+				addrValue = bit.getItem().getnIValue();
 			}
-			
+
 			// 如果地址值跟约定好的状态值相等 则进去继续判断
 			if (addrValue == bit.getnStatus()) {
-				//Log.d("ParameterSet", "addrValue:"+addrValue);
-				
+				// Log.d("ParameterSet", "addrValue:"+addrValue);
+
 				// 如果地址值 与 上一次的不相等 说明地址值已经改变
 				if (addrValue != bit.getnAddressValue()) {
-					
+
 					if (bit.getnSceneId() > -1) {
 						int sceneNum = SKSceneManage.getInstance()
 								.getSceneByNum(bit.getnSceneId());
 						if (SystemInfo.getCurrentScenceId() != sceneNum) {
-							//Log.d("ParameterSet", "sceneNum:"+sceneNum);
+							// Log.d("ParameterSet", "sceneNum:"+sceneNum);
+							bit.setnWindowState(1);
 							handler.removeMessages(SCENE_GOTO);
-							handler.obtainMessage(SCENE_GOTO,bit.getnSceneId(), 0).sendToTarget();
+							handler.obtainMessage(SCENE_GOTO,
+									bit.getnSceneId(), 0).sendToTarget();
 
 						}
 					}
 					
 					// 如果设置了自动复位 设置成之前的状态
 					if (bit.isbRest()) {
-						if( bit.getnStatus() == 0)
-						{
+						if (bit.getnStatus() == 0) {
 							setBitReset(1, bit.getnBitAddress());
-						}else{
+						} else {
 							setBitReset(0, bit.getnBitAddress());
 						}
 					}
 				}
+			}else {
+				//自动关闭窗口
+				if (bit.isbClose()) {
+					if (bit.getnWindowState()==1) {
+						//窗口打开着
+						bit.setnWindowState(0);
+						handler.obtainMessage(SCENE_GOTO,bit.getnSceneId(), 1).sendToTarget();
+					}
+				}
 			}
-			
+
 			// 重新设置取出来的地址值
 			bit.setnAddressValue(addrValue);
-			
+
 		}
 	}
 
@@ -366,8 +381,8 @@ public class ParameterSet {
 		}
 
 	};
-	
-	private synchronized void goScene(Message msg){
+
+	private synchronized void goScene(Message msg) {
 		type[0] = 0;
 		type[1] = 0;
 		if (msg.what == SCENE_GOTO) {
@@ -381,25 +396,22 @@ public class ParameterSet {
 					type[1] = 1;
 				}
 			}
+			
 			if (type[0] == 1) {
 				// 场景
-				//Context context = SKSceneManage.getInstance().mContext;
-//				if (context != null) {
-//					SKWindowManage.getInstance(context).closeWindow(1);
-//				}
-				//SKSceneManage.getInstance().sceneGoto(sid,true,6);
-				SKSceneManage.getInstance().gotoWindow(0, sid, true, 6,GOTO_TYPE.PARAMETER);
+				SKSceneManage.getInstance().gotoWindow(0, sid, true, 1,GOTO_TYPE.PARAMETER);
 			} else if (type[1] == 1) {
 				// 窗口
-				//Context context = SKSceneManage.getInstance().mContext;
-//				if (context != null) {
-//					SKWindowManage.getInstance(context).closeWindow(1);
-//				}
 				SKProgress.hide();// 隐藏等待框
 				int id = DBTool.getInstance().getmSceneBiz().getWindowId(sid);
 				if (id > -1) {
-					//SKWindowManage.getInstance(context).showWindow(id);
-					SKSceneManage.getInstance().gotoWindow(1, id, false, 0,GOTO_TYPE.PARAMETER);
+					if (msg.arg2==0) {
+						//打开
+						SKSceneManage.getInstance().gotoWindow(1, id, false, 1,GOTO_TYPE.PARAMETER);
+					}else {
+						//关闭
+						SKSceneManage.getInstance().gotoWindow(4, id, false, 1,GOTO_TYPE.PARAMETER);
+					}
 				}
 			}
 		} else if (msg.what == TIME_SYS) {
@@ -424,28 +436,30 @@ public class ParameterSet {
 	 * 超时注销用户
 	 */
 	public void outTimeLogout() {
-		//注销将空用户设置为当前用户
+		// 注销将空用户设置为当前用户
 		SystemInfo.setGloableUser(getNullUser());
-		//将当前用户写入寄存器
+		// 将当前用户写入寄存器
 		SystemVariable.getInstance().setCurrentUserToAddr();
 	}
-	
+
 	/**
 	 * 获取空用户
+	 * 
 	 * @return
 	 */
-    public UserInfo getNullUser()
-    {
-    	UserInfo user = new UserInfo();
+	public UserInfo getNullUser() {
+		UserInfo user = new UserInfo();
 		user.setGroupId(new ArrayList<Integer>());
+		user.setGroupSet(new ArrayList<Boolean>());
+		user.setGroupMaster(new ArrayList<Boolean>());
 		user.setId(-1);
 		user.setName(" ");
 		user.setPassword("");
 		user.setDescript("");
 		return user;
-    }
-	
-    /**
+	}
+
+	/**
 	 * 从数据库获取登录用户信息
 	 * 
 	 * @param userNameValue
@@ -456,16 +470,20 @@ public class ParameterSet {
 		// TODO Auto-generated method stub
 		UserInfoBiz userBiz = new UserInfoBiz();
 		UserInfo info = userBiz.getUser(userNameValue, passwordValue);
-		SystemInfo.setGloableUser(info);
-		//将当前用户写入寄存器
-		SystemVariable.getInstance().setCurrentUserToAddr();
-		boolean b = false;
-		if (null != SystemInfo.getGloableUser()
-				&& null != SystemInfo.getGloableUser().getName()) {
+		if (null != info) {
+			SystemInfo.setGloableUser(info);
+			// 将当前用户写入寄存器
+			SystemVariable.getInstance().setCurrentUserToAddr();
+			boolean b = false;
+			if (null != SystemInfo.getGloableUser()
+					&& null != SystemInfo.getGloableUser().getName()) {
 
-			b = true;
+				b = true;
+			}
+			return b;
+		}else{
+			return false;
 		}
-		return b;
 
 	}
 
@@ -476,7 +494,7 @@ public class ParameterSet {
 		boolean flag = false;
 
 		try {
-			// 结束使用的日期 
+			// 结束使用的日期
 			// Date useTime = new Date();
 			// 获取是按照哪种授权方式，bProtectType ;//时效授权方式(按使用时间（false） 按截至日期（true）
 			boolean style = SystemInfo.isbProtectType();
@@ -495,7 +513,8 @@ public class ParameterSet {
 					SharedPreferences sharedPreferences = context
 							.getSharedPreferences("hmiprotct", 0);
 					int dateNumber = sharedPreferences.getInt("dateNumber", -1);
-					if (dateNumber > number || number == 0 || dateNumber == number) {// 如果记录的天数大于或者等于可以使用的天数，则超出实效
+					if (dateNumber > number || number == 0
+							|| dateNumber == number) {// 如果记录的天数大于或者等于可以使用的天数，则超出实效
 						flag = true;
 					}
 				}
@@ -519,20 +538,20 @@ public class ParameterSet {
 		boolean returnBool = false;
 		Date currentDate = Calendar.getInstance().getTime();
 		SimpleDateFormat format = new SimpleDateFormat("yyyy/MM/dd HH:mm");
-		
-		try{
-		currentDate = format.parse(format.format(currentDate));
-		Date stopDate = format.parse(limitTimeString);
-		
-		// 如果超时时间小于当前时间 ,
-		if (stopDate.getTime() < currentDate.getTime() || stopDate.getTime() == currentDate.getTime()) {
-			returnBool = true;
-		} else {
-			returnBool = false;
-		}
-		}catch(Exception e)
-		{
-			
+
+		try {
+			currentDate = format.parse(format.format(currentDate));
+			Date stopDate = format.parse(limitTimeString);
+
+			// 如果超时时间小于当前时间 ,
+			if (stopDate.getTime() < currentDate.getTime()
+					|| stopDate.getTime() == currentDate.getTime()) {
+				returnBool = true;
+			} else {
+				returnBool = false;
+			}
+		} catch (Exception e) {
+
 		}
 
 		return returnBool;
@@ -592,7 +611,7 @@ public class ParameterSet {
 			}
 			if (info.getmTriggerAddr() != null) {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getmTriggerAddr(), watchCall, true);
+						info.getmTriggerAddr(), watchCall, true,0);
 			}
 		}
 	}
@@ -652,9 +671,8 @@ public class ParameterSet {
 
 		// 年
 		String year = c.get(Calendar.YEAR) + "";
-		year =  Long.toString(DataTypeFormat.bcdStrToInt(year, 16));
-		if(year.equals(""))
-		{
+		year = Long.toString(DataTypeFormat.bcdStrToInt(year, 16));
+		if (year.equals("")) {
 			return;
 		}
 		dataList.add(Integer.valueOf(year));
@@ -697,24 +715,23 @@ public class ParameterSet {
 		if (seven.equals("")) {
 			return;
 		}
-		
+
 		dataList.add(Integer.valueOf(seven));
-		//星期 1代表星期日 7代表星期六
-		String dayOfWeek = c.get(Calendar.DAY_OF_WEEK)+"";
+		// 星期 1代表星期日 7代表星期六
+		String dayOfWeek = c.get(Calendar.DAY_OF_WEEK) + "";
 		dayOfWeek = Long.toString(DataTypeFormat.bcdStrToInt(dayOfWeek, 16));
 		if (dayOfWeek.equals("")) {
 			return;
 		}
-		int week=Integer.valueOf(dayOfWeek)-1;
-		if (week==0) {
-			week=7;
+		int week = Integer.valueOf(dayOfWeek) - 1;
+		if (week == 0) {
+			week = 7;
 		}
 		dataList.add(week);
 
 		if (addrProp != null) {
 			addrProp.nAddrLen = 7;
-			PlcRegCmnStcTools.setRegIntData(addrProp, dataList,
-					mSendData);
+			PlcRegCmnStcTools.setRegIntData(addrProp, dataList, mSendData);
 		}
 
 	}
@@ -733,8 +750,8 @@ public class ParameterSet {
 		try {
 			if (addrProp != null) {
 				addrProp.nAddrLen = 7;
-				boolean bSuccess = PlcRegCmnStcTools.getRegDoubleData(
-						addrProp, dataList, mSendData);
+				boolean bSuccess = PlcRegCmnStcTools.getRegDoubleData(addrProp,
+						dataList, mSendData);
 				if (bSuccess) {
 					if (!dataList.isEmpty()) {
 						if (dataList.size() < 7) {
@@ -747,7 +764,7 @@ public class ParameterSet {
 							if (temp.equals("")) {
 								return;
 							}
-						
+
 							if (i == 1) {
 								// 月份
 								int time = Integer.valueOf(temp);
@@ -786,9 +803,7 @@ public class ParameterSet {
 							return;
 						}
 						Calendar c = Calendar.getInstance();
-						c.set(Calendar.YEAR,
-								Integer.valueOf(dataTime.get(0)
-										));
+						c.set(Calendar.YEAR, Integer.valueOf(dataTime.get(0)));
 						c.set(Calendar.MONTH,
 								Integer.valueOf(dataTime.get(1)) - 1);
 						c.set(Calendar.DAY_OF_MONTH,
@@ -818,28 +833,35 @@ public class ParameterSet {
 		}
 
 	}
+
 	/**
 	 * 修改系统当前配方
 	 * 
 	 * @param reci
 	 */
-	public void myUpdateCurrentRecipe(int recipeId,int gId) {
+	public void myUpdateCurrentRecipe(int recipeId, int gId) {
 		sysBiz = new SystemInfoBiz();
 		int sysRecipeId = SystemInfo.getCurrentRecipe().getCurrentRecipeId();// 系统当前配方id
 		int sysRecipeGropId = SystemInfo.getCurrentRecipe()
 				.getCurrentGroupRecipeId();// 系统当前配方组Id
-			// 如果选择的配方组id或者配方Id不与系统当前的配方相同 则改变系统当前配方 防止点击重复的多次写入数据库
-			if (sysRecipeId != recipeId
-					|| sysRecipeGropId != gId) {
-				CurrentRecipe currentRecipe = new CurrentRecipe(
-						recipeId, gId);
-				// 改变当前配方
-				// SystemInfo.setCurrentRecipe(currentRecipe);
-				RecipeDataCentre.getInstance().setCurrRecipe(
-						gId, recipeId);
-				// 把当前配方写入数据库
-				sysBiz.updateCurrentRecipe(currentRecipe);
+		// 如果选择的配方组id或者配方Id不与系统当前的配方相同 则改变系统当前配方 防止点击重复的多次写入数据库
+		if (sysRecipeId != recipeId || sysRecipeGropId != gId) {
+			CurrentRecipe currentRecipe = new CurrentRecipe(recipeId, gId);
+			// 改变当前配方
+			// SystemInfo.setCurrentRecipe(currentRecipe);
+			RecipeDataCentre.getInstance().setCurrRecipe(gId, recipeId);
+			// 把当前配方写入数据库
+			sysBiz.updateCurrentRecipe(currentRecipe);
 
 		}
+	}
+	/**
+	 * 获取3G状态
+	 * @return
+	 */
+	public int phoneState(){
+		TelephonyManager manager = (TelephonyManager)SKSceneManage.getInstance().mContext.getSystemService(Context.TELEPHONY_SERVICE);
+		int absent = manager.getSimState();  
+		return absent;
 	}
 }

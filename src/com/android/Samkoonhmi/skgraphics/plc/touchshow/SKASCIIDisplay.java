@@ -8,8 +8,10 @@ import com.android.Samkoonhmi.graphicsdrawframe.ImageDrawItem;
 import com.android.Samkoonhmi.graphicsdrawframe.TextItem;
 import com.android.Samkoonhmi.macro.MacroManager;
 import com.android.Samkoonhmi.model.AcillInputInfo;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.StaticTextModel;
+import com.android.Samkoonhmi.model.SystemInfo;
 import com.android.Samkoonhmi.plccommunicate.PlcRegCmnStcTools;
 import com.android.Samkoonhmi.plccommunicate.SKPlcNoticThread;
 import com.android.Samkoonhmi.skenum.ADDRTYPE;
@@ -29,6 +31,7 @@ import com.android.Samkoonhmi.util.SEND_DATA_STRUCT;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PaintFlagsDrawFilter;
 import android.graphics.Rect;
@@ -45,7 +48,7 @@ import android.view.MotionEvent;
  * @author 瞿丽平
  * 
  */
-public class SKASCIIDisplay extends SKGraphCmnTouch {
+public class SKASCIIDisplay extends SKGraphCmnTouch implements IItem{
 	private Paint mPaint;
 	private AcillInputInfo info;
 	private Rect mRect;
@@ -61,8 +64,6 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 	// private AddrProp bitKeyAddrProp; // 位地址控制键盘是否弹出
 	// private TouchInfo touchInfo;// 触控属性
 	// private ShowInfo showInfo;// 显现属性
-	private String sTaskName;
-	private boolean initFlag;
 	private boolean isTouchFlag;
 	private boolean isShowFlag;
 	private boolean showByUser;
@@ -85,7 +86,6 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 			AcillInputInfo info) {
 		mContext = context;
 		isOnclick = false;
-		initFlag = true;
 		isTouchFlag = true;
 		isShowFlag = true;
 		showByUser = false;
@@ -95,8 +95,6 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 		// keyIsShow = true;
 		this.sceneId = sceneId;
 		this.itemId = itemId;
-		// TODO Auto-generated constructor stub
-		this.sTaskName = "";
 		showValue = "";
 		mPaint = new Paint();
 		items = new SKItems();
@@ -141,6 +139,28 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 			items.rect = mRect;
 			items.mGraphics=this;
 			
+			if (null != info.getmTouchinInfo()) {
+				if (-1 != info.getmTouchinInfo().getnAddrId()
+						&& info.getmTouchinInfo().isbTouchByAddr()) {
+					touchByAddr = true;
+				}
+				if (info.getmTouchinInfo().isbTouchByUser()) {
+					touchByUser = true;
+				}
+			}
+			if (null != info.getmShowInfo()) {
+				if (-1 != info.getmShowInfo().getnAddrId()
+						&& info.getmShowInfo().isbShowByAddr()) {
+					showByAddr = true;
+				}
+				if (info.getmShowInfo().isbShowByUser()) {
+					showByUser = true;
+				}
+			}		
+			
+			// 注册地址值
+			registAddr();
+			
 		}
 	}
 
@@ -151,31 +171,12 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 		if (null == info) {
 			return;
 		}
-		initFlag = true;
 
-		if (null != info.getmTouchinInfo()) {
-			if (-1 != info.getmTouchinInfo().getnAddrId()
-					&& info.getmTouchinInfo().isbTouchByAddr()) {
-				touchByAddr = true;
-			}
-			if (info.getmTouchinInfo().isbTouchByUser()) {
-				touchByUser = true;
-			}
-		}
-		if (null != info.getmShowInfo()) {
-			if (-1 != info.getmShowInfo().getnAddrId()
-					&& info.getmShowInfo().isbShowByAddr()) {
-				showByAddr = true;
-			}
-			if (info.getmShowInfo().isbShowByUser()) {
-				showByUser = true;
-			}
-		}		
-		
 		if (null == popKey) {
 			popKey = new SKKeyPopupWindow(SKSceneManage.getInstance().mContext,
 					false, info.getnKeyId(), DATA_TYPE.OTHER_DATA_TYPE);
 			popKey.setCallback(callback);
+			popKey.setInputType(false);
 			if ((AcillCode.PASSWORD & info.getnCode()) == AcillCode.PASSWORD) {
 				popKey.setPassWord(true);
 			} else {
@@ -192,8 +193,7 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 					.getCurrentScene(), WINDOW_TYPE.KEYBOARD, 2,
 					DATA_TYPE.OTHER_DATA_TYPE);// 2代表字母
 		}
-		// 注册地址值
-		registAddr();
+		
 		asciiIsShow();
 		asciiIsTouch();
 		SKSceneManage.getInstance().onRefresh(items);
@@ -257,7 +257,7 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 									hand = new myMainHandler(Looper.getMainLooper());
 								}
 								hand.sendEmptyMessageDelayed(TOUCHHANDER, info
-										.getmTouchinInfo().getnPressTime() * 1000);
+										.getmTouchinInfo().getnPressTime() * 100);
 							} else {
 								doTouch(notTouchOpenKey);
 							}
@@ -377,11 +377,42 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_W;
 		if (null != info.getnAddress()) {
 			if (info.getmOffSetAddress()!=null) {
-				PlcRegCmnStcTools.setRegAsciiData(info.getmOffSetAddress(), dataList,
-						mSendData);
+				int nAddrLeng = info.getmOffSetAddress().nAddrLen;
+				if(nAddrLeng * 2 > dataList.size())
+				{
+					for(int i = dataList.size(); i < nAddrLeng * 2; i++)
+					{
+						dataList.add((byte) 0x00);
+					}
+				}
+				
+				if(info.isInputIsShow()) //输入地址跟显示地址一样
+				{ 
+					PlcRegCmnStcTools.setRegAsciiData(info.getmOffSetAddress(), dataList,
+							mSendData);
+				}else{
+					//输入地址跟显示地址不一样，写入地址时，传入输入地址
+					PlcRegCmnStcTools.setRegAsciiData(info.getInputAddr(), dataList,
+							mSendData);
+				}
+				
 			}else {
-				PlcRegCmnStcTools.setRegAsciiData(info.getnAddress(), dataList,
+				int nAddrLeng = info.getnAddress().nAddrLen;
+				if(nAddrLeng * 2 > dataList.size())
+				{
+					for(int i = dataList.size(); i < nAddrLeng * 2; i++)
+					{
+						dataList.add((byte) 0x00);
+					}
+				}
+				if(info.isInputIsShow()) //输入地址跟显示地址一样
+				{
+				   PlcRegCmnStcTools.setRegAsciiData(info.getnAddress(), dataList,
 						mSendData);
+				}else{
+					 PlcRegCmnStcTools.setRegAsciiData(info.getInputAddr(), dataList,
+								mSendData);
+				}
 			}
 		}
 	}
@@ -506,12 +537,12 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 		// TODO Auto-generated method stub
 		if (null != info.getnAddress()) {
 			SKPlcNoticThread.getInstance().addNoticProp(info.getnAddress(),
-					valueCall, false);
+					valueCall, false,sceneId);
 		}
 		
 		if (null!=info.getmOffSetAddr()) {
 			SKPlcNoticThread.getInstance().addNoticProp(info.getmOffSetAddr(),
-					addOffSet, false);
+					addOffSet, false,sceneId);
 		}
 		
 		// 注册触控地址值
@@ -520,29 +551,30 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 			if (addrType == ADDRTYPE.BITADDR) {
 				SKPlcNoticThread.getInstance().addNoticProp(
 						info.getmTouchinInfo().getTouchAddrProp(), touchCall,
-						true);
+						true,sceneId);
 			} else {
 				SKPlcNoticThread.getInstance().addNoticProp(
 						info.getmTouchinInfo().getTouchAddrProp(), touchCall,
-						false);
+						false,sceneId);
 			}
 		}
+		
 		// 注册显现地址值
 		if (showByAddr && null != info.getmShowInfo().getShowAddrProp()) {
 			ADDRTYPE addrType = info.getmShowInfo().geteAddrType();
 			if (addrType == ADDRTYPE.BITADDR) {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getmShowInfo().getShowAddrProp(), showCall, true);
+						info.getmShowInfo().getShowAddrProp(), showCall, true,sceneId);
 			} else {
 				SKPlcNoticThread.getInstance().addNoticProp(
-						info.getmShowInfo().getShowAddrProp(), showCall, false);
+						info.getmShowInfo().getShowAddrProp(), showCall, false,sceneId);
 			}
 
 		}
 		// 位控制键盘是否弹出
 		if (null != info.getsBitAddress()) {
 			SKPlcNoticThread.getInstance().addNoticProp(info.getsBitAddress(),
-					bitKeyBoard, true);
+					bitKeyBoard, true,sceneId);
 		}
 	}
 
@@ -595,6 +627,7 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 				}
 				showValue = converCodeShow(byteValue);
 			}
+			//Log.d("AAAAA", "showValue="+showValue);
 			SKSceneManage.getInstance().onRefresh(items);
 
 		}
@@ -615,7 +648,7 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 						int value = mIData.get(0);
 						int temp = info.getnAddress().nAddrValue + value;
 						if (temp < 0) {
-							SKPlcNoticThread.getInstance().destoryCallback(valueCall);
+							SKPlcNoticThread.getInstance().destoryCallback(valueCall,sceneId);
 							showValue ="";
 							SKSceneManage.getInstance().onRefresh(items);
                              return;							
@@ -637,9 +670,9 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 						}
 						
 
-						SKPlcNoticThread.getInstance().destoryCallback(valueCall);
+						SKPlcNoticThread.getInstance().destoryCallback(valueCall,sceneId);
 						SKPlcNoticThread.getInstance().addNoticProp(info.getmOffSetAddress(),
-								valueCall, false);
+								valueCall, false,sceneId,true);
 
 						if (info.getnAddress().eConnectType > 1) {
 							SKSceneManage.getInstance().updateSceneReadAddrs(
@@ -687,7 +720,6 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 			if (isShowFlag) {
 				draw(mPaint, canvas);
 			}
-			initFlag = true;
 			return true;
 		} else {
 			return false;
@@ -730,7 +762,7 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 			}
 		}
 		// 不可触控加上锁图标
-		if (!isTouchFlag) {
+		if (!isTouchFlag && SystemInfo.isbLockIcon()) {
 			if (mLockBitmap == null) {
 				mLockBitmap = ImageFileTool
 						.getBitmap(R.drawable.lock, mContext);
@@ -847,24 +879,12 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 	@Override
 	public void realseMemeory() {
 		// TODO Auto-generated method stub
-		// info = null;
-		// text = null;
 		isOnclick = false;
 		boolean b = GlobalPopWindow.popIsShow;
 		if (b) {
 			if (null != pop)
 				pop.closePop();
 		}
-		// initFlag = true;
-		sTaskName = "";
-		// 销毁注册地址
-		if (info.getmOffSetAddr()!=null) {
-			SKPlcNoticThread.getInstance().destoryCallback(addOffSet);
-		}
-		SKPlcNoticThread.getInstance().destoryCallback(valueCall);
-		SKPlcNoticThread.getInstance().destoryCallback(touchCall);
-		SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		SKPlcNoticThread.getInstance().destoryCallback(bitKeyBoard);
 
 	}
 
@@ -891,5 +911,309 @@ public class SKASCIIDisplay extends SKGraphCmnTouch {
 		mSendData.eDataType = DATA_TYPE.BIT_1;
 		mydataListInt.add(value);
 		PlcRegCmnStcTools.setRegIntData(prop, mydataListInt, mSendData);
+	}
+
+	/**
+	 * 脚本对外接口
+	 */
+	@Override
+	public IItem getIItem() {
+		// TODO Auto-generated method stub
+		return this;
+	}
+
+	@Override
+	public int getItemLeft(int id) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			return info.getnStartX();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			return info.getnStartY();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			return info.getnWidth();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			return info.getnHeight();
+		}
+		return -1;
+	}
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO Auto-generated method stub
+		// nCurrentState;
+		if (info != null) {
+			return getColor(info.getnBackColor());
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO Auto-generated method stub
+		return isShowFlag;
+	}
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO Auto-generated method stub
+		return isTouchFlag;
+	}
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO Auto-generated method stub
+
+		if (info != null) {
+			if (x == info.getnStartX()) {
+				return true;
+			}
+			if (x < 0
+					|| x > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			
+			int l = items.rect.left;
+			info.setnStartX(x);
+			items.rect.left = x;
+			items.rect.right = x - l + items.rect.right;
+			items.mMoveRect = new Rect();
+			text.setStartX(x);
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (y == info.getnStartY()) {
+				return true;
+			}
+			if (y < 0
+					|| y > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			info.setnStartY(y);
+			int t = items.rect.top;
+			items.rect.top = y;
+			items.rect.bottom = y - t + items.rect.bottom;
+			items.mMoveRect = new Rect();
+			text.setStartY(y);
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (w == info.getnWidth()) {
+				return true;
+			}
+			if (w < 0
+					|| w > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			info.setnWidth((short) w);
+			items.rect.right = w - items.rect.width() + items.rect.right;
+			items.mMoveRect = new Rect();
+			text.setRectWidth(items.rect.width());
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			if (h == info.getnHeight()) {
+				return true;
+			}
+			if (h < 0
+					|| h > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			info.setnHeight((short) h);
+			items.rect.bottom = h - items.rect.height() + items.rect.bottom;
+			items.mMoveRect = new Rect();
+			text.setRectHeight(items.rect.height());
+			SKSceneManage.getInstance().onRefresh(items);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (info != null) {
+			int color = Color.rgb(r, g, b);
+			if (color == info.getnBackColor()) {
+				return true;
+			}
+			info.setnBackColor(color);
+			text.setM_backColorPadding(color);
+			textItem.resetColor(color, 2);
+			SKSceneManage.getInstance().onRefresh(items);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v == isShowFlag) {
+			return true;
+		}
+		isShowFlag = v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v==isTouchFlag) {
+			return true;
+		}
+		isTouchFlag = v;
+		SKSceneManage.getInstance().onRefresh(items);
+		return true;
+	}
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO Auto-generated method stub
+		if (info==null||alpha<0||alpha>255) {
+			return false;
+		}
+		if (info.getnTransparent()==alpha) {
+			return true;
+		}
+		info.setnTransparent(alpha);
+		text.setM_alphaPadding(alpha);// 设置透明度
+		textItem.resetAlpha(alpha);
+		SKSceneManage.getInstance().onRefresh(items);
+		return false;
+	}
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	/**
+	 * 获取RGB颜色
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
 	}
 }

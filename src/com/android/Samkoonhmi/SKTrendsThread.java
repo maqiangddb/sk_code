@@ -21,7 +21,7 @@ import com.android.Samkoonhmi.util.TASK;
 
 
 public class SKTrendsThread {
-	private static final String TAG="SKTrendsThread";
+	//private static final String TAG="SKTrendsThread";
 	public static int TASK_ID;
 
 	//带消息循环的线程

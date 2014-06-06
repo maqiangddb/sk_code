@@ -82,7 +82,7 @@ public class TextItem {
 		float rectWidth = mText.getRectWidth();
 		float rectHeight = mText.getRectHeight();
 		
-		if (0 == rectWidth || 0 == rectHeight) {
+		if (1 > rectWidth || 1 > rectHeight) {
 			return;
 		}
 		
@@ -437,6 +437,33 @@ public class TextItem {
 		}
 	}
 
+	/**
+	 * 重新设置背景
+	 * @param color-颜色
+	 * @param type-1 前景色，type-2 背景色，type-3 边框色
+	 */
+	public void resetColor(int color,int type){
+		if (type==2) {
+			backPaint.setColor(color);
+		}else if (type==3) {
+			borderPaint.setColor(color);
+		}
+	}
+	
+	
+	/**
+	 * 重新设置背景
+	 * @param color-颜色
+	 */
+	public void resetAlpha(int alpha){
+		backPaint.setAlpha(alpha);
+		borderPaint.setColor(alpha);
+	}
+	
+	public StaticTextModel getModel(){
+		return mText;
+	}
+	
 	/**
 	 * 获取字体所占的高度
 	 */

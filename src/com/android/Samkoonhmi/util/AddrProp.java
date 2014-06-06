@@ -19,4 +19,18 @@ public class AddrProp {
 	public int eAddrRWprop = READ_WRITE_COM_TYPE.OTHER_CONTROL_TYPE;    //读写等级
 	public String sPlcProtocol = "";       							   // PLC的协议名
 	public int nAddrId;                                                //地址id用于偏移
+	
+	public AddrProp clone(){
+		AddrProp addrProp = new AddrProp();
+		addrProp.eAddrRWprop = this.eAddrRWprop;
+		addrProp.eConnectType = this.eConnectType;
+		addrProp.nAddrId = this.nAddrId;
+		addrProp.nAddrLen = nAddrLen;
+		addrProp.nAddrValue =this.nAddrValue;
+		addrProp.nPlcStationIndex = this.nPlcStationIndex;
+		addrProp.nRegIndex = this.nRegIndex;
+		addrProp.nUserPlcId = this.nUserPlcId;
+		addrProp.sPlcProtocol = this.sPlcProtocol;
+		return addrProp;
+	}
 }

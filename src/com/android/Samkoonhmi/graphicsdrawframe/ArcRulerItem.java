@@ -265,6 +265,9 @@ public class ArcRulerItem extends PolygonDrawItem {
 			// 数值
 			draw = true;
 			if (mBitmap == null) {
+				if(nValueWidth<1){
+					nValueWidth=1;
+				}
 				mBitmap = Bitmap.createBitmap((int) nValueWidth,
 						(int) nValueWidth, Config.ARGB_8888);
 				mCanvas = new Canvas(mBitmap);
@@ -346,6 +349,9 @@ public class ArcRulerItem extends PolygonDrawItem {
 
 			// 数值
 			if (mBitmap == null) {
+				if(nValueWidth<1){
+					nValueWidth=1;
+				}
 				mBitmap = Bitmap.createBitmap((int) nValueWidth,
 						(int) nValueWidth, Config.ARGB_8888);
 				mCanvas = new Canvas(mBitmap);
@@ -422,6 +428,9 @@ public class ArcRulerItem extends PolygonDrawItem {
 
 			// 数值
 			if (mBitmap == null) {
+				if(nValueWidth<1){
+					nValueWidth=1;
+				}
 				mBitmap = Bitmap.createBitmap((int) nValueWidth,
 						(int) nValueWidth, Config.ARGB_8888);
 				mCanvas = new Canvas(mBitmap);
@@ -521,6 +530,9 @@ public class ArcRulerItem extends PolygonDrawItem {
 
 			// 数值
 			if (mBitmap == null) {
+				if(nValueWidth<1){
+					nValueWidth=1;
+				}
 				mBitmap = Bitmap.createBitmap((int) nValueWidth,
 						(int) nValueWidth, Config.ARGB_8888);
 				mCanvas = new Canvas(mBitmap);

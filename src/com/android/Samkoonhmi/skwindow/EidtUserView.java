@@ -1,8 +1,6 @@
 package com.android.Samkoonhmi.skwindow;
 
 import java.util.ArrayList;
-import java.util.List;
-
 import com.android.Samkoonhmi.R;
 import com.android.Samkoonhmi.adapter.UserAdapter;
 import com.android.Samkoonhmi.adapter.UserAdapter.HolerView;
@@ -11,6 +9,9 @@ import com.android.Samkoonhmi.model.SystemInfo;
 import com.android.Samkoonhmi.model.UserInfo;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -44,24 +45,65 @@ public class EidtUserView {
 	private ListView mUserListView;
 	//组view
 	private ListView mGroupListView;
+	//管理员view
+	private ListView mMasterListView;
 	//用户列表
 	private ArrayList<UserInfo> mUserList;
 	//组列表
 	private ArrayList<UserInfo> mGroupList;
 	private UserAdapter userAdapter;
 	private UserAdapter groupAdapter;
+	private UserAdapter masterAdapter;
 	private UserInfoBiz biz;
 	private int nCurrentId=0;
 	//是否可以点击
 	private boolean click;
+	private Handler loadHandler;
+	private static final int LOAD=0;
+	private static final int DELETE=1;
+	private static final int UPDATE=2;
+	private static final int UPDATEDATA=3;
+	private static final int UPDATEGROUP=4;
 	
 	public EidtUserView(Context context,IClickListener listener){
 		this.mContext=context;
 		inflater=LayoutInflater.from(mContext);
 		this.listener=listener;
+		loadHandler = new Handler(Looper.getMainLooper()){
+			@Override
+			public void handleMessage(Message msg) {
+				super.handleMessage(msg);
+				switch(msg.what){
+					case LOAD:
+//						System.out.println("edit load start");
+						LoadDataByThread();
+						setAdapter();
+						break;
+					case DELETE:
+						deleteByThread(msg.arg1);
+						break;
+					case UPDATE:
+						boolean result = (msg.arg1==1);
+						boolean updateId = (msg.arg2==1);
+						updateByThread(result, updateId);
+						break;
+					case UPDATEDATA:
+						updateDataByThread();
+						break;
+					case UPDATEGROUP:
+						updateGroupByThread(msg.arg1);
+						break;
+				}
+			}
+		};
 	}
 	
-	private boolean LoadData(){
+	public boolean LoadData(){
+//		System.out.println("edit load need");
+		return loadHandler.sendEmptyMessage(LOAD);
+	}
+	
+	private boolean LoadDataByThread(){
 		boolean result=true;
 		this.click=true;
 		
@@ -73,10 +115,15 @@ public class EidtUserView {
 		}
 		
 		//获取所有用户
-		mUserList=biz.getUserList();
+		mUserList=biz.getUserListInGroup(info);
 		
 		if (info==null||mUserList==null||mUserList.size()==0) {
 			Log.e("EidtUserView", "EidtUserView data=null.");
+			mGroupList=new ArrayList<UserInfo>();
+			Toast.makeText(mContext, R.string.user_not_master, Toast.LENGTH_SHORT).show();
+			mAddBtn.setVisibility(View.GONE);
+			mUpdateBtn.setVisibility(View.GONE);
+			mDeleteBtn.setVisibility(View.GONE);
 			return result=false;
 		}
 		
@@ -88,8 +135,10 @@ public class EidtUserView {
 		}
 		
 		//组
-		mGroupList=new ArrayList<UserInfo>();
 		mGroupList=biz.getGroupList(info.getId(),true);
+		if(mGroupList == null){
+			mGroupList=new ArrayList<UserInfo>();
+		}
 		nCurrentId=info.getId();
 		
 		return result;
@@ -104,16 +153,19 @@ public class EidtUserView {
 		mExitBtn=(Button)view.findViewById(R.id.btn_edit_exit);
 		mUserListView=(ListView)view.findViewById(R.id.edit_user_list);
 		mGroupListView=(ListView)view.findViewById(R.id.edit_group_list);
-	
+		mMasterListView=(ListView)view.findViewById(R.id.show_master_list);
 		//添加监听事件
 		addListener();
+		System.out.println("edit addview");
 		//获取数据
-		if(LoadData()){
-			//设置适配器
-			setAdapter();
-		}else {
-			Toast.makeText(mContext, R.string.no_user, Toast.LENGTH_SHORT).show();
-		}
+//		if(LoadData()){
+//			//设置适配器
+//			setAdapter();
+//		}else {
+//			Toast.makeText(mContext, R.string.user_not_master, Toast.LENGTH_SHORT).show();
+//		}
+		LoadData();
+		
 		return view;
 	}
 	
@@ -123,6 +175,7 @@ public class EidtUserView {
 	private void setAdapter(){
 		userAdapter=new UserAdapter(mContext, mUserList, true);
 		groupAdapter=new UserAdapter(mContext, mGroupList, false);
+		masterAdapter=new UserAdapter(mContext,mGroupList,true,true,true);
 		
 		mUserListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
 		mUserListView.setAdapter(userAdapter);
@@ -147,6 +200,7 @@ public class EidtUserView {
 						}
 					}
 					userAdapter.notifyDataSetChanged();
+					masterAdapter.notifyDataSetChanged();
 				}
 			}
 		});
@@ -161,23 +215,54 @@ public class EidtUserView {
 				
 			}
 		});
+		
+		mMasterListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
+		mMasterListView.setAdapter(masterAdapter);
+		mMasterListView.setClickable(false);
+		mMasterListView.setOnItemClickListener(new OnItemClickListener(){
+
+			@Override
+			public void onItemClick(AdapterView<?> parent, View view,
+					int position, long id) {
+				
+			}
+		});
+	}
+	
+	
+	private void updateGroup(int id){
+		Message msg = Message.obtain();
+		msg.what=UPDATEGROUP;
+		msg.arg1 = id;
+		loadHandler.sendMessage(msg);
 	}
 	
 	/**
 	 * 根据不同用户显示相应的用户组
 	 */
-	private void updateGroup(int id){
+	private void updateGroupByThread(int id){
 		nCurrentId=id;
+		mGroupList.clear();
+		if(mUserList.isEmpty()){
+			groupAdapter.notifyDataSetChanged();
+			masterAdapter.notifyDataSetChanged();
+			return;
+		}
 		ArrayList<UserInfo> list=biz.getGroupList(id, true);
 		if (list==null||list.size()==0) {
 			list=new ArrayList<UserInfo>();
 		}
 		
-		mGroupList.clear();
-		for (int i = 0; i < list.size(); i++) {
-			mGroupList.add(list.get(i));
+		if (mGroupList != null) {
+			
+			mGroupList.clear();
+			for (int i = 0; i < list.size(); i++) {
+				mGroupList.add(list.get(i));
+			}
+			groupAdapter.notifyDataSetChanged();
 		}
-		groupAdapter.notifyDataSetChanged();
+		
+	masterAdapter.notifyDataSetChanged();
 	}
 	
 	/**
@@ -242,10 +327,17 @@ public class EidtUserView {
 		
 	}
 	
+	private void delete(int id){
+		Message msg = Message.obtain();
+		msg.what = DELETE;
+		msg.arg1 = id;
+		loadHandler.sendMessage(msg);
+	}
+	
 	/**
 	 * 删除用户
 	 */
-	private void delete(int id){
+	private void deleteByThread(int id){
 		if (id==0||id==SystemInfo.getGloableUser().getId()) {
 			Toast.makeText(mContext, R.string.hint_delete_msg, Toast.LENGTH_SHORT).show();
 			click=true;
@@ -263,28 +355,48 @@ public class EidtUserView {
 		click=true;
 	} 
 	
+	public void update(boolean result,boolean updateId){
+		Message msg = Message.obtain();
+		msg.what=UPDATE;
+		if(result){
+			msg.arg1=1;
+		}else{
+			msg.arg1=0;
+		}
+		if(updateId){
+			msg.arg2=1;
+		}else{
+			msg.arg2=0;
+		}
+		loadHandler.sendMessage(msg);
+	}
+	
 	/**
 	 * 更新or添加or删除,成功时更新界面
 	 * @param result-更新的结果
 	 * @param updateId-是否更新当前id,删除的时候需要更新当前id
 	 */
-	public void update(boolean result,boolean updateId){
+	public void updateByThread(boolean result,boolean updateId){
 		if(result){
 			//添加成功or修改成功or删除成功
 			if (userAdapter!=null) {
-				ArrayList<UserInfo> list=biz.getUserList();
-				if (list==null||list.size()==0) {
-					return;
-				}
-				
+					
+				UserInfo info=SystemInfo.getGloableUser();
 				if (updateId) {
-					UserInfo info=SystemInfo.getGloableUser();
 					if (info!=null) {
 						nCurrentId=info.getId();
 					}
 				}
 				
 				mUserList.clear();
+				ArrayList<UserInfo> list=biz.getUserListInGroup(info);
+				if (list==null||list.size()==0) {
+					//清空组列表
+					updateGroup(nCurrentId);
+					userAdapter.notifyDataSetChanged();
+					return;
+				}
+				
 				for (int i = 0; i < list.size(); i++) {
 					mUserList.add(list.get(i));
                     if (list.get(i).getId()==nCurrentId) {
@@ -298,10 +410,15 @@ public class EidtUserView {
 		}
 	}
 	
+	
+	public void updateData(){
+		loadHandler.sendEmptyMessage(UPDATEDATA);
+	}
+	
 	/**
 	 * 更新数据
 	 */
-	public void updateData(){
+	public void updateDataByThread(){
 		UserInfo info=SystemInfo.getGloableUser();
 		if (info.getId()!=nCurrentId) {
 			for (int i = 0; i < mUserList.size(); i++) {

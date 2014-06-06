@@ -9,6 +9,7 @@ import com.android.Samkoonhmi.model.SystemInfo;
 import com.android.Samkoonhmi.skenum.BYTE_H_L_POS;
 import com.android.Samkoonhmi.skenum.PROTOCOL_TYPE;
 import com.android.Samkoonhmi.skwindow.SKToast;
+import com.android.Samkoonhmi.system.SystemVariable;
 import com.android.Samkoonhmi.util.AddrProp;
 import com.android.Samkoonhmi.util.AddrPropArray;
 import com.android.Samkoonhmi.util.MODULE;
@@ -64,7 +65,7 @@ public class ProtocolInterfaces {
 	private native int checkHandshakePkgJni(byte[] sSendData, int nSetSize, int nReturnLen, int nCurrTimes, PlcSampInfo mPlcInfo);
 	
 	/*接收从串口接收到的数据到从站处理，只适合从站*/
-	private native int rcvStrForSlaveJni(byte[] sRcvStr, int nSetSize, int nStationId, SEND_PACKAGE_JNI sSendDataStr, PlcSampInfo mPlcInfo);
+	private native int rcvStrForSlaveJni(byte[] sRcvStr, int nSetSize, int nStationId, SendPkgArray sSendDataStr, PlcSampInfo mPlcInfo);
 	
 	/*取得协议的功能类型，做主站还是做从站*/
 	private native int getProtocolFunTypeJni(PlcSampInfo mPlcInfo);
@@ -77,7 +78,7 @@ public class ProtocolInterfaces {
 	private native boolean setCmnInfoJni(int nCmnInfo, PlcSampInfo mPlcInfo);
 	
 	/*设置一个场景和窗口的地址*/
-	private native boolean setOneSceneAddrsJni(AddrProp[] mAddrList, boolean bCover, PlcSampInfo mPlcInfo);
+	private native boolean setOneSceneAddrsJni(AddrProp[] mAddrList, boolean bCover, PlcSampInfo mPlcInfo,int nMaxRWlen);
 	
 	private native boolean clearAllReadAddrJni();
 	
@@ -126,13 +127,24 @@ public class ProtocolInterfaces {
 	public synchronized static ProtocolInterfaces getProtocolInterface() {
 		if(null == mProtocolObj)
 		{
-			File mCollectFile = new File("/data/data/com.android.Samkoonhmi/lib/libplc_drives_center.so");
-			if(!mCollectFile.exists())
-			{
-				SKToast.makeText("plc_drives_center file not exists", Toast.LENGTH_SHORT).show();
-				return null;
-			}
+			String sSumsungFile = "/data/sumsung.phone";
+			File samsungfile = new File(sSumsungFile);
+			if(samsungfile.exists()){
+				File mCollectFile = new File(SystemVariable.sSumsungLibPath+"libplc_drives_center.so");
+				if(!mCollectFile.exists())
+				{
+					SKToast.makeText("plc_drives_center file not exists", Toast.LENGTH_SHORT).show();
+					return null;
+				}
+			}else{
 			
+				File mCollectFile = new File("/data/data/com.android.Samkoonhmi/lib/libplc_drives_center.so");
+				if(!mCollectFile.exists())
+				{
+					SKToast.makeText("plc_drives_center file not exists", Toast.LENGTH_SHORT).show();
+					return null;
+				}
+			}
 			mProtocolObj = new ProtocolInterfaces();
 		}
 		return mProtocolObj;
@@ -815,14 +827,14 @@ public class ProtocolInterfaces {
 	 * @param mPlcInfo
 	 * @return
 	 */
-	public int rcvStrForSlave(byte[] sRcvStr, int nSetSize, int nStationId, SEND_PACKAGE_JNI sSendDataStr, PlcSampInfo mPlcInfo)
+	public int rcvStrForSlave(byte[] sRcvStr, int nSetSize, int nStationId, SendPkgArray mPkgListObj, PlcSampInfo mPlcInfo)
 	{
 		int nResultInfo = -1;
-		if(null == sRcvStr || sRcvStr.length <= 0 || null == sSendDataStr || null == mPlcInfo) return nResultInfo;
+		if(null == sRcvStr || sRcvStr.length <= 0 || null == mPkgListObj || null == mPlcInfo) return nResultInfo;
 		
 		synchronized(ProtocolInterfaces.getProtocolInterface())
 		{
-			nResultInfo = rcvStrForSlaveJni(sRcvStr, nSetSize, nStationId, sSendDataStr, mPlcInfo);
+			nResultInfo = rcvStrForSlaveJni(sRcvStr, nSetSize, nStationId, mPkgListObj, mPlcInfo);
 		}
 		return nResultInfo;
 	}
@@ -834,7 +846,7 @@ public class ProtocolInterfaces {
 	 * @param bCover：是否覆盖以前设置的地址
 	 * @return
 	 */
-	public synchronized boolean setOneSceneAddrs(Vector<AddrProp > mAddrList, boolean bCover, PlcSampInfo mPlcInfo)
+	public synchronized boolean setOneSceneAddrs(Vector<AddrProp > mAddrList, boolean bCover, PlcSampInfo mPlcInfo, int nMaxRWlen)
 	{
 		if(null == mAddrList || null == mPlcInfo) return false;
 		
@@ -851,7 +863,7 @@ public class ProtocolInterfaces {
 		}
 		synchronized(ProtocolInterfaces.getProtocolInterface())
 		{
-			bSuccess = setOneSceneAddrsJni(mAddrJniList,bCover, mPlcInfo);
+			bSuccess = setOneSceneAddrsJni(mAddrJniList,bCover, mPlcInfo,nMaxRWlen);
 		}
 		return bSuccess;
 	}

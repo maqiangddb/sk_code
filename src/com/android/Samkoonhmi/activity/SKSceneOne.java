@@ -11,6 +11,7 @@ import com.android.Samkoonhmi.skwindow.SKSceneManage;
 import com.android.Samkoonhmi.skwindow.SKWindowManage;
 import com.android.Samkoonhmi.skwindow.SKSceneManage.ISKSceneUpdate;
 import com.android.Samkoonhmi.skwindow.SKSceneManage.SHOW_TYPE;
+import com.android.Samkoonhmi.util.UsbScan;
 
 import android.app.Activity;
 import android.content.Context;
@@ -20,6 +21,7 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
@@ -30,7 +32,7 @@ import android.widget.LinearLayout;
  */
 public class SKSceneOne extends Activity implements ISKSceneUpdate {
 
-	private static final String TAG = "SKScene";
+	private static final String TAG = "SKScene"; 
 	public static boolean destroy;
 	private boolean onResume;
 	public static boolean update;
@@ -39,6 +41,8 @@ public class SKSceneOne extends Activity implements ISKSceneUpdate {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		
+		SKSceneManage.getInstance().setbWindowFocus(false);
 		setTheme(android.R.style.Theme_Black_NoTitleBar_Fullscreen);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -50,7 +54,7 @@ public class SKSceneOne extends Activity implements ISKSceneUpdate {
 		setContentView(layout);
 		
 		onResume=true;
-		Log.d(TAG, "one onCreate...");
+		//Log.d(TAG, "one onCreate...");
 	}
 
 	@Override
@@ -69,7 +73,7 @@ public class SKSceneOne extends Activity implements ISKSceneUpdate {
 				
 				SKSceneManage.getInstance().setiSceneUpdate(this, SHOW_TYPE.DEFAULT);
 				SKSceneManage.getInstance().loadView(this, SKSceneOne.this,SHOW_TYPE.DEFAULT);
-				Log.d(TAG, "one update...");
+				//Log.d(TAG, "one update...");
 			}else {
 				//系统通知更新，例如3g启动，会杀死所有activity,然后通知所有更新
 				SKSceneManage.getInstance().refreshScreen();
@@ -81,7 +85,7 @@ public class SKSceneOne extends Activity implements ISKSceneUpdate {
 		}else {
 			//从第三方软件，返回ak界面
 			SKSceneManage.getInstance().refreshScreen();
-			Log.d(TAG, "onResume......");
+			//Log.d(TAG, "onResume......");
 		}
 		
 		
@@ -130,6 +134,8 @@ public class SKSceneOne extends Activity implements ISKSceneUpdate {
 			// 应用程序退出，不是画面切换的退出
 			SKSceneManage.getInstance().destroy();
 		}
+		//获取USB扫描
+		UsbScan.getInstance().onKeydown(keyCode, event);
 		return super.onKeyDown(keyCode, event);
 	}
 
@@ -173,4 +179,16 @@ public class SKSceneOne extends Activity implements ISKSceneUpdate {
 		
 		SKSceneOne.this.finish();
 	}
+
+	@Override
+	public void onWindowFocusChanged(boolean hasFocus) {
+		// TODO Auto-generated method stub
+		super.onWindowFocusChanged(hasFocus);
+		if (hasFocus) {
+			//Log.d(TAG, "one onWindowFocusChanged...");
+			SKSceneManage.getInstance().setbWindowFocus(hasFocus);
+		}
+	}
+	
+	
 }

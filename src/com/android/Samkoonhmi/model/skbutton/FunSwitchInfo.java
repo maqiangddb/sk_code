@@ -1,10 +1,14 @@
 package com.android.Samkoonhmi.model.skbutton;
 import java.util.ArrayList;
 import com.android.Samkoonhmi.model.ShowInfo;
+import com.android.Samkoonhmi.model.StakeoutInfo;
 import com.android.Samkoonhmi.model.TextInfo;
 import com.android.Samkoonhmi.model.TouchInfo;
+import com.android.Samkoonhmi.skenum.BUTTON;
+import com.android.Samkoonhmi.skenum.DATA_TYPE;
 import com.android.Samkoonhmi.skenum.FLICK_TYPE;
 import com.android.Samkoonhmi.skgraphics.plc.touchshow.SKButton;
+import com.android.Samkoonhmi.util.AddrProp;
 
 /**
  * 多功能开关
@@ -55,6 +59,62 @@ public class FunSwitchInfo {
 	private ShowInfo mShowInfo;
 	//功能集合
 	private ArrayList<SKButton> mSkButtons;
+	//监视类型
+	private BUTTON.WATCH_TYPE eWatchType;
+	//地址类型，位-false，字-true
+	private boolean bAddrType;
+	//字地址的第几位
+	private short nBitIndex;
+	//切换条件 0-按值，1-寄存器的位,2-自定义值
+	private short nCondition;
+	//监视地址数据类型
+	private DATA_TYPE eWatchDataType;
+	//检测地址
+	private AddrProp mWatchAddress;
+	//检测条件
+	private ArrayList<StakeoutInfo> mStakeoutList;
+	
+	public AddrProp getmWatchAddress() {
+		return mWatchAddress;
+	}
+	public void setmWatchAddress(AddrProp mWatchAddress) {
+		this.mWatchAddress = mWatchAddress;
+	}
+	
+	public DATA_TYPE geteWatchDataType() {
+		return eWatchDataType;
+	}
+	public void seteWatchDataType(DATA_TYPE eWatchDataType) {
+		this.eWatchDataType = eWatchDataType;
+	}
+		
+	public short getnCondition() {
+		return nCondition;
+	}
+	public void setnCondition(short nCondition) {
+		this.nCondition = nCondition;
+	}
+	
+	public short getnBitIndex() {
+		return nBitIndex;
+	}
+	public void setnBitIndex(short nBitIndex) {
+		this.nBitIndex = nBitIndex;
+	}
+	
+	public boolean isbAddrType() {
+		return bAddrType;
+	}
+	public void setbAddrType(boolean bAddrType) {
+		this.bAddrType = bAddrType;
+	}
+	
+	public BUTTON.WATCH_TYPE geteWatchType() {
+		return eWatchType;
+	}
+	public void seteWatchType(BUTTON.WATCH_TYPE eWatchType) {
+		this.eWatchType = eWatchType;
+	}
 	
 	public int getnColor() {
 		return nColor;
@@ -187,5 +247,11 @@ public class FunSwitchInfo {
 	}
 	public void setmSkButtons(ArrayList<SKButton> mSkButtons) {
 		this.mSkButtons = mSkButtons;
+	}
+	public ArrayList<StakeoutInfo> getmStakeoutList() {
+		return mStakeoutList;
+	}
+	public void setmStakeoutList(ArrayList<StakeoutInfo> mStakeoutList) {
+		this.mStakeoutList = mStakeoutList;
 	}
 }

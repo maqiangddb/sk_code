@@ -32,15 +32,13 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceHolder.Callback;
 import android.view.SurfaceView;
 
-import com.android.Samkoonhmi.model.LockInfo;
-import com.android.Samkoonhmi.model.PassWordInfo;
+import com.android.Samkoonhmi.macro.corba.IAKDraw;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.ScenceInfo;
 import com.android.Samkoonhmi.model.SystemInfo;
-import com.android.Samkoonhmi.skcommon.SkCommon;
 import com.android.Samkoonhmi.skenum.BACKCSS;
 import com.android.Samkoonhmi.skenum.CSS_TYPE;
-import com.android.Samkoonhmi.skenum.SYSTEM_OPER_TYPE;
+import com.android.Samkoonhmi.skenum.HMIMODEL;
 import com.android.Samkoonhmi.skgraphics.SKGraphics;
 import com.android.Samkoonhmi.skwindow.SKSceneManage;
 import com.android.Samkoonhmi.skwindow.SKSceneManage.ISceneDestory;
@@ -48,11 +46,12 @@ import com.android.Samkoonhmi.skwindow.SKSceneManage.ItemInfo;
 import com.android.Samkoonhmi.skwindow.SKSceneManage.SHOW_TYPE;
 import com.android.Samkoonhmi.skwindow.SKWindowManage;
 import com.android.Samkoonhmi.skwindow.SKWindowManage.ITitleListener;
-import com.android.Samkoonhmi.system.SystemControl;
+import com.android.Samkoonhmi.system.SystemVariable;
+import com.android.Samkoonhmi.system.address.SystemAddress;
 import com.android.Samkoonhmi.util.FillRender;
-import com.android.Samkoonhmi.util.GlobalPopWindow;
 import com.android.Samkoonhmi.util.ImageFileTool;
 import com.android.Samkoonhmi.util.SystemParam;
+import com.android.Samkoonhmi.util.Voice;
 
 public class SKScene extends SurfaceView implements Callback {
 
@@ -92,16 +91,17 @@ public class SKScene extends SurfaceView implements Callback {
 	private boolean hasMoveItem;// 是否有移动控件
 	private FillRender fillRender;
 	private Shader myShader;
-	private Paint mClearPaint;
-	private boolean clearBitmap = true;
+	private Paint mClearPaint=new Paint();
 	private boolean bTouch;// 防止多次滑动切换画面点击到下一个画面的控件，等待100毫秒
-	
+	private boolean bUpdateing;
+	private boolean bInitBackColor;//初始化背景颜色
+	private int nColor;//背景颜色
+
 
 	public SKScene(Context context, Activity activity, ScenceInfo info) {
 		super(context);
 		this.setKeepScreenOn(true);
 		this.mInfo = info;
-		//nSceneId = mInfo.getnSceneId();
 		mContext = context;
 		this.getHolder().setFormat(PixelFormat.TRANSPARENT);
 		sfh = this.getHolder();
@@ -109,7 +109,6 @@ public class SKScene extends SurfaceView implements Callback {
 		paint = new Paint();
 		paint.setDither(true);
 		paint.setAntiAlias(true);
-		mClearPaint = new Paint();
 		mClearPaint.setAntiAlias(true);
 		this.setLongClickable(true);
 		nSceneWidth = info.getnSceneWidth();
@@ -127,7 +126,7 @@ public class SKScene extends SurfaceView implements Callback {
 		if (mInfo.isbShowTitle()) {
 			nSceneHeight += nTitleHeight;
 		}
-
+		
 		mItems = new ArrayList<SKItems>();
 		mAllItems = new HashMap<Integer, Vector<SKItems>>();
 		mAllItem = new Vector<SKItems>();
@@ -135,6 +134,8 @@ public class SKScene extends SurfaceView implements Callback {
 		nAllCount = 0;
 		vibrator = (Vibrator) mContext
 				.getSystemService(Service.VIBRATOR_SERVICE);
+		bInitBackColor=true;
+		
 	}
 
 	/**
@@ -143,131 +144,150 @@ public class SKScene extends SurfaceView implements Callback {
 	private Rect rect = null;
 	private void drawBackGround(Canvas canvas) {
 		
-		if (mInfo != null) {                                                                                                                                                                                     
-			if (rect == null) {
-				if (mInfo.geteType() == SHOW_TYPE.FLOATING) {
-					if (mInfo.isbShowTitle()) {
-						rect = new Rect(0, nTitleHeight, mInfo.getnSceneWidth(),
-								mInfo.getnSceneHeight() + nTitleHeight);
-					}else {
+		try {
+			if (mInfo != null) {                                                                                                                                                                                     
+				if (rect == null) {
+					if (mInfo.geteType() == SHOW_TYPE.FLOATING) {
+						if (mInfo.isbShowTitle()) {
+							rect = new Rect(0, nTitleHeight, mInfo.getnSceneWidth(),
+									mInfo.getnSceneHeight() + nTitleHeight);
+						}else {
+							rect = new Rect(0, 0, mInfo.getnSceneWidth(),
+									mInfo.getnSceneHeight());
+						}
+					} else {
 						rect = new Rect(0, 0, mInfo.getnSceneWidth(),
 								mInfo.getnSceneHeight());
 					}
-				} else {
-					rect = new Rect(0, 0, mInfo.getnSceneWidth(),
-							mInfo.getnSceneHeight());
 				}
-			}
-			
-			if (mInfo.geteBackType() == BACKCSS.BACK_IMG) {
-				if (mBackBitmap == null) {
-					mBackBitmap = ImageFileTool.getBitmap(mInfo
-							.getsPicturePath());
-				}
-				if (mBackBitmap != null) {
-					canvas.drawBitmap(mBackBitmap, null, rect, paint);
-				} else {
-					// 图片不存在
-					mInfo.seteBackType(BACKCSS.BACK_CSS);
-					mInfo.seteDrawStyle(CSS_TYPE.CSS_SOLIDCOLOR);
-					mInfo.setnBackColor(Color.rgb(180, 180, 180));
-					canvas.drawColor(mInfo.getnBackColor());
-				}
-			} else {
-				if (mInfo.geteDrawStyle() == CSS_TYPE.CSS_TRANSPARENCE
-						|| mInfo.geteDrawStyle() == CSS_TYPE.CSS_SOLIDCOLOR) {
-					canvas.drawColor(mInfo.getnBackColor());
-				} else {
-					if (fillRender == null) {
-						fillRender = new FillRender();
+				
+				if (mInfo.geteBackType() == BACKCSS.BACK_IMG) {
+					if (mBackBitmap == null) {
+						mBackBitmap = ImageFileTool.getBitmap(mInfo
+								.getsPicturePath());
 					}
-					if (myShader == null) {
-						myShader = fillRender.setRectCss(mInfo.geteDrawStyle(),
-								0, 0, mInfo.getnSceneWidth(),
-								mInfo.getnSceneHeight(), mInfo.getnForeColor(),
-								mInfo.getnBackColor());
+					if (mBackBitmap != null) {
+						canvas.drawBitmap(mBackBitmap, null, rect, paint);
+					} else {
+						// 图片不存在
+						mInfo.seteBackType(BACKCSS.BACK_CSS);
+						mInfo.seteDrawStyle(CSS_TYPE.CSS_SOLIDCOLOR);
+						mInfo.setnBackColor(Color.rgb(180, 180, 180));
+						canvas.drawColor(mInfo.getnBackColor());
 					}
-					
-					paint.setShader(myShader);
-					paint.setStyle(Style.FILL);
-					canvas.drawRect(rect, paint);
+				} else {
+					if (mInfo.geteDrawStyle() == CSS_TYPE.CSS_TRANSPARENCE
+							|| mInfo.geteDrawStyle() == CSS_TYPE.CSS_SOLIDCOLOR) {
+						if (bInitBackColor) {
+							bInitBackColor=false;
+							nColor=mInfo.getnBackColor();
+						}
+						canvas.drawColor(nColor);
+						
+					} else {
+						if (fillRender == null) {
+							fillRender = new FillRender();
+						}
+						if (myShader == null) {
+							myShader = fillRender.setRectCss(mInfo.geteDrawStyle(),
+									0, 0, mInfo.getnSceneWidth(),
+									mInfo.getnSceneHeight(), mInfo.getnForeColor(),
+									mInfo.getnBackColor());
+						}
+						paint.setShader(myShader);
+						paint.setStyle(Style.FILL);
+						
+						canvas.drawRect(rect, paint);
+					}
+				}
+				
+				if (mInfo.geteType() == SHOW_TYPE.FLOATING) {
+					// 窗口
+					if(mInfo.geteBackType() != BACKCSS.BACK_IMG){
+						paint.setColor(Color.BLACK);
+						paint.setStyle(Style.STROKE);
+						if (!mInfo.isbShowTitle()) {
+							canvas.drawLine(rect.left, rect.top, rect.right, rect.top, paint);
+						}
+						canvas.drawLine(rect.left, rect.top, rect.left, rect.bottom, paint);
+						canvas.drawLine(rect.right, rect.top, rect.right, rect.bottom, paint);
+						canvas.drawLine(rect.left, rect.bottom, rect.right, rect.bottom, paint);
+					}
+				}
+				
+				//绘制title
+				if (mInfo.isbShowTitle()) {
+					canvas.drawBitmap(mTitleBitmap, 0, 0, paint);
+				}
+				
+				//绘制控件
+				if (null != mBitmap) {
+					int topY = mInfo.isbShowTitle()?nTitleHeight:0;
+					canvas.drawBitmap(mBitmap, 0, topY, paint);
 				}
 			}
 			
-			if (mInfo.geteType() == SHOW_TYPE.FLOATING) {
-				// 窗口
-				if(mInfo.geteBackType() != BACKCSS.BACK_IMG){
-					paint.setColor(Color.BLACK);
-					paint.setStyle(Style.STROKE);
-					if (!mInfo.isbShowTitle()) {
-						canvas.drawLine(rect.left, rect.top, rect.right, rect.top, paint);
-					}
-					canvas.drawLine(rect.left, rect.top, rect.left, rect.bottom, paint);
-					canvas.drawLine(rect.right, rect.top, rect.right, rect.bottom, paint);
-					canvas.drawLine(rect.left, rect.bottom, rect.right, rect.bottom, paint);
-				}
-			}
-			
-			//绘制title
-			if (mInfo.isbShowTitle()) {
-				canvas.drawBitmap(mTitleBitmap, 0, 0, paint);
-			}
-			
-			//绘制控件
-			if (null != mBitmap) {
-				int topY = mInfo.isbShowTitle()?nTitleHeight:0;
-				canvas.drawBitmap(mBitmap, 0, topY, paint);
-			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e(TAG, "AK drawBackGround error !!!! ");
 		}
+		
 	}
 
 	/**
 	 * 画标题
 	 */
 	public void drawTitle() {
-		mTitleBitmap = ImageFileTool.getTitleBgBitmap(nSceneWidth, nSceneHeight, mContext);
-		if (mTitleBitmap == null) {
-			return;
-		}
-
-		if (mIconBitmap == null) {
-			mIconBitmap  = ImageFileTool.getBitmap(R.drawable.samkoon, mContext);
-		}
-		if (mCloseBitmap == null) {
-			mCloseBitmap = ImageFileTool.getBitmap(R.drawable.title_close, mContext);
-		}
-
 		
-		Canvas tCanvas = new Canvas(mTitleBitmap);
-		tCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+		try {
+			
+			mTitleBitmap = ImageFileTool.getTitleBgBitmap(nSceneWidth, nSceneHeight, mContext);
+			if (mTitleBitmap == null) {
+				return;
+			}
 
-		Paint textPaint = new Paint();
-		textPaint.setAntiAlias(true);
-		textPaint.setDither(true);
+			if (mIconBitmap == null) {
+				mIconBitmap  = ImageFileTool.getBitmap(R.drawable.samkoon, mContext);
+			}
+			if (mCloseBitmap == null) {
+				mCloseBitmap = ImageFileTool.getBitmap(R.drawable.title_close, mContext);
+			}
 
-		int height = getFontHeight(textPaint);
-		if (sTitleName != null) {
-			textPaint.setStyle(Style.STROKE);
-			textPaint.setStrokeWidth(0);
-			textPaint.setStrokeJoin(Join.ROUND);
-			textPaint.setTextSize(14);
-			textPaint.setColor(Color.BLACK);
-			tCanvas.drawText(sTitleName, 2 * nPadding + mIconBitmap.getWidth(),
-					nTitleHeight / 2 + height / 4, textPaint);
+			
+			Canvas tCanvas = new Canvas(mTitleBitmap);
+			tCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+
+			Paint textPaint = new Paint();
+			textPaint.setAntiAlias(true);
+			textPaint.setDither(true);
+
+			int height = getFontHeight(textPaint);
+			if (sTitleName != null) {
+				textPaint.setStyle(Style.STROKE);
+				textPaint.setStrokeWidth(0);
+				textPaint.setStrokeJoin(Join.ROUND);
+				textPaint.setTextSize(14);
+				textPaint.setColor(Color.BLACK);
+				tCanvas.drawText(sTitleName, 2 * nPadding + mIconBitmap.getWidth(),
+						nTitleHeight / 2 + height / 4, textPaint);
+			}
+			
+			Bitmap tBitmap = ImageFileTool.getBitmap(R.drawable.title_row_bg,mContext);
+			if (tBitmap != null) {
+				tCanvas.drawBitmap(tBitmap, null, new Rect(0, 0, nSceneWidth, nTitleHeight), paint);
+			}
+			
+			if (mInfo.isbShowTitle()) {
+				tCanvas.drawBitmap(mCloseBitmap, mInfo.getnSceneWidth()
+						- mCloseBitmap.getWidth() - nPadding,
+						(nTitleHeight - mCloseBitmap.getHeight()) / 2, paint);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e(TAG, "AK drawTitle error !!! ");
 		}
 		
-		Bitmap tBitmap = ImageFileTool.getBitmap(R.drawable.title_row_bg,
-				mContext);
-		if (tBitmap != null) {
-			tCanvas.drawBitmap(tBitmap, null, new Rect(0, 0, nSceneWidth, nTitleHeight), paint);
-		}
-		
-		if (mInfo.isbShowTitle()) {
-			tCanvas.drawBitmap(mCloseBitmap, mInfo.getnSceneWidth()
-					- mCloseBitmap.getWidth() - nPadding,
-					(nTitleHeight - mCloseBitmap.getHeight()) / 2, paint);
-		}
-
 	}
 
 	public void setTitleName(String name) {
@@ -330,6 +350,12 @@ public class SKScene extends SurfaceView implements Callback {
 	public boolean onTouchEvent(MotionEvent event) {
 		
 		SKSceneManage.getInstance().time=0;
+		
+		/**
+		 * 对外点击事件
+		 */
+		SKSceneManage.getInstance().onTouch(event);
+		
 		if (!bTouch) {
 			return false;
 		}
@@ -346,6 +372,7 @@ public class SKScene extends SurfaceView implements Callback {
 						if (listener != null) {
 							// 关闭窗口
 							listener.onClose();
+							return true;
 						}
 					}
 				}
@@ -368,6 +395,7 @@ public class SKScene extends SurfaceView implements Callback {
 		// 如果背光关闭，点击屏幕时打开背光
 		if (event.getAction() == MotionEvent.ACTION_DOWN) {
 			SKSceneManage.getInstance().backLightOn();
+			SystemVariable.getInstance().writeBitAddr(1, SystemAddress.getInstance().SceneClick());
 		}
 		
 		if (mSkGraphicsList != null) {
@@ -388,7 +416,12 @@ public class SKScene extends SurfaceView implements Callback {
 				if (isTouch) {
 					if (event.getAction() == MotionEvent.ACTION_DOWN
 							&& isTouchSound) {
-						vibrator.vibrate(150/* new long[]{1000,50,1000,50}, 0 */);
+						if(SystemInfo.getModel()== HMIMODEL.MID){
+					        Voice.getInstance().play();
+						}else{
+							vibrator.vibrate(150/* new long[]{1000,50,1000,50}, 0 */);
+						}
+						
 					}
 				}
 			}
@@ -432,21 +465,20 @@ public class SKScene extends SurfaceView implements Callback {
 	 */
 	private void init() {
 		hasMoveItem = false;
+		
+		//控件绘制
 		drawGraphics();
+		
+		//绘制背景
 		draw();
+		
+		
 	}
 
 	/**
 	 * 初始化刷新，
 	 */
 	private void draw() {
-		//登录成功判断是否锁屏
-		if(LockInfo.GetbIsLock()){
-			PassWordInfo msg=new PassWordInfo();
-			msg.setsPwdStr(LockInfo.GetPassWord());
-			msg.setsTimeOut(LockInfo.GetInfo());
-			SystemControl.peculiarOper(SYSTEM_OPER_TYPE.SYSTEM_LOCK, msg);
-		}
 		canvas = sfh.lockCanvas();
 		if (canvas != null) {
 			drawBackGround(canvas);
@@ -458,61 +490,76 @@ public class SKScene extends SurfaceView implements Callback {
 	 * 更新特定控件
 	 */
 	private Xfermode xMode = new PorterDuffXfermode(PorterDuff.Mode.CLEAR);
-	private void draw(ArrayList<SKItems> items) {
+	private synchronized void draw(ArrayList<SKItems> items) {
 
-		if (mCanvas == null) {
-			int type=0;
-			if (mInfo.geteType()==SHOW_TYPE.FLOATING) {
-				type=1;
-			}
-			mBitmap = ImageFileTool.getBitmap(nSceneWidth, nSceneHeight,
-					type,mContext);
-			if (mBitmap == null) {
-				mBitmap = Bitmap.createBitmap(nSceneWidth, nSceneHeight,
-						Config.ARGB_8888);
-			}
-			mCanvas = new Canvas(mBitmap);
-		}
-
-		if (mCanvas != null) {
-			if (clearBitmap) {
-				// 由于相同尺寸的画面使用同一张画布，所以第一次绘制画面要清空之前内容
+		try {
+			
+			if (mCanvas == null) {
+				
+				int type=0;
+				if (mInfo.geteType()==SHOW_TYPE.FLOATING) {
+					type=1;
+				}
+				mBitmap = ImageFileTool.getBitmap(nSceneWidth, nSceneHeight,
+						type,mContext);
+				if (mBitmap == null) {
+					mBitmap = Bitmap.createBitmap(nSceneWidth, nSceneHeight,
+							Config.ARGB_8888);
+				}
+				mCanvas = new Canvas(mBitmap);
 				mCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-				clearBitmap = false;
 			}
 
-			ArrayList<SKItems> list = doInfo(0, items);			
-			if (hasMoveItem) {//先清除
-				mCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-			}else {
+			if (mCanvas != null) {
+
+				ArrayList<SKItems> list = doInfo(0, items);			
+				if (hasMoveItem) {//先清除
+					mCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+				}else {
+					for (int i = 0; i < list.size(); i++) {
+						SKItems item = list.get(i);
+						if (item.rect!=null) {
+							mCanvas.drawRect(item.rect, mClearPaint);
+						}
+					}
+				}
+				
+				// 重绘
 				for (int i = 0; i < list.size(); i++) {
-					
 					SKItems item = list.get(i);
-					mCanvas.drawRect(item.rect, mClearPaint);
+					SKGraphics sk = item.mGraphics;
+					if (sk!=null) {
+						sk.drawGraphics(mCanvas, item.itemId);
+					}
+				}
+				
+				items.clear();
+				mItemList.clear();
+				
+				//对外接口，自由绘制
+				if (mIDraw!=null) {
+					//Log.d(TAG, "draw view <<>> <<>> ...");
+					if (bRefresh) {
+						bRefresh=false;
+						mIDraw.onDraw(mCanvas);
+					}
+				}
+				
+				if (sfh != null) {
+					canvas = sfh.lockCanvas();
+					if (canvas != null) {
+						//进行重绘背景以及控件
+						drawBackGround(canvas);
+						sfh.unlockCanvasAndPost(canvas);
+					}
 				}
 			}
 			
-			// 重绘
-			for (int i = 0; i < list.size(); i++) {
-				SKItems item = list.get(i);
-				SKGraphics sk = item.mGraphics;
-				if (sk!=null) {
-					sk.drawGraphics(mCanvas, item.itemId);
-				}
-			}
-			
-			items.clear();
-			mItemList.clear();
-
-			if (sfh != null) {
-				canvas = sfh.lockCanvas();
-				if (canvas != null) {
-					//进行重绘背景以及控件
-					drawBackGround(canvas);
-					sfh.unlockCanvasAndPost(canvas);
-				}
-			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			Log.e(TAG, "AK draw error !!! ");
 		}
+		
 	}
 	
 
@@ -531,6 +578,7 @@ public class SKScene extends SurfaceView implements Callback {
 	 * 刷新线程
 	 */
 	private int nSleepTime=100;
+	private int nWaitCount=0;
 	class DrawThread extends Thread {
 
 		@Override
@@ -538,23 +586,35 @@ public class SKScene extends SurfaceView implements Callback {
 			super.run();
 			while (SamkoonHmi) {
 				
+				android.os.Process.setThreadPriority(-20);
+				
 				long start=System.currentTimeMillis();
-				if (oneRefresh || twoRefresh) {
-					addItem();
-					draw(mItems);
-					if (index == 1) {
-						oneRefresh = false;
-					} else {
-						twoRefresh = false;
+				boolean init=true;
+				if (nItemCount<nAllCount) {
+					//初始化未完毕，继续等待，等待次数不超过3次
+					if (nWaitCount<2) {
+						init=false;
 					}
-					
+					nWaitCount++;
+				}
+
+				if (init) {
+					if (oneRefresh || twoRefresh) {
+						addItem();
+						draw(mItems);
+						if (index == 1) {
+							oneRefresh = false;
+						} else {
+							twoRefresh = false;
+						}
+					}
 				}
 				
 				//刷新所耗的时间
 				int time=(int)(System.currentTimeMillis()-start);
 				nSleepTime=100-time;
-				if (nSleepTime<5) {
-					nSleepTime=5;
+				if (nSleepTime<20) {
+					nSleepTime=20;
 				}else if (nSleepTime>100) {
 					nSleepTime=100;
 				}
@@ -600,7 +660,7 @@ public class SKScene extends SurfaceView implements Callback {
 	private ArrayList<SKItems> mOne = new ArrayList<SKItems>();
 	private ArrayList<SKItems> mTwo = new ArrayList<SKItems>();
 	private synchronized void updateItem(SKItems sMsg) {
-
+		
 		// 画面上有移动控件
 		if (sMsg.mMoveRect != null) {
 			hasMoveItem = true;
@@ -662,13 +722,14 @@ public class SKScene extends SurfaceView implements Callback {
 	/**
 	 * 控件刷新
 	 */
-	public void onRefresh(SKItems item) {
+	public synchronized void onRefresh(SKItems item) {
 		if(item==null||mInfo==null){
 			return;
 		}
 		if (item.sceneId!=mInfo.getnSceneId()) {
 			return;
 		}
+		//Log.d(TAG, "item id= "+item.itemId+",sid = "+item.sceneId);
 		updateItem(item);
 	}
 
@@ -773,38 +834,49 @@ public class SKScene extends SurfaceView implements Callback {
 
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
-		SamkoonHmi = true;
-		mDrawThread = new DrawThread();
-		mDrawThread.setName("skscene_thread");
-		mDrawThread.start();
-		clearBitmap = true;
-		bTouch = false;
-		index=0;
-		
-		mClearPaint.setStyle(Style.FILL);
-		mClearPaint.setAntiAlias(true);
-		mClearPaint.setXfermode(xMode);
-		mClearPaint.setColor(Color.TRANSPARENT);
-		
-		init();
+		create();
+		//Log.d(TAG, "surfaceCreated...");
 	}
 
 	@SuppressLint("NewApi")
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
-		if (SamkoonHmi) {
-			clearData();
-		}
+		
 		SamkoonHmi = false;
 		if (iSceneDestory != null) {
 			iSceneDestory.destory(true);
 		}
 
-		//doInfo(1, null);
-
 		if (sfh != null) {
 			sfh.getSurface().release();
 		}
+		//Log.d(TAG, "surfaceDestroyed...");
+	}
+	
+	/**
+	 * 创建
+	 */
+	public void create(){
+		
+		mClearPaint.setStyle(Style.FILL);
+		mClearPaint.setAntiAlias(true);
+		mClearPaint.setXfermode(xMode);
+		//mClearPaint.setColor(Color.TRANSPARENT);
+		
+		SamkoonHmi = true;
+		mDrawThread = new DrawThread();
+		mDrawThread.setName("AKSceneThread");
+		mDrawThread.start();
+		//clearBitmap = true;
+		bTouch = false;
+		index=0;
+		
+		if (mCanvas!=null) {
+			//由于共享bitamp 所以每次创建的时候，需要清除旧数据
+			mCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+		}
+		
+		init();
 	}
 
 	/**
@@ -853,5 +925,77 @@ public class SKScene extends SurfaceView implements Callback {
 
 	public void setiSceneDestory(ISceneDestory iSceneDestory) {
 		this.iSceneDestory = iSceneDestory;
+	}
+	
+	public boolean isbUpdateing() {
+		if (nItemCount < nAllCount) {
+			bUpdateing=true;
+		}else{
+			bUpdateing=false;
+		}
+		return bUpdateing;
+	}
+	
+	public void setSamkoonHmi(boolean samkoonHmi) {
+		SamkoonHmi = samkoonHmi;
+	}
+	
+	/**
+	 * 对外接口
+	 * 需要刷新
+	 */
+	private boolean bRefresh;
+	public void refresh(){
+		if (index==0) {
+			oneRefresh=true;
+		}else {
+			twoRefresh=true;
+		}
+		bRefresh=true;
+	}
+	
+	
+	private IAKDraw mIDraw=null;
+	/**
+	 * 对外接口
+	 * 回调绘制
+	 * @param draw-绘制回调接口
+	 */
+	public void setIAKDraw(IAKDraw draw){
+		this.mIDraw=draw;
+	}
+	
+	/**
+	 * 对外接口
+	 * 设置背景图片
+	 * @param bitmap-背景图片
+	 */
+	public void setBackground(Bitmap bitmap){
+		if (mInfo!=null) {
+			mInfo.seteBackType(BACKCSS.BACK_IMG);
+		}
+		this.mBackBitmap=bitmap;
+	}
+	
+	/**
+	 * 获取当前画面截图
+	 */
+	public Bitmap getSceneView(){
+		if (mBitmap!=null) {
+			return Bitmap.createBitmap(mBitmap);
+		}
+		return null;
+	}
+	
+	/**
+	 * 对外接口
+	 * 设置背景颜色
+	 * @param color-颜色
+	 */
+	public void setBackground(int color){
+		if (mInfo!=null) {
+			mInfo.seteBackType(BACKCSS.BACK_CSS);
+		}
+		this.nColor=color;
 	}
 }

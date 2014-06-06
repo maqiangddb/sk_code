@@ -56,6 +56,7 @@ public class GlobalMacroBiz extends DataBase {
 			dstInfo.setTimeInterval(tmpCursor.getInt(tmpCursor.getColumnIndex("TimeInterval")));
 			//dstInfo.setTimeInterval(tmpCursor.getShort(tmpCursor.getColumnIndex("TimeInterval")));
 			dstInfo.setnSid(tmpCursor.getShort(tmpCursor.getColumnIndex("SceneID")));
+			dstInfo.setRunCount(tmpCursor.getInt(tmpCursor.getColumnIndex("scriptCount")));
 			
 			if(MACRO_TYPE.GCTRLOOP == dstInfo.getMacroType()){//当地址编号有效时,填充受控循环宏的字段
 				int ctrl_addr = tmpCursor.getInt(tmpCursor.getColumnIndex("ControlAddr"));

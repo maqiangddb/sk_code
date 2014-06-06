@@ -55,11 +55,11 @@ public class DynamicCircleBiz   extends DataBase{
 			//设置层信息
 			dstDCInfo.setZvalue(tmpCursor.getShort(tmpCursor.getColumnIndex("nZvalue")));
 			
-			//设置区域信息，保留代码，不可删除
-//			dstDCInfo.setAreaLp(tmpCursor.getShort(tmpCursor.getColumnIndex("nAreaLp")));
-//			dstDCInfo.setAreaTp(tmpCursor.getShort(tmpCursor.getColumnIndex("nAreaTp")));
-//			dstDCInfo.setAreaWidth(tmpCursor.getShort(tmpCursor.getColumnIndex("nAreaWidth")));
-//			dstDCInfo.setAreaHeight(tmpCursor.getShort(tmpCursor.getColumnIndex("nAreaHeight")));
+			//设置控件大小及起始坐标
+			dstDCInfo.setnAreaLp(tmpCursor.getShort(tmpCursor.getColumnIndex("nAreaLp")));
+			dstDCInfo.setnAreaTp(tmpCursor.getShort(tmpCursor.getColumnIndex("nAreaTp")));
+			dstDCInfo.setnAreaWidth(tmpCursor.getShort(tmpCursor.getColumnIndex("nAreaWidth")));
+			dstDCInfo.setnAreaHeight(tmpCursor.getShort(tmpCursor.getColumnIndex("nAreaHeight")));
 //			dstDCInfo.setAreaColor(tmpCursor.getShort(tmpCursor.getColumnIndex("nAreaColor")));
 			
 			//设置控件初始信息

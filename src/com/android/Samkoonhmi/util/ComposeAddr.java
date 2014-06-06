@@ -45,7 +45,7 @@ public class ComposeAddr {
 			mSendData = new SEND_DATA_STRUCT();
 		}
 		mSendData.eReadWriteCtlType = READ_WRITE_COM_TYPE.GLOBAL_LOOP_R;
-		mSendData.eDataType = DATA_TYPE.BIT_1;
+		mSendData.eDataType = DATA_TYPE.INT_16;
 		boolean b = PlcRegCmnStcTools.getRegIntData(mOffsetAddr, mTemplist, mSendData);
 		if(b && mTemplist.size()!=0){
 			

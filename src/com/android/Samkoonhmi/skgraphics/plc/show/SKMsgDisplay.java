@@ -3,6 +3,7 @@ import java.util.ArrayList;
 import java.util.Vector;
 import com.android.Samkoonhmi.SKTimer;
 import com.android.Samkoonhmi.graphicsdrawframe.RectItem;
+import com.android.Samkoonhmi.model.IItem;
 import com.android.Samkoonhmi.model.MessageInfo;
 import com.android.Samkoonhmi.model.SKItems;
 import com.android.Samkoonhmi.model.SystemInfo;
@@ -31,6 +32,7 @@ import android.graphics.Typeface;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
+
 /**
  * 消息显示器
  * @author 刘伟江
@@ -38,7 +40,7 @@ import android.util.TypedValue;
  * 创建时间 2012-5-19
  * 最后修改时间 2012-5-19
  */
-public class SKMsgDisplay extends SKGraphCmnShow {
+public class SKMsgDisplay extends SKGraphCmnShow implements IItem{
 
 	private static final String TAG="SKMsgDisplay";
 	//每次移动的距离
@@ -90,9 +92,71 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 		sTextList=new Vector<String>();
 		flag=true;
 		bReset=true;
+		show=true;
+		showByAddr=false;
+		showByUser=false;
 		nStateId=0;
 		nLanId=SystemInfo.getCurrentLanguageId();
 		this.mInfo=info;
+		
+		mRect=new Rect(mInfo.getnLeftTopX(), mInfo.getnLeftTopY(),
+				mInfo.getnLeftTopX()+mInfo.getnWidth(),
+				mInfo.getnLeftTopY()+mInfo.getnHeight());
+		
+		//外框
+		mRectFrame=new RectItem(mRect);
+		
+		//控件刷新信息
+		item=new SKItems();
+		item.itemId=nItemId;
+		item.rect=mRect;
+		item.nZvalue=mInfo.getnZvalue();
+		item.nCollidindId=mInfo.getnCollidindId();
+		item.sceneId=nSceneId;
+		item.mGraphics=this;
+		
+		//画矩形
+		Rect rect=new Rect(0, 0,mInfo.getnShowWidth(),mInfo.getnShowHeight());
+		mRectItem=new RectItem(rect);
+		
+		//画笔
+		if (mPaint==null) {
+			mPaint=new Paint();
+			mPaint.setAntiAlias(true);
+		}
+		
+		// 显现权限
+		if (mInfo.getmShowInfo() != null) {
+			if (mInfo.getmShowInfo().getShowAddrProp() != null) {
+				// 受地址控制
+				showByAddr = true;
+			}
+
+			if (mInfo.getmShowInfo().isbShowByUser()) {
+				// 受用户权限控制
+				showByUser = true;
+			}
+		}
+		
+		// 注册显现地址
+		if (showByAddr) {
+			ADDRTYPE addrType = mInfo.getmShowInfo().geteAddrType();
+			if (addrType == ADDRTYPE.BITADDR) {
+				SKPlcNoticThread.getInstance().addNoticProp(
+						mInfo.getmShowInfo().getShowAddrProp(), showCall, true,nSceneId);
+			} else {
+				SKPlcNoticThread.getInstance()
+						.addNoticProp(mInfo.getmShowInfo().getShowAddrProp(),
+								showCall, false,nSceneId);
+			}
+
+		}
+
+		// 注册监视地址
+		if (mInfo.geteAddress() != null) {
+			SKPlcNoticThread.getInstance().addNoticProp(mInfo.geteAddress(),
+					watchCall, false,nSceneId);
+		}
 	}
 
 	public void addrNoticStatus(double nStatus) {
@@ -102,9 +166,7 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 	@Override
 	public boolean isShow() {
 		itemShow();
-		if (flag) {
-			SKSceneManage.getInstance().onRefresh(item);
-		}
+		SKSceneManage.getInstance().onRefresh(item);
 		return show;
 	}
 	
@@ -122,9 +184,9 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 	public void realseMemeory() {
 		//消除注册
 		SKTimer.getInstance().getBinder().onDestroy(callback,nMoveTime);
-		SKPlcNoticThread.getInstance().destoryCallback(showCall);
-		SKPlcNoticThread.getInstance().destoryCallback(watchCall);
-		//flag=true;
+		if (SystemInfo.getLanguageNumber()>1) {
+			SKLanguage.getInstance().getBinder().onDestroy(lCallback);
+		}
 		if (sTextList!=null) {
 			sTextList.clear();
 		}
@@ -158,6 +220,10 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 			return false;
 		}
 		if(itemId==nItemId&&show){
+			if (mCanvas==null) {
+				mBitmap=Bitmap.createBitmap(mInfo.getnShowWidth(), mInfo.getnShowHeight(), Config.ARGB_8888);
+				mCanvas=new Canvas(mBitmap);
+			}
 			mCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
 			
 			if (flag) {
@@ -189,7 +255,6 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 		
 		//状态号
 		flag=true;
-		show=true;
 		if(nLanId!=SystemInfo.getCurrentLanguageId()){
 			nLanId=SystemInfo.getCurrentLanguageId();
 			bReset=true;
@@ -237,8 +302,8 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 				dis.scaledDensity = (float) 1.3125;
 				dis.xdpi = (float) 225.77777;
 				dis.ydpi = (float) 225.77777;
-				nSize=TypedValue.applyDimension(1, nSize, dis); 
 			}
+			nSize=TypedValue.applyDimension(1, nSize, dis); 
 			
 			mPaint.setTextSize(nSize);
 			mPaint.setStrokeJoin(Join.ROUND);
@@ -247,17 +312,6 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 			//字体高度
 			nFontHeight=getFontHeight(mPaint);
 			
-			//控件在屏幕上的位置
-			if (mRect==null) {
-				mRect=new Rect(mInfo.getnLeftTopX(), mInfo.getnLeftTopY(),
-						mInfo.getnLeftTopX()+mInfo.getnWidth(),
-						mInfo.getnLeftTopY()+mInfo.getnHeight());
-			}
-			
-			//外框
-			if (mRectFrame==null) {
-				mRectFrame=new RectItem(mRect);
-			}
 			
 			if(IntToEnum.getCssType(mInfo.getmTextList().get(nStateId).getnStyle())==CSS_TYPE.CSS_TRANSPARENCE){
 				nAlpha=0;
@@ -272,11 +326,7 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 			mRectFrame.setBackColor(mInfo.getmTextList().get(nStateId).getnFrameColor());
 			//mRectFrame.setForeColor(mInfo.getmTextList().get(nStateId).getnForecolor());
 			
-			//画矩形
-			if (mRectItem==null) {
-				Rect rect=new Rect(0, 0,mInfo.getnShowWidth(),mInfo.getnShowHeight());
-				mRectItem=new RectItem(rect);
-			}
+			
 			mRectItem.setLineColor(Color.TRANSPARENT);
 			mRectItem.setLineWidth(0);
 			mRectItem.setAlpha(nAlpha);
@@ -286,16 +336,7 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 			mRectItem.setForeColor(mInfo.getmTextList().get(nStateId).getnForecolor());
 		}
 		
-		//控件刷新信息
-		if (item==null) {
-			item=new SKItems();
-			item.itemId=nItemId;
-			item.rect=mRect;
-			item.nZvalue=mInfo.getnZvalue();
-			item.nCollidindId=mInfo.getnCollidindId();
-			item.sceneId=nSceneId;
-			item.mGraphics=this;
-		}
+		
 		
 		flag=true;
 		String temp="";
@@ -315,25 +356,15 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 			}
 		}
 		
-		// 显现权限
-		if (mInfo.getmShowInfo() != null) {
-			if (mInfo.getmShowInfo().getShowAddrProp() != null) {
-				// 受地址控制
-				showByAddr = true;
-			}
-
-			if (mInfo.getmShowInfo().isbShowByUser()) {
-				// 受用户权限控制
-				showByUser = true;
-			}
-		}
 		itemShow();
-		
 		setMoveTime();
+		
 		SKSceneManage.getInstance().onRefresh(item);
 		
-		//注册通知
-		registerNotic();
+		//注册语言改变通知
+		if (SystemInfo.getLanguageNumber()>1) {
+			SKLanguage.getInstance().getBinder().onRegister(lCallback);
+		}
 	}
 	
 	private void setMoveTime(){
@@ -431,30 +462,6 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 		}
 	}
 	
-	/**
-	 * 注册通知
-	 */
-	private void registerNotic(){
-		//注册语言改变通知
-		SKLanguage.getInstance().getBinder().onRegister(lCallback);
-		
-		// 注册显现地址
-		if (showByAddr) {
-			ADDRTYPE addrType = mInfo.getmShowInfo().geteAddrType();
-			if (addrType == ADDRTYPE.BITADDR) {
-				SKPlcNoticThread.getInstance().addNoticProp(mInfo.getmShowInfo().getShowAddrProp(), showCall,true);
-			} else {
-				SKPlcNoticThread.getInstance().addNoticProp(mInfo.getmShowInfo().getShowAddrProp(), showCall,false);
-			}
-
-		}
-		
-		// 注册监视地址
-		if (mInfo.geteAddress() != null) {
-			SKPlcNoticThread.getInstance().addNoticProp(
-					mInfo.geteAddress(), watchCall, false);
-		}
-	}
 	
 	/**
 	 * 定时回调
@@ -726,5 +733,322 @@ public class SKMsgDisplay extends SKGraphCmnShow {
 	private int decent(Paint paint) {
 		FontMetrics fm = paint.getFontMetrics();
 		return (int) fm.descent;
+	}
+	/**
+	 * 获取控件属性接口
+	 */
+	@Override
+	public IItem getIItem() {
+		// TODO Auto-generated method stub
+		return this;
+	}
+
+	@Override
+	public int getItemLeft(int id) {
+		// TODO Auto-generated method stub
+		if(mInfo!=null){
+			return mInfo.getnLeftTopX();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemTop(int id) {
+		// TODO Auto-generated method stub
+		if(mInfo!=null){
+			return mInfo.getnLeftTopY();
+		}
+		return -1;
+	}
+
+	@Override
+	public int getItemWidth(int id) {
+		// TODO Auto-generated method stub
+		if(mInfo!=null){
+			return mInfo.getnWidth();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public int getItemHeight(int id) {
+		// TODO Auto-generated method stub
+		if(mInfo!=null){
+			return mInfo.getnHeight();
+		}
+		return -1;
+	}
+
+
+	@Override
+	public short[] getItemForecolor(int id) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			return getColor(mInfo.getmTextList().get(startIndex).getnForecolor()); 
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemBackcolor(int id) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			return getColor(mInfo.getmTextList().get(startIndex).getnBackcolor()); 
+		}
+		return null;
+	}
+
+	@Override
+	public short[] getItemLineColor(int id) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			return getColor(mInfo.getmTextList().get(startIndex).getnFrameColor()); 
+		}
+		return null;
+	}
+
+	@Override
+	public boolean getItemVisible(int id) {
+		// TODO Auto-generated method stub
+		return show;
+	}
+
+	@Override
+	public boolean getItemTouchable(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemLeft(int id, int x) {
+		// TODO Auto-generated method stub
+		if (mInfo != null) {
+			if (x == mInfo.getnLeftTopX()) {
+				return true;
+			}
+			if (x < 0|| x > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			mInfo.setnLeftTopX((short) x);
+			int l=item.rect.left;
+			item.rect.left=x;
+			item.rect.right=x-l+item.rect.right;
+			item.mMoveRect=new Rect();
+			
+			mInfo.setnShowLeftTopX((short)(mInfo.getnShowLeftTopX()+x-l));
+			initView();
+			SKSceneManage.getInstance().onRefresh(item);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemTop(int id, int y) {
+		// TODO Auto-generated method stub
+		if (mInfo != null) {
+			if (y == mInfo.getnLeftTopY()) {
+				return true;
+			}
+			if (y < 0|| y > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			mInfo.setnLeftTopY((short) y);
+			int t = item.rect.top;
+			item.rect.top = y;
+			item.rect.bottom = y - t + item.rect.bottom;
+			item.mMoveRect=new Rect();
+			mInfo.setnShowLeftTopY((short)(mInfo.getnShowLeftTopY()+y-t));
+			initView();
+			SKSceneManage.getInstance().onRefresh(item);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemWidth(int id, int w) {
+		// TODO Auto-generated method stub
+		if (mInfo != null) {
+			if (w == mInfo.getnWidth()) {
+				return true;
+			}
+			if (w < 0|| w > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneWidth()) {
+				return false;
+			}
+			int len=w-mInfo.getnWidth();
+			mInfo.setnWidth((short)w);
+			item.rect.right = w - item.rect.width() + item.rect.right;
+			item.mMoveRect = new Rect();
+			mInfo.setnShowWidth((short)(mInfo.getnShowWidth()+len));
+			mCanvas=null;
+			SKSceneManage.getInstance().onRefresh(item);
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean setItemHeight(int id, int h) {
+		// TODO Auto-generated method stub
+		if (mInfo != null) {
+			if (h == mInfo.getnHeight()) {
+				return true;
+			}
+			if (h < 0|| h > SKSceneManage.getInstance().getSceneInfo()
+							.getnSceneHeight()) {
+				return false;
+			}
+			int len=h-mInfo.getnHeight();
+			mInfo.setnHeight((short)h);
+			item.rect.bottom = h - item.rect.height() + item.rect.bottom;
+			item.mMoveRect = new Rect();
+			mInfo.setnShowHeight((short)(mInfo.getnShowHeight()+len));
+			mCanvas=null;
+			SKSceneManage.getInstance().onRefresh(item);
+		} else {
+			return false;
+		}
+		return true;
+	}
+	@Override
+	public boolean setItemForecolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			int color=Color.rgb(r, g, b);
+			if (color==mInfo.getmTextList().get(nStateId).getnForecolor()) {
+				return true;
+			}
+			mInfo.getmTextList().get(nStateId).setnForecolor(color);
+			mRectItem.setForeColor(color);
+			SKSceneManage.getInstance().onRefresh(item);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemBackcolor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			int color=Color.rgb(r, g, b);
+			if (color==mInfo.getmTextList().get(nStateId).getnBackcolor()) {
+				return true;
+			}
+			mInfo.getmTextList().get(nStateId).setnBackcolor(color);
+			mRectItem.setBackColor(color);
+			SKSceneManage.getInstance().onRefresh(item);
+			return true;
+		}
+		return false;
+	}
+
+
+	@Override
+	public boolean setItemLineColor(int id, short r, short g, short b) {
+		// TODO Auto-generated method stub
+		if (mInfo!=null) {
+			int color=Color.rgb(r, g, b);
+			if (color==mInfo.getmTextList().get(nStateId).getnFrameColor()) {
+				return true;
+			}
+			mInfo.getmTextList().get(nStateId).setnFrameColor(color);
+			mRectFrame.setBackColor(color);
+			SKSceneManage.getInstance().onRefresh(item);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean setItemVisible(int id, boolean v) {
+		// TODO Auto-generated method stub
+		if (v==show) {
+			return true;
+		}
+		show=v;
+		SKSceneManage.getInstance().onRefresh(item);
+		return true;
+	}
+
+
+	@Override
+	public boolean setItemTouchable(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageUp(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemPageDown(int id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemFlick(int id, boolean v, int time) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemHroll(int id, int w) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemVroll(int id, int h) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setGifRun(int id, boolean v) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemText(int id, int lid, String text) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean setItemAlpha(int id, int alpha) {
+		// TODO Auto-generated method stub nAlpha
+		
+		return false;
+	}
+
+	@Override
+	public boolean setItemStyle(int id, int style) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	/**
+	 * 颜色取反
+	 */
+	private short[] getColor(int color) {
+		short[] c = new short[3];
+		c[0] = (short) ((color >> 16) & 0xFF); // RED
+		c[1] = (short) ((color >> 8) & 0xFF);// GREEN
+		c[2] = (short) (color & 0xFF);// BLUE
+		return c;
+
 	}
 }

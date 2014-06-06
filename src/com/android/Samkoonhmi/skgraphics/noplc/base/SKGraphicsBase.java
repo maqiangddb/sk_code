@@ -22,13 +22,10 @@ public abstract class SKGraphicsBase extends SKGraphics {
 	}
 
 	/**
-	 * 不与plc通讯的控件都可以显示
-	 * 
-	 * @return
-	 */
-	public boolean isShow() {
-		return true;
-	}
+     * 控件是否显示
+     * @return
+     */
+    public abstract boolean isShow();
 
 	/**
 	 * 不与plc通讯的控件 都不可以触控
